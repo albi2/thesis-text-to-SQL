@@ -1,0 +1,4 @@
+- The system supports any conversation export files (.md, .txt, or .json)
+- Files can be placed in this directory for automatic detection
+- The extraction script can process any conversation file from this directory
+- The handoff manager will automatically find and use these files when creating handoffs with conversation extraction
