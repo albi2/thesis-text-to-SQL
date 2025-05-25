@@ -1,0 +1,10 @@
+database:
+  host: localhost
+  port: 5432
+  username: admin
+  password: admin
+  database_name: govdata
+  create_database_if_not_exists: true # New option to control database creation
+  # Add other database specific configurations here if needed
+  # pool_size: 10
+  # timeout: 30

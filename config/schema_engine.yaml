@@ -1,0 +1,27 @@
+schema_engine:
+  # Optional schema name to filter tables
+  schema: null
+
+  # List of tables to ignore (if include_tables is not used)
+  ignore_tables: []
+
+  # List of tables to include (if ignore_tables is not used)
+  include_tables: []
+
+  # Number of sample rows to include in table info
+  sample_rows_in_table_info: 3
+
+  # Whether to include index information in table info
+  indexes_in_table_info: false
+
+  # Custom table information (dictionary)
+  custom_table_info: {}
+
+  # Whether to support views
+  view_support: false
+
+  # Maximum string length for sampling
+  max_string_length: 300
+
+  # Database name (can be used for MSchema initialization)
+  db_name: "govdata"

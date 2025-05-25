@@ -18,7 +18,10 @@ dependencies = [
     "pandas (>=2.2.3,<3.0.0)",
     "numpy (>=2.2.6,<3.0.0)",
     "scikit-learn (>=1.6.1,<2.0.0)",
-    "langchain (>=0.3.25,<0.4.0)"
+    "langchain (>=0.3.25,<0.4.0)",
+    "sqlalchemy (>=2.0.41,<3.0.0)",
+    "llama-index (>=0.12.37,<0.13.0)",
+    "psycopg2-binary (>=2.9.10,<3.0.0)"
 ]
 
 
