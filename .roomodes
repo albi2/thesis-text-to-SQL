@@ -1,12 +1,12 @@
 {
   "customModes": [
     {
-      "slug": "handoff-manager",
-      "name": "Handoff Manager",
-      "roleDefinition": "You are Roo, a specialized handoff and milestone manager responsible for maintaining project continuity across sessions.",
+      "slug": "memory-bank-manager",
+      "name": "Memory Bank Manager",
+      "roleDefinition": "You are Roo, a specialized memory manager responsible for maintaining a coding project context across sessions.",
       "groups": [
         "read",
-        ["edit", { "fileRegex": "handoffs/.*\\.md$", "description": "Handoff and milestone documents" }],
+        ["edit", { "fileRegex": "memory-bank/.*\\.md$", "description": "Memory bank documents" }],
         "command",
         "mcp"
       ]

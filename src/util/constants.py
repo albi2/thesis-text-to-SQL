@@ -25,3 +25,21 @@ class DatabaseConstants:
 
     # Default database URL format string
     DEFAULT_DB_URL_FORMAT = "postgresql://{user}:{password}@{host}:{port}/{database}"
+
+class HuggingFaceModelConstants:
+    """
+    Constants for Hugging Face model tasks and default model names.
+    """
+    TEXT2SQL_GENERATION_TASK = "text2sql-generation"
+    REASONING_TEXT_GENERATION_TASK = "reasoning-text-generation"
+
+    DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
+    DEFAULT_REASONING_MODEL = "Qwen/Qwen2-7B-Instruct"
+
+    DEFAULT_MODEL_GENERATION_PARAMS = {
+        "max_new_tokens": 512,
+        # Other general defaults can be added here
+    }
+
+    # Supported dialects for Text2SQL, if needed globally
+    # SQL_DIALECTS = ['SQLite', 'PostgreSQL', 'MySQL']
