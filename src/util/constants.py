@@ -36,6 +36,9 @@ class HuggingFaceModelConstants:
     DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
     DEFAULT_REASONING_MODEL = "Qwen/Qwen2-7B-Instruct"
 
+    DEFAULT_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/XiYanSQL-QwenCoder-7B-2504"
+    DEFAULT_REASONING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen2-7B-Instruct"
+
     DEFAULT_MODEL_GENERATION_PARAMS = {
         "max_new_tokens": 512,
         # Other general defaults can be added here

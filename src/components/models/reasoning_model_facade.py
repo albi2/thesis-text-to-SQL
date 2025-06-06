@@ -33,6 +33,13 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
         return {
             "max_new_tokens": 1024
         }
+    
+    def _get_model_info(self) -> dict:
+        return {
+            "path": HuggingFaceModelConstants.DEFAULT_REASONING_MODEL_PATH,
+            "model_name": HuggingFaceModelConstants.DEFAULT_REASONING_MODEL,
+        }
+        
 
 # if __name__ == '__main__':
 #     # Ensure `accelerate` is installed: pip install accelerate

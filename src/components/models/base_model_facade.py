@@ -4,12 +4,39 @@ from abc import ABC, abstractmethod
 from util.constants import HuggingFaceModelConstants
 import copy
 
+import os
+from huggingface_hub import snapshot_download
+
+# Set the environment variable
+# Choose HF_HOME or HF_HUB_CACHE based on your preference
+os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
+os.environ['HF_HOME'] = "/var/tmp/ge62nok"
+
+model_id = "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
+# Specify your desired local directory
+# Make sure this directory has enough disk space and no quota issues!
+local_dir = "/tmp/models/XiYanSQL-QwenCoder-7B-2504"
 class BaseHuggingFaceFacade(ABC):
     """
     Abstract base class for Hugging Face Causal LM model facades.
     Handles common model loading and querying logic.
     """
     def __init__(self, model_name: str, default_params_override: dict = None):
+        # Create the directory if it doesn't exist
+        os.makedirs(local_dir, exist_ok=True)
+
+        # Download all files from the model repository
+        # If you only need specific files (e.g., just the model weights, not LFS large files if you don't need them),
+        # you can use `allow_patterns` or `ignore_patterns`.
+        # For a full model, it's usually best to download all.
+        model_info = self._get_model_info()
+        try:
+            snapshot_download(repo_id=model_info["model_name"], local_dir=model_info["path"], local_dir_use_symlinks=False)
+            print("Download complete!")
+        except Exception as e:
+            print(f"Error during download: {e}")
+            # You might want to add more specific error handling here, e.g., for disk quota.
+
         self.model_name = model_name
 
         # Initialize default generation parameters
@@ -52,6 +79,14 @@ class BaseHuggingFaceFacade(ABC):
 
     @abstractmethod
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
+        """
+        Prepares the tokenized inputs for the model using appropriate chat templates.
+        To be implemented by subclasses.
+        """
+        pass
+
+    @abstractmethod
+    def _get_model_info(self) -> dict:
         """
         Prepares the tokenized inputs for the model using appropriate chat templates.
         To be implemented by subclasses.

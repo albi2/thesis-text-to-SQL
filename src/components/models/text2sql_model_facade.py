@@ -7,8 +7,7 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
     Supports generating multiple SQL query candidates.
     """
     def __init__(self, model_name: str = None, default_params_override: dict = None):
-        effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL
-
+        effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL_PATH
         super().__init__(model_name=effective_model_name, default_params_override=default_params_override)
         print(f"Text2SQLModelFacade initialized with model: {self.model_name}")
 
@@ -72,7 +71,12 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
 
 
         return super().query(prompt, system_prompt=system_prompt, **generation_kwargs)
-
+        
+    def _get_model_info(self) -> dict:
+        return {
+            "path": HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL_PATH,
+            "model_name": HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL,
+        }
 
 # if __name__ == '__main__':
 #     # Ensure `accelerate` is installed: pip install accelerate
