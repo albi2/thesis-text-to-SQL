@@ -6,7 +6,7 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
     Facade for Hugging Face Causal LM models specialized for reasoning tasks.
     """
     def __init__(self, model_name: str = None, default_params_override: dict = None):
-        effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL
+        effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL_PATH
         super().__init__(model_name=effective_model_name, default_params_override=default_params_override)
         print(f"ReasoningModelFacade initialized with model: {self.model_name}")
 
