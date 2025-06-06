@@ -3,3 +3,4 @@ python/
 data/
 install_rooflow.sh
 .venv/
+**/__pycache__/
