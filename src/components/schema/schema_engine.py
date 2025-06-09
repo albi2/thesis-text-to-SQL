@@ -118,15 +118,9 @@ class SchemaEngine(SQLDatabase):
 
     def default_schema_name(self) -> Optional[str]:
         return self._inspector.default_schema_name
-
-    def get_table_names(self) -> List[str]:
-        return self._inspector.get_table_names()
     
     def get_schema_names(self) -> List[str]:
         return self._inspector.get_schema_names()
-    
-    def get_all_table_names(self) -> List[str]:
-        return self._inspector.get_table_names()
 
     def get_foreign_keys(self, table_name: str):
         return self._inspector.get_foreign_keys(table_name, self._tables_schemas[table_name])
