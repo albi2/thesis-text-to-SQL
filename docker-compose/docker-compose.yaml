@@ -16,7 +16,7 @@ services:
     volumes:
       - ./chroma_data:/chroma/chroma # Persists data in ./chroma_data relative to docker-compose.yaml
     ports:
-      - "8000:8000"
+      - "8082:8000"
     # Add any other necessary configurations like command or environment variables if needed.
 
 volumes:

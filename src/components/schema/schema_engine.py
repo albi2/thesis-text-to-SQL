@@ -122,6 +122,9 @@ class SchemaEngine(SQLDatabase):
     def get_schema_names(self) -> List[str]:
         return self._inspector.get_schema_names()
 
+    def get_table_names(self) -> List[str]:
+        return self._usable_tables
+
     def get_foreign_keys(self, table_name: str):
         return self._inspector.get_foreign_keys(table_name, self._tables_schemas[table_name])
 
