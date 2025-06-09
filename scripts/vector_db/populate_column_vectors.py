@@ -10,6 +10,7 @@ import argparse
 from typing import List, Dict, Any
 import sys
 import torch
+import os
 
 from infrastructure.vector_db.chroma_client import ChromaClient
 from infrastructure.database.database_manager import DatabaseManager
@@ -25,6 +26,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
     print("CUDA cache emptied.")
+
+os.environ['CHROMA_TELEMETRY_ANALYTICS'] = 'False'
 
 def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file: str = "chroma_db") -> None:
     """
@@ -98,6 +101,8 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
     try:
         # View support is handled by SchemaEngine's initialization parameters (via factory from schema_engine.yaml)
         table_names: List[str] = schema_engine.get_usable_table_names()
+
+        print('TABLE NAMES', table_names)
     except Exception as e:
         logging.error(f"Failed to fetch table names: {e}")
         db_manager.close_connection()

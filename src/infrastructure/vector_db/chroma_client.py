@@ -2,6 +2,7 @@ import chromadb
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 from typing import List, Dict, Optional
 import logging
+from chromadb.config import Settings
 
 # Assuming BaseEmbeddingModelFacade and SentenceTransformerEmbeddingFacade are importable
 # from ..components.models.embedding_model_facade import BaseEmbeddingModelFacade
@@ -73,7 +74,7 @@ class ChromaClient:
             host (str): The host of the ChromaDB server.
             port (int): The port of the ChromaDB server.
         """
-        self.client = chromadb.HttpClient(host=host, port=port)
+        self.client = chromadb.HttpClient(host=host, port=port, settings=Settings(anonymized_telemetry=False))
         self.embedding_facade = embedding_facade
         logger.info(f"ChromaClient initialized with host='{host}', port={port}, facade='{type(embedding_facade).__name__}'")
 
