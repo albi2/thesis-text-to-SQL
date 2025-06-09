@@ -24,7 +24,7 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class FacadeEmbeddingFunction(EmbeddingFunction):
