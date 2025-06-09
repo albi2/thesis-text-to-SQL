@@ -9,6 +9,7 @@ import logging
 import argparse
 from typing import List, Dict, Any
 import sys
+import torch
 
 from infrastructure.vector_db.chroma_client import ChromaClient
 from infrastructure.database.database_manager import DatabaseManager
@@ -20,6 +21,12 @@ from util.constants import PreprocessingConstants
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    print("CUDA cache emptied.")
+
+torch.cuda.memory_summary(device=None, abbreviated=False)
 
 
 def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file: str = "chroma_db") -> None:

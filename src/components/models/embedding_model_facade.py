@@ -20,7 +20,6 @@ HF_HOME = os.environ.get('HF_HOME', os.path.join(os.path.expanduser("~"), ".cach
 SENTENCE_TRANSFORMERS_HOME = os.environ.get('SENTENCE_TRANSFORMERS_HOME', os.path.join(HF_HOME, 'sentence_transformers'))
 os.makedirs(SENTENCE_TRANSFORMERS_HOME, exist_ok=True)
 
-
 class BaseEmbeddingModelFacade(ABC):
     """
     Abstract base class for embedding model facades.
@@ -127,6 +126,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
         elif self.device and 'device_map' not in effective_model_kwargs : # if specific device is given
              effective_model_kwargs['device'] = self.device
 
+        effective_model_kwargs["torch_dtype"] = torch.bfloat16
 
         logger.info(f"Loading SentenceTransformer model: '{self.model_name_or_path}' with device='{self.device or 'auto (if GPU)'}'")
         logger.info(f"Model kwargs: {effective_model_kwargs}")
