@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from components.schema.schema_engine import SchemaEngine
-from common.config.config_manager import ConfigurationHelper
+from common.config.config_helper import ConfigurationHelper
 from util.constants import DatabaseConfigKeys, DatabaseConstants # Import DatabaseConstants
 
 class DatabaseManager:

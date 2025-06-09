@@ -1,6 +1,6 @@
 from sqlalchemy.engine import Engine
 from components.schema.schema_engine import SchemaEngine
-from common.config.config_manager import ConfigurationHelper
+from common.config.config_helper import ConfigurationHelper
 
 class SchemaEngineFactory:
     """

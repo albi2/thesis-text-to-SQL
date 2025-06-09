@@ -53,17 +53,80 @@ class SchemaEngine(SQLDatabase):
     def get_pk_constraint(self, table_name: str) -> Dict:
         return self._inspector.get_pk_constraint(table_name, self._tables_schemas[table_name] )['constrained_columns']
 
-    def get_table_comment(self, table_name: str):
+    def get_table_comment(self, table_name: str) -> Optional[str]:
+        """
+        Retrieves the comment for a given table.
+
+        Args:
+            table_name: The name of the table.
+
+        Returns:
+            The table comment as a string, or None if not available or not supported.
+        """
+        schema_name = self._tables_schemas.get(table_name)
+        # If a global schema is set for the engine and not found for the specific table,
+        # we might fall back to it, or ensure inspector handles schema=None appropriately.
+        # For simplicity, we use what's in _tables_schemas or None if not specific.
+
         try:
-            return self._inspector.get_table_comment(table_name, self._tables_schemas[table_name])['text']
-        except:    # sqlite does not support comments
-            return ''
+            comment_data = self._inspector.get_table_comment(table_name, schema=schema_name)
+            if isinstance(comment_data, dict):
+                return comment_data.get('text')
+            elif isinstance(comment_data, str): # Some dialects might return string directly
+                return comment_data
+            return None # If None or other type
+        except NotImplementedError:
+            # This error is raised if the dialect inspector doesn't support table comments.
+            return None
+        except Exception:
+            # Catch other potential errors (e.g., table not found if schema logic is complex)
+            # Consider logging this exception if a logger is available.
+            return None
+
+    def get_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        """
+        Retrieves column details for a given table, including name, type (as string), and comment.
+
+        Args:
+            table_name: The name of the table.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a column
+            and contains 'name', 'type' (string representation), and 'comment'.
+            Returns an empty list if the table is not found or has no columns.
+        """
+        schema_name = self._tables_schemas.get(table_name)
+        # if schema_name is None and self._schema: # Fallback to main schema if any
+        #     schema_name = self._schema
+        
+        try:
+            columns_info = self._inspector.get_columns(table_name, schema=schema_name)
+        except Exception:
+            # Table might not exist or other inspector error
+            # Consider logging this exception
+            return []
+
+        processed_columns: List[Dict[str, Any]] = []
+        for col_info in columns_info:
+            col_type_str = str(col_info['type'])  # Ensure type is a string representation
+            processed_columns.append({
+                'name': col_info['name'],
+                'type': col_type_str,
+                'comment': col_info.get('comment')  # .get() safely handles missing 'comment'
+            })
+        return processed_columns
 
     def default_schema_name(self) -> Optional[str]:
         return self._inspector.default_schema_name
 
+    def get_table_names(self) -> List[str]:
+        return self._inspector.get_table_names()
+    
     def get_schema_names(self) -> List[str]:
         return self._inspector.get_schema_names()
+    
+    def get_all_table_names(self) -> List[str]:
+        return self._inspector.get_table_names()
 
     def get_foreign_keys(self, table_name: str):
         return self._inspector.get_foreign_keys(table_name, self._tables_schemas[table_name])

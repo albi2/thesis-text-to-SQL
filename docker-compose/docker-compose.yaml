@@ -11,5 +11,13 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
+  chromadb:
+    image: chromadb/chroma
+    volumes:
+      - ./chroma_data:/chroma/chroma # Persists data in ./chroma_data relative to docker-compose.yaml
+    ports:
+      - "8000:8000"
+    # Add any other necessary configurations like command or environment variables if needed.
+
 volumes:
   db_data:

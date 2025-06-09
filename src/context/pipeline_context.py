@@ -11,7 +11,7 @@ class PipelineContext(GenericContext):
     Context specific to the pipeline, extending GenericContext.
     Stores information relevant to the pipeline execution, including the last executed step.
     """
-    def __init__(self, db_engine=None, schema_engine=None):
+    def __init__(self, db_engine=None, schema_engine=None, query = None):
         """
         Initializes the PipelineContext.
 
@@ -21,6 +21,7 @@ class PipelineContext(GenericContext):
         """
         super().__init__(db_engine=db_engine, schema_engine=schema_engine)
         # Add pipeline-specific context attributes here
+        self.user_query = query
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
 
 

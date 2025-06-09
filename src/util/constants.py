@@ -35,9 +35,11 @@ class HuggingFaceModelConstants:
 
     DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
     DEFAULT_REASONING_MODEL = "Qwen/Qwen2-7B-Instruct"
+    DEFAULT_EMBEDDING_MODEL: str = "Qwen/Qwen2-Embedding-4B"
 
     DEFAULT_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/XiYanSQL-QwenCoder-7B-2504"
     DEFAULT_REASONING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen2-7B-Instruct"
+    DEFAULT_EMBEDDING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen2-Embedding-4B"
 
     DEFAULT_MODEL_GENERATION_PARAMS = {
         "max_new_tokens": 512,
@@ -46,3 +48,14 @@ class HuggingFaceModelConstants:
 
     # Supported dialects for Text2SQL, if needed globally
     # SQL_DIALECTS = ['SQLite', 'PostgreSQL', 'MySQL']
+
+
+class PreprocessingConstants:
+    """
+    Stores constants related to data preprocessing tasks,
+    specifically for populating column vectors in ChromaDB.
+    """
+    # ChromaDB specific constants for column vector population
+    COLUMN_COLLECTION_NAME: str = "database_columns"
+    DEFAULT_CHROMA_HOST: str = "localhost"
+    DEFAULT_CHROMA_PORT: int = 8000
