@@ -100,7 +100,7 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
     logging.info("Fetching table names...")
     try:
         # View support is handled by SchemaEngine's initialization parameters (via factory from schema_engine.yaml)
-        table_names: List[str] = schema_engine.get_usable_table_names()
+        table_names: List[str] = schema_engine.get_table_names()
 
         print('TABLE NAMES', table_names)
     except Exception as e:
