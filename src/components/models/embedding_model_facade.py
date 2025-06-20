@@ -215,7 +215,10 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 normalize_embeddings=normalize_embeddings,
                 **kwargs
             )
-            return embeddings.tolist() if isinstance(embeddings, torch.Tensor) else embeddings # Ensure list of lists
+            # Move embeddings to CPU and convert to list of lists
+            if isinstance(embeddings, torch.Tensor):
+                embeddings = embeddings.cpu().tolist()
+            return embeddings
         finally:
             self.unload_model()
 
@@ -240,9 +243,10 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 normalize_embeddings=normalize_embeddings,
                 **kwargs
             )
-            # model.encode returns ndarray or Tensor. Convert to list of lists, then take the first.
-            result_list = embedding.tolist() if isinstance(embedding, torch.Tensor) else embedding
-            return result_list[0]
+            # Move embedding to CPU and convert to list, then take the first element
+            if isinstance(embedding, torch.Tensor):
+                embedding = embedding.cpu().tolist()
+            return embedding[0]
         finally:
             self.unload_model()
 
