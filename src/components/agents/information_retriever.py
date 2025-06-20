@@ -5,7 +5,7 @@ InformationRetriever agent for extracting keywords, phrases, and relevant contex
 import json # Changed from ast to json
 from typing import Dict, List, Any
 
-from common.config.config_helper import ConfigHelper
+from common.config.config_helper import ConfigurationHelper
 from components.models.embedding_model_facade import SentenceTransformerEmbeddingFacade
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
@@ -29,9 +29,9 @@ class InformationRetriever:
         """
         self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
 
-        # Initialize ConfigHelper to load ChromaDB settings
-        self.config_helper = ConfigHelper()
-        chroma_config = self.config_helper.get_config('chroma_db', 'chroma_db')
+        # Initialize ConfigurationHelper to load ChromaDB settings
+        self.config_helper = ConfigurationHelper()
+        chroma_config = self.config_helper.get_config('chroma_db.yaml', 'chroma_db')
 
         chroma_host = chroma_config.get('host', PreprocessingConstants.DEFAULT_CHROMA_HOST)
         chroma_port = chroma_config.get('port', PreprocessingConstants.DEFAULT_CHROMA_PORT)

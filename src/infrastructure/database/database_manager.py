@@ -49,6 +49,8 @@ class DatabaseManager:
                 port=port,
                 database=DatabaseConstants.DEFAULT_DB_NAME # Use the default database name constant
             )
+
+            print('DB URL', default_db_url)
             engine_default = None # Initialize engine_default to None
             try:
                 engine_default = create_engine(default_db_url)
