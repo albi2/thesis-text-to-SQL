@@ -131,7 +131,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
 
         # Default to 'auto' device_map if GPUs are available and not specified
         if 'device_map' not in effective_model_kwargs and self.device is None and torch.cuda.is_available():
-            effective_model_kwargs['device_map'] = 'auto'
+            effective_model_kwargs['device_map'] = 'cuda:0'
         elif self.device and 'device_map' not in effective_model_kwargs : # if specific device is given
              effective_model_kwargs['device'] = self.device
 

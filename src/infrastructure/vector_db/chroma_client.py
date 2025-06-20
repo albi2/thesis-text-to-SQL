@@ -104,6 +104,7 @@ class ChromaClient:
         )
         
         logger.info(f"Getting or creating collection '{collection_name}' with custom embedding function.")
+        # self.client.delete_collection(name=collection_name)
         collection = self.client.get_or_create_collection(
             name=collection_name,
             embedding_function=custom_embedding_function

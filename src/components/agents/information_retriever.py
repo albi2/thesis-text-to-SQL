@@ -165,7 +165,7 @@ class InformationRetriever:
                     collection_name=self.column_collection_name,
                     query_texts=[keyword],
                     n_results=k,
-                    include=["metadatas", "documents"] # Ensure documents (descriptions) are included
+                    # include=["metadatas", "documents"] # Ensure documents (descriptions) are included
                 )
 
                 keyword_contexts: List[Dict[str, Any]] = []
