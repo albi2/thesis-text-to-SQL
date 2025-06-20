@@ -3,11 +3,15 @@
 This file records architectural and implementation decisions using a list format.
 2025-06-19 23:03:00 - Log of updates made.
 2025-06-19 23:28:00 - Refactored pipeline to pass step output as input to the next step.
+2025-06-20 15:08:00 - Implemented lazy loading and explicit unloading for models to manage VRAM.
+2025-06-20 15:08:00 - Added logic to remove thinking tags from model outputs.
 
 *
 
 ## Decision
 
+*   **[2025-06-20] Lazy Loading and Explicit Unloading of Models:** Decided to implement a lazy loading and explicit unloading mechanism for all Hugging Face and Sentence Transformer models to optimize VRAM usage, especially for GPUs with limited memory.
+*   **[2025-06-20] Removal of Thinking Tags from Model Output:** Decided to implement post-processing in the `BaseHuggingFaceFacade` to remove internal "thinking" content (e.g., text within `<think>` tags) from the model's final generated output.
 *   **[2025-05-25] M-Schema Library Integration:** Decided to integrate components of the M-Schema library for handling database schema representation and processing.
 *   **[2025-05-25] `DatabaseManager` Refactoring for Decoupling:** Decided to refactor the `DatabaseManager` to decouple it from direct configuration loading and `SchemaEngine` instantiation, improving modularity.
 *   **[2025-05-25] Use of SQLAlchemy for Database Interaction:** Decided to use SQLAlchemy as the ORM and library for database interactions.
@@ -34,8 +38,19 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-06-08] Preprocessing for Vector DB Population:** To ensure that the semantic search capability is fast and efficient at runtime by pre-calculating and indexing all necessary column embeddings.
 *   **[2025-06-19] Pipeline Step Output Passing:** This refactoring enhances the clarity and explicitness of data flow between pipeline steps, making the pipeline easier to understand, debug, and extend. It also reduces the reliance on the `PipelineContext` as a central data store for intermediate step results, promoting a more functional approach to pipeline design.
 
+## Rationale
+
+*   **[2025-06-20] Lazy Loading and Explicit Unloading of Models:** To address VRAM limitations on GPUs by ensuring models are only loaded into memory when actively performing a task and are immediately unloaded afterward, preventing multiple large models from residing in VRAM simultaneously.
+*   **[2025-06-20] Removal of Thinking Tags from Model Output:** To provide cleaner, more concise model outputs to downstream components or users by stripping internal thought processes that are not part of the final desired response.
+
 ## Implementation Details
 
+*   **[2025-06-20] Lazy Loading and Explicit Unloading of Models:**
+    *   Modified `BaseHuggingFaceFacade`'s `query` method to call `_load_model_and_tokenizer()` at the start and `unload_model()` in a `finally` block.
+    *   Modified `SentenceTransformerEmbeddingFacade`'s `encode` and `encode_single` methods to call `_load_model()` at the start and `unload_model()` in a `finally` block.
+    *   Removed explicit `unload_model()` calls from `InformationRetriever` as facades now manage their own lifecycle.
+*   **[2025-06-20] Removal of Thinking Tags from Model Output:**
+    *   Added logic within `BaseHuggingFaceFacade`'s `query` method to detect and remove content after the `</think>` token (ID 151668) from the generated response.
 *   **[2025-05-25] M-Schema Library Integration:** Key M-Schema library files (originally `m_schema.py`, `schema_engine.py`, `utils.py`) were adapted and integrated into the project structure, primarily under [`src/components/schema/`](src/components/schema/) and [`src/util/`](src/util/).
 *   **[2025-05-25] `DatabaseManager` Refactoring for Decoupling:** The [`DatabaseManager`](src/infrastructure/database/database_manager.py) was modified to utilize the `ConfigurationHelper` (from [`src/common/config/config_manager.py`](src/common/config/config_manager.py)) for accessing configuration settings and the `SchemaEngineFactory` (from [`src/components/schema/schema_engine_factory.py`](src/components/schema/schema_engine_factory.py)) for creating `SchemaEngine` instances.
 *   **[2025-05-25] Use of SQLAlchemy for Database Interaction:** SQLAlchemy will be integrated into the [`DatabaseManager`](src/infrastructure/database/database_manager.py) to handle database connection, session management, and query execution.

@@ -81,3 +81,20 @@ This file documents recurring patterns and standards used in the project.
 *                 return current_output
 *         ```
 *     **Implementation:** [`PipelineStep`](src/pipeline/pipeline_step.py), [`PipelineStepOutput`](src/pipeline/pipeline_step_output.py)
+
+*   **[2025-06-20] Lazy Loading and Explicit Unloading of Models:**
+*     **Guideline:** Models (LLMs, embedding models) should be loaded into VRAM only when actively needed for a task and explicitly unloaded immediately after use. This is crucial for managing VRAM on GPUs with limited memory.
+*     **When to use:** When multiple large models are used in different parts of the application, but not concurrently, to prevent out-of-memory errors.
+*     **Conceptual Example:**
+*         ```python
+*         class ModelFacade:
+*             def process(self, data):
+*                 try:
+*                     self._load_model()
+*                     # Use model to process data
+*                     result = self.model.predict(data)
+*                     return result
+*                 finally:
+*                     self.unload_model()
+*         ```
+*     **Implementation:** [`BaseHuggingFaceFacade`](src/components/models/base_model_facade.py), [`SentenceTransformerEmbeddingFacade`](src/components/models/embedding_model_facade.py)

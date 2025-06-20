@@ -106,7 +106,7 @@ class ChromaClient:
         logger.info(f"Getting or creating collection '{collection_name}' with custom embedding function.")
         collection = self.client.get_or_create_collection(
             name=collection_name,
-            embedding_function=custom_embedding_function 
+            embedding_function=custom_embedding_function
             # metadata={"hnsw:space": "cosine"} # Example: if you want to specify cosine distance
         )
         logger.info(f"Collection '{collection.name}' (ID: {collection.id}) retrieved/created with {collection.count()} documents.")
@@ -123,11 +123,20 @@ class ChromaClient:
             metadatas (List[Dict]): A list of metadata dictionaries corresponding to the documents.
             ids (List[str]): A list of unique IDs for the documents.
         """
-        # The collection itself holds its embedding function. ChromaDB handles this.
-        collection = self.client.get_collection(name=collection_name) 
+        collection = self.client.get_collection(name=collection_name)
+        logger.info(f"Generating embeddings for {len(documents)} documents before adding to collection '{collection_name}'.")
+        
+        # Generate embeddings using the facade
+        embeddings = self.embedding_facade.encode(
+            documents,
+            prompt_name="document", # Assuming "document" is a suitable prompt for document embeddings
+            normalize_embeddings=True # Typically, document embeddings are normalized
+        )
+
         logger.info(f"Adding {len(documents)} documents to collection '{collection_name}'.")
         collection.add(
-            documents=documents,
+            embeddings=embeddings,
+            documents=documents, # Keep documents for retrieval, even if embeddings are pre-computed
             metadatas=metadatas,
             ids=ids
         )
