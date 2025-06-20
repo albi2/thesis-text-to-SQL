@@ -52,7 +52,7 @@ hint.
 locations, organizations, or other significant details.
 Ensure to maintain the original phrasing or terminology used in the question
 and hint.
-{FEWSHOT EXAMPLES}
+{FEWSHOT_EXAMPLES}
 Task:
 Given the following question and hint, identify and list all relevant keywords,
 keyphrases, and named entities.

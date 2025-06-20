@@ -72,8 +72,7 @@ class InformationRetriever:
             Returns an empty dict with empty lists if extraction or parsing fails.
         """
         # Inject the dictionary-output examples into the original prompt
-        current_prompt = PROMPT.replace("{FEWSHOT EXAMPLES}", FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR)
-        formatted_prompt = current_prompt.format(QUESTION=user_query, HINT=hint if hint else "No hint provided.")
+        formatted_prompt = PROMPT.format(FEWSHOT_EXAMPLES = FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR, QUESTION=user_query, HINT=hint if hint else "No hint provided.")
 
         keywords_list: List[str] = []
         phrases_list: List[str] = []
@@ -81,9 +80,11 @@ class InformationRetriever:
         try:
             # Use the 'query' method from ReasoningModelFacade
             response_text = self.reasoning_model.query(formatted_prompt)
+            print(f"LLM Response for keyword extraction: {response_text}")
             
             # Expecting the LLM to output a JSON string representing a dictionary.
             parsed_response = json.loads(response_text.strip())
+            print(f"LLM Response for keyword extraction: {parsed_response}")
 
             if isinstance(parsed_response, dict):
                 keywords = parsed_response.get("keywords", [])
