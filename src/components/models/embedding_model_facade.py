@@ -6,6 +6,7 @@ from typing import List, Union, Optional, Dict
 import logging
 from huggingface_hub import snapshot_download
 from util.constants import HuggingFaceModelConstants
+import gc
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -27,7 +28,15 @@ class BaseEmbeddingModelFacade(ABC):
     def __init__(self, model_name_or_path: str, device: Optional[str] = None, **kwargs):
         self.model_name_or_path = model_name_or_path
         self.device = device
-        self.model = self._load_model(**kwargs)
+        self._model = None # Lazy loaded
+        self.model_kwargs = kwargs
+
+    @property
+    def model(self):
+        """Property to access the model, triggers loading on first access."""
+        if self._model is None:
+            self._model = self._load_model(**self.model_kwargs)
+        return self._model
 
     @abstractmethod
     def _load_model(self, **kwargs) -> any:
@@ -117,6 +126,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                                                Example: {"padding_side": "left"}
             trust_remote_code (bool): Whether to trust remote code when loading the model. Default True.
         """
+        logger.info(f"--- Starting lazy load for SentenceTransformer: {self.model_name_or_path} ---")
         effective_model_kwargs = model_kwargs if model_kwargs is not None else {}
         effective_tokenizer_kwargs = tokenizer_kwargs if tokenizer_kwargs is not None else {}
 
@@ -166,11 +176,27 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                     raise e2
             else:
                 raise e
+        
+        logger.info(f"--- Finished lazy load for SentenceTransformer: {self.model_name_or_path} ---")
         return model
+
+    def unload_model(self):
+        """Unloads the model to free up memory."""
+        if self._model is None:
+            logger.info(f"Embedding model '{self.model_name_or_path}' is not loaded, nothing to unload.")
+            return
+            
+        logger.info(f"Unloading embedding model '{self.model_name_or_path}'...")
+        del self._model
+        self._model = None
+        gc.collect()
+        torch.cuda.empty_cache()
+        logger.info(f"Embedding model '{self.model_name_or_path}' unloaded successfully.")
 
     def encode(self, texts: List[str], batch_size: int = 32, normalize_embeddings: bool = True, **kwargs) -> List[List[float]]:
         """
         Generates embeddings for a list of texts.
+        The model is loaded at the beginning of this method and unloaded at the end.
 
         Args:
             texts (List[str]): A list of texts to embed.
@@ -181,18 +207,23 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
         Returns:
             List[List[float]]: A list of embeddings.
         """
-        logger.debug(f"Encoding {len(texts)} texts with batch_size={batch_size}, normalize={normalize_embeddings}")
-        embeddings = self.model.encode(
-            texts,
-            batch_size=batch_size,
-            normalize_embeddings=normalize_embeddings,
-            **kwargs
-        )
-        return embeddings.tolist() if isinstance(embeddings, torch.Tensor) else embeddings # Ensure list of lists
+        try:
+            self._load_model(model_kwargs=self.model_kwargs.get('model_kwargs'), tokenizer_kwargs=self.model_kwargs.get('tokenizer_kwargs'), trust_remote_code=self.model_kwargs.get('trust_remote_code', True))
+            logger.debug(f"Encoding {len(texts)} texts with batch_size={batch_size}, normalize={normalize_embeddings}")
+            embeddings = self.model.encode(
+                texts,
+                batch_size=batch_size,
+                normalize_embeddings=normalize_embeddings,
+                **kwargs
+            )
+            return embeddings.tolist() if isinstance(embeddings, torch.Tensor) else embeddings # Ensure list of lists
+        finally:
+            self.unload_model()
 
     def encode_single(self, text: str, normalize_embeddings: bool = True, **kwargs) -> List[float]:
         """
         Generates an embedding for a single text.
+        The model is loaded at the beginning of this method and unloaded at the end.
 
         Args:
             text (str): The text to embed.
@@ -202,15 +233,19 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
         Returns:
             List[float]: The embedding for the text.
         """
-        logger.debug(f"Encoding single text, normalize={normalize_embeddings}")
-        embedding = self.model.encode(
-            [text], # encode expects a list
-            normalize_embeddings=normalize_embeddings,
-            **kwargs
-        )
-        # model.encode returns ndarray or Tensor. Convert to list of lists, then take the first.
-        result_list = embedding.tolist() if isinstance(embedding, torch.Tensor) else embedding
-        return result_list[0]
+        try:
+            self._load_model(model_kwargs=self.model_kwargs.get('model_kwargs'), tokenizer_kwargs=self.model_kwargs.get('tokenizer_kwargs'), trust_remote_code=self.model_kwargs.get('trust_remote_code', True))
+            logger.debug(f"Encoding single text, normalize={normalize_embeddings}")
+            embedding = self.model.encode(
+                [text], # encode expects a list
+                normalize_embeddings=normalize_embeddings,
+                **kwargs
+            )
+            # model.encode returns ndarray or Tensor. Convert to list of lists, then take the first.
+            result_list = embedding.tolist() if isinstance(embedding, torch.Tensor) else embedding
+            return result_list[0]
+        finally:
+            self.unload_model()
 
     def similarity(self, embeddings1: Union[torch.Tensor, List[List[float]]], embeddings2: Union[torch.Tensor, List[List[float]]]) -> torch.Tensor:
         """

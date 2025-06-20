@@ -113,7 +113,6 @@ class InformationRetriever:
             # Catch any other unexpected errors during LLM call or parsing
             # TODO: Log generic error: f"Unexpected error in extract_keywords: {e}"
             pass # Returns empty lists
-            
         return {"keywords": keywords_list, "phrases": phrases_list}
 
     def retrieve_entities(self, keywords: List[str], phrases: List[str]) -> List[str]:
