@@ -44,20 +44,20 @@ aspects of the inquiry.
 elements relevant to answering the question. Extract any keywords, phrases, or
 named entities that could provide further clarity or direction in formulating
 an answer.
-3. List Keyphrases and Entities: Combine your findings from both the question
-and the hint into a single Python list. This list should contain:
+3. Extract Keyphrases and Entities: Combine your findings from both the question
+and the hint into a single JSON map. This dictionary should contain:
 - Keywords: Single words that capture essential aspects of the question or
 hint.
-- Keyphrases: Short phrases or named entities that represent specific concepts,
+- Phrases: Short phrases or named entities that represent specific concepts,
 locations, organizations, or other significant details.
 Ensure to maintain the original phrasing or terminology used in the question
-and hint.
+and hint. 
 {FEWSHOT_EXAMPLES}
 Task:
-Given the following question and hint, identify and list all relevant keywords,
-keyphrases, and named entities.
+Given the following question and hint, identify and exract all relevant keywords,
+phrases, and named entities.
 Question: {QUESTION}
 Hint: {HINT}
-Please provide your findings as a Python list, capturing the essence of both
+Please provide your findings as a JSON map similar to the examples, capturing the essence of both
 the question and hint through the identified terms and phrases.
-Only output the Python list, no explanations needed."""
+Only output the JSON, no explanations needed."""

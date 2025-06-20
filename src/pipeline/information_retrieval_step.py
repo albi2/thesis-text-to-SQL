@@ -18,6 +18,6 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
         keywords_and_phrases = self.information_retriever.extract_keywords(user_query=context.user_query)
         keywords = keywords_and_phrases.get("keywords", [])
         
-        retrieved_context = self.information_retriever.retrieve_context(keywords=keywords)
+        retrieved_context = self.information_retriever.retrieve_context(keywords=keywords, question=context.user_query)
         
         return InformationRetrievalStepOutput(retrieved_context=retrieved_context)

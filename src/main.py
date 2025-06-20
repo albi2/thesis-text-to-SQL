@@ -32,7 +32,7 @@ if __name__ == "__main__":
             # --- Pipeline Test ---
             print("\n--- Testing Pipeline ---")
             # Create an initial context
-            query = "Find me among all the bird of the species 'sparrow' which one has the biggest wingspan?"
+            query = "What are the most common boroughs with the largest offence reports?"
             initial_context = PipelineContext(db_engine=database_engine, schema_engine=schema_engine, query=query)
 
             # Initialize the InformationRetriever agent

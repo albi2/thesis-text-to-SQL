@@ -80,7 +80,6 @@ class InformationRetriever:
         try:
             # Use the 'query' method from ReasoningModelFacade
             response_text = self.reasoning_model.query(formatted_prompt)
-            print(f"LLM Response for keyword extraction: {response_text}")
             
             # Expecting the LLM to output a JSON string representing a dictionary.
             parsed_response = json.loads(response_text.strip())
@@ -136,7 +135,7 @@ class InformationRetriever:
         # or a more direct database lookup if feasible.
         return []
 
-    def retrieve_context(self, keywords: List[str], k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+    def retrieve_context(self, keywords: List[str], question: str, k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
         """
         Retrieves the top-k most relevant column descriptions (or names)
         from the ChromaDB collection based on semantic similarity to the input keywords.
@@ -161,9 +160,10 @@ class InformationRetriever:
                 retrieved_contexts[keyword] = []
                 continue
             try:
+                question_and_keyword = question + " " + keyword 
                 query_results = self.chroma_client.query_collection(
                     collection_name=self.column_collection_name,
-                    query_texts=[keyword],
+                    query_texts=[question_and_keyword],
                     n_results=k,
                     # include=["metadatas", "documents"] # Ensure documents (descriptions) are included
                 )
@@ -189,6 +189,7 @@ class InformationRetriever:
             except Exception as e:
                 # TODO: Log the error, e.g., f"Error retrieving context for keyword '{keyword}': {e}"
                 # For now, return an empty list for this keyword in case of an error.
+                print('ERROR QUERYING', e)
                 retrieved_contexts[keyword] = []
         
         return retrieved_contexts

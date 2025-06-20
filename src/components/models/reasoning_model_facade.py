@@ -31,7 +31,7 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
         # Example: Reasoning might benefit from slightly different temperature or sampling.
         # These will be layered on top of base defaults and can be overridden by instance or query kwargs.
         return {
-            "max_new_tokens": 1024
+            "max_new_tokens": 32768
         }
     
     def _get_model_info(self) -> dict:

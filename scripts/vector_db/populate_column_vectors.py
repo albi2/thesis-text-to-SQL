@@ -87,6 +87,7 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
     # The embedding_function_config is an example; actual ChromaClient might handle this internally
     # or require a different way to specify the model if not using its default.
     # Given the ChromaClient takes embedding_facade, it likely uses it directly.
+    
     collection = chroma_client.get_or_create_collection(
         collection_name=collection_name
         # If your ChromaClient's get_or_create_collection needs embedding function details explicitly:

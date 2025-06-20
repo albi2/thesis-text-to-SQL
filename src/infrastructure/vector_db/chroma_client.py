@@ -107,8 +107,12 @@ class ChromaClient:
         # self.client.delete_collection(name=collection_name)
         collection = self.client.get_or_create_collection(
             name=collection_name,
-            embedding_function=custom_embedding_function
-            # metadata={"hnsw:space": "cosine"} # Example: if you want to specify cosine distance
+            embedding_function=custom_embedding_function, 
+            configuration={
+                    "hnsw": {
+                        "space": "cosine"
+                    }
+            }            # metadata={"hnsw:space": "cosine"} # Example: if you want to specify cosine distance
         )
         logger.info(f"Collection '{collection.name}' (ID: {collection.id}) retrieved/created with {collection.count()} documents.")
         return collection
@@ -177,5 +181,5 @@ class ChromaClient:
             include=['metadatas', 'documents', 'distances'], # Ensure we get these back
             **kwargs
         )
-        logger.debug(f"Query results: {results}")
+        logger.info(f"Query results: {results}")
         return results
