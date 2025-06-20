@@ -11,5 +11,13 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
+  chromadb-admin:
+    image: fengzhichao/chromadb-admin:latest
+    container_name: chromadb-admin
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
 volumes:
   db_data:

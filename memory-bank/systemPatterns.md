@@ -1,7 +1,7 @@
 # System Patterns
 
 This file documents recurring patterns and standards used in the project.
-2025-05-31 02:14:56 - Genericized existing architectural patterns and updated with pipeline patterns from Pipeline Structure Handoff (2025-05-25), and previous updates.
+2025-06-19 23:05:00 - Added Agent and Facade patterns.
 
 *
 
@@ -63,3 +63,21 @@ This file documents recurring patterns and standards used in the project.
         builder = ProductBuilder()
         product = builder.set_part_a().set_part_b().get_result()
         ```
+
+*   **[2025-06-08] Facade Pattern:**
+    *   **Guideline:** Use a Facade to provide a simplified, unified interface to a more complex subsystem or library. This hides the complexity of the subsystem and decouples it from the client code.
+    *   **When to use:** When interacting with external libraries or complex internal components (like different LLM providers or embedding model libraries) to provide a consistent and simple API for the rest of the application.
+    *   **Conceptual Example (Usage):** `embeddings = embedding_facade.generate_embeddings(["text1", "text2"])`
+    *   **Implementation:** [`SentenceTransformerEmbeddingFacade`](src/components/models/embedding_model_facade.py)
+
+*   **[2025-06-19] Pipeline Step Output Pattern:**
+*     **Guideline:** Pipeline steps should explicitly pass their output to the next step in the chain, rather than relying on a shared context object for intermediate results.
+*     **When to use:** For designing sequential processing pipelines where the output of one stage directly feeds into the next.
+*     **Conceptual Example:**
+*         ```python
+*         class PipelineStep:
+*             def handle_execution(self, context, previous_output) -> current_output:
+*                 # process previous_output and context
+*                 return current_output
+*         ```
+*     **Implementation:** [`PipelineStep`](src/pipeline/pipeline_step.py), [`PipelineStepOutput`](src/pipeline/pipeline_step_output.py)

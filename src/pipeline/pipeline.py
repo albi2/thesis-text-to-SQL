@@ -31,10 +31,8 @@ class Pipeline(Generic[C]):
         Args:
             initial_context: The initial context object.
         """
-        # INFO: Starting pipeline execution.
         if self._first_step:
-            self._first_step.execute(initial_context)
-        # INFO: Pipeline execution finished.
+            self._first_step.execute(initial_context, None)
 
     class Builder(Generic[C]):
         """

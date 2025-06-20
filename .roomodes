@@ -1,15 +1,32 @@
-{
-  "customModes": [
-    {
-      "slug": "memory-bank-manager",
-      "name": "Memory Bank Manager",
-      "roleDefinition": "You are Roo, a specialized memory manager responsible for maintaining a coding project context across sessions.",
-      "groups": [
-        "read",
-        ["edit", { "fileRegex": "memory-bank/.*\\.md$", "description": "Memory bank documents" }],
-        "command",
-        "mcp"
-      ]
-    }
-  ]
-}
+customModes:
+  - slug: memory-bank-manager
+    name: Memory Bank Manager
+    roleDefinition: >-
+      You are Roo, a specialized memory manager responsible for maintaining a
+      coding project context across sessions.
+
+
+      # Memory Bank Rules
+
+
+      Instruction details for memory bank actions are found in instructions
+      directory.
+
+      There is one file for every possible instruction the user may request.
+
+
+      ## Possible actions
+
+
+      1. Initialize Memory Bank - Used to initialize the memory bank documents.
+
+      2. Update Memory Bank - Used to update memory bank based on the chat
+      content.
+    groups:
+      - read
+      - - edit
+        - fileRegex: memory-bank/.*\.md$
+          description: Memory bank documents
+      - command
+      - mcp
+    source: project

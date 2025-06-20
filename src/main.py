@@ -3,9 +3,11 @@ from components.schema.schema_engine_factory import SchemaEngineFactory
 from sqlalchemy.engine import Engine # Import Engine for type hinting
 
 # Import pipeline components
+from components.agents.information_retriever import InformationRetriever
 from context.pipeline_context import PipelineContext
 from pipeline.pipeline import Pipeline
-from pipeline.noop_pipeline_step import NoOpPipelineStep
+from pipeline.information_retrieval_step import InformationRetrievalStep
+from pipeline.print_output_step import PrintOutputStep
 
 
 if __name__ == "__main__":
@@ -33,11 +35,13 @@ if __name__ == "__main__":
             query = "Find me among all the bird of the species 'sparrow' which one has the biggest wingspan?"
             initial_context = PipelineContext(db_engine=database_engine, schema_engine=schema_engine, query=query)
 
+            # Initialize the InformationRetriever agent
+            information_retriever = InformationRetriever()
+
             # Build the pipeline using the Builder
             pipeline = Pipeline[PipelineContext].Builder() \
-                .add_step(NoOpPipelineStep("Step 1")) \
-                .add_step(NoOpPipelineStep("Step 2")) \
-                .add_step(NoOpPipelineStep("Step 3")) \
+                .add_step(InformationRetrievalStep(information_retriever)) \
+                .add_step(PrintOutputStep()) \
                 .build()
 
             # Run the pipeline
