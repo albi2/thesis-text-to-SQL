@@ -194,8 +194,27 @@ class BaseHuggingFaceFacade(ABC):
             responses = []
             for i in range(num_return_sequences):
                 current_sequence_ids = generated_ids_full[i, input_ids_len:]
-                response_text = self.tokenizer.decode(current_sequence_ids, skip_special_tokens=True)
-                responses.append(response_text.strip())
+                
+                # Decode the full response
+                full_response_text = self.tokenizer.decode(current_sequence_ids, skip_special_tokens=True)
+                
+                # Attempt to find and remove the thinking part
+                # The token ID for '</think>' is 151668 in Qwen models.
+                # This part is specific to models that output thinking tags.
+                output_ids = current_sequence_ids.tolist()
+                try:
+                    # Find the index of the last '</think>' token
+                    # We search from the end to handle multiple thinking blocks if they exist
+                    index_end_think_token = len(output_ids) - output_ids[::-1].index(151668)
+                    
+                    # The content after '</think>' is the actual response
+                    # We add 1 to the index to start decoding *after* the '</think>' token
+                    response_text = self.tokenizer.decode(output_ids[index_end_think_token:], skip_special_tokens=True).strip()
+                except ValueError:
+                    # If '</think>' is not found, use the full response
+                    response_text = full_response_text.strip()
+
+                responses.append(response_text)
 
             return responses if num_return_sequences > 1 else responses[0]
 

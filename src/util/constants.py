@@ -43,6 +43,7 @@ class HuggingFaceModelConstants:
 
     DEFAULT_MODEL_GENERATION_PARAMS = {
         "max_new_tokens": 512,
+        "temperature": 0.2
         # Other general defaults can be added here
     }
 
