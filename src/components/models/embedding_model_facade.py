@@ -99,7 +99,6 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 snapshot_download(
                     repo_id=default_model_repo_id,
                     local_dir=default_local_path,
-                    local_dir_use_symlinks=False,  # Avoid symlinks for broader compatibility
                     # consider adding allow_patterns or ignore_patterns if needed
                 )
                 logger.info(f"Successfully downloaded/verified {default_model_repo_id} to {default_local_path}.")

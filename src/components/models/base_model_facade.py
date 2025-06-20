@@ -45,7 +45,7 @@ class BaseHuggingFaceFacade(ABC):
         try:
             print(f"Ensuring model '{repo_id}' is downloaded to '{local_path}'...")
             os.makedirs(local_path, exist_ok=True)
-            snapshot_download(repo_id=repo_id, local_dir=local_path, local_dir_use_symlinks=False)
+            snapshot_download(repo_id=repo_id, local_dir=local_path)
             print(f"Download/verification complete for '{repo_id}'.")
         except Exception as e:
             print(f"Error during download for '{repo_id}': {e}")
