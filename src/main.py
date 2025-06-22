@@ -8,7 +8,8 @@ from context.pipeline_context import PipelineContext
 from pipeline.pipeline import Pipeline
 from pipeline.steps.information_retrieval.information_retrieval_step import InformationRetrievalStep
 from pipeline.steps.print_output.print_output_step import PrintOutputStep
-
+from pipeline.steps.schema_filter.schema_filter_step import SchemaFilterStep
+from pipeline.steps.schema_filter.executor.schema_filter_executor import SchemaFilterExecutor
 
 if __name__ == "__main__":
     print("Initializing DatabaseManager...")
@@ -35,12 +36,11 @@ if __name__ == "__main__":
             query = "What are the most common boroughs with the largest offence reports?"
             initial_context = PipelineContext(db_engine=database_engine, schema_engine=schema_engine, query=query)
 
-            # Initialize the InformationRetriever agent
-            information_retriever = InformationRetriever()
-
             # Build the pipeline using the Builder
             pipeline = Pipeline[PipelineContext].Builder() \
-                .add_step(InformationRetrievalStep(information_retriever)) \
+                .add_step(InformationRetrievalStep()) \
+                .add_step(PrintOutputStep()) \
+                .add_step(SchemaFilterStep()) \
                 .add_step(PrintOutputStep()) \
                 .build()
 

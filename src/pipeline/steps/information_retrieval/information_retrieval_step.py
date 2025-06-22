@@ -11,8 +11,8 @@ class InformationRetrievalStepOutput(PipelineStepOutput):
 
 
 class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrievalStepOutput]):
-    def __init__(self, information_retriever: InformationRetriever):
-        self.information_retriever = information_retriever
+    def __init__(self):
+        self.information_retriever = InformationRetriever()
 
     def handle_execution(self, context: PipelineContext, previous_step_output: Optional[Any] = None) -> Optional[InformationRetrievalStepOutput]:
         keywords_and_phrases = self.information_retriever.extract_keywords(user_query=context.user_query)
