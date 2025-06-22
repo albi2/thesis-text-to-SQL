@@ -177,7 +177,6 @@ Tip: If you are choosing a column for filtering a value within that column, make
 {FEWSHOT_EXAMPLES}
 
 Please respond with a JSON object structured as follows:
-
 ```json
 {{
   "chain_of_thought_reasoning": "Your reasoning for selecting the columns, be concise and clear.",
@@ -185,4 +184,6 @@ Please respond with a JSON object structured as follows:
   "table_name2": ["column1", "column2", ...],
   ...
 }}
+Only output the JSON, no explanations needed.
+
 """

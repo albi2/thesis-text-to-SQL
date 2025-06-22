@@ -35,7 +35,7 @@ class BaseEmbeddingModelFacade(ABC):
     def model(self):
         """Property to access the model, triggers loading on first access."""
         if self._model is None:
-            self._model = self._load_model(**self.model_kwargs)
+            self._load_model(**self.model_kwargs)
         return self._model
 
     @abstractmethod
@@ -142,7 +142,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
         logger.info(f"Tokenizer kwargs: {effective_tokenizer_kwargs}")
         
         try:
-            model = SentenceTransformer(
+            self._model = SentenceTransformer(
                 self.model_name_or_path,
                 cache_folder=SENTENCE_TRANSFORMERS_HOME,
                 trust_remote_code=trust_remote_code, # Important for some models like Qwen
@@ -151,7 +151,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 device=self.device # Explicitly pass device if set, otherwise ST handles it (e.g. via device_map)
             )
             logger.info(f"SentenceTransformer model '{self.model_name_or_path}' loaded successfully.")
-            if hasattr(model, '_target_device'):
+            if hasattr(self._model, '_target_device'):
                  logger.info(f"Model target device: {model._target_device}")
 
         except Exception as e:
@@ -161,7 +161,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 logger.warning("Attempting to load model without flash_attention...")
                 del effective_model_kwargs["attn_implementation"]
                 try:
-                    model = SentenceTransformer(
+                    self._model = SentenceTransformer(
                         self.model_name_or_path,
                         cache_folder=SENTENCE_TRANSFORMERS_HOME,
                         trust_remote_code=trust_remote_code,
@@ -177,7 +177,6 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 raise e
         
         logger.info(f"--- Finished lazy load for SentenceTransformer: {self.model_name_or_path} ---")
-        return model
 
     def unload_model(self):
         """Unloads the model to free up memory."""
@@ -189,7 +188,9 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
         del self._model
         self._model = None
         gc.collect()
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()    
+            torch.cuda.synchronize()  # Ensur
         logger.info(f"Embedding model '{self.model_name_or_path}' unloaded successfully.")
 
     def encode(self, texts: List[str], batch_size: int = 32, normalize_embeddings: bool = True, **kwargs) -> List[List[float]]:
@@ -218,6 +219,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
             # Move embeddings to CPU and convert to list of lists
             if isinstance(embeddings, torch.Tensor):
                 embeddings = embeddings.cpu().tolist()
+                del embeddings
             return embeddings
         finally:
             self.unload_model()
@@ -244,7 +246,7 @@ class SentenceTransformerEmbeddingFacade(BaseEmbeddingModelFacade):
                 **kwargs
             )
             # Move embedding to CPU and convert to list, then take the first element
-            if isinstance(embedding, torch.Tensor):
+            if isinstance(embedding_gpu, torch.Tensor):
                 embedding = embedding.cpu().tolist()
             return embedding[0]
         finally:

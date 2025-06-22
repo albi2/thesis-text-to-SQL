@@ -4,6 +4,7 @@ from context.pipeline_context import PipelineContext
 from pipeline.pipeline_step import PipelineStep
 from pipeline.pipeline_step_output import PipelineStepOutput
 from typing import Optional
+import time
 
 class InformationRetrievalStepOutput(PipelineStepOutput):
     def __init__(self, retrieved_context: Dict[str, List[Dict[str, Any]]]):
@@ -20,5 +21,8 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
         
         retrieved_context = self.information_retriever.retrieve_context(keywords=keywords, question=context.user_query)
         context.db_schema_per_keyword = retrieved_context
+
+        print("--------------- WAITING 2 SECONDS ----------------------")
+        time.sleep(10)
         
         return InformationRetrievalStepOutput(retrieved_context=retrieved_context)

@@ -44,3 +44,10 @@ class PipelineContext(GenericContext):
             The last executed PipelineStep instance, or None if no step has been executed yet.
         """
         return self._last_executed_step
+
+    def to_dict(self):
+        return {
+            "user_query": self.user_query,
+            "db_schema_per_keyword": self.db_schema_per_keyword,
+            "selected_schema": self.selected_schema
+        }

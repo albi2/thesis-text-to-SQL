@@ -160,7 +160,7 @@ class InformationRetriever:
                 retrieved_contexts[keyword] = []
                 continue
             try:
-                question_and_keyword = question + " " + keyword 
+                question_and_keyword = str(question + " " + keyword)
                 query_results = self.chroma_client.query_collection(
                     collection_name=self.column_collection_name,
                     query_texts=[question_and_keyword],

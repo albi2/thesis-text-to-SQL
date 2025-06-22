@@ -170,7 +170,6 @@ class ChromaClient:
         # potentially with a specific "query" prompt if applicable.
         query_embeddings = self.embedding_facade.encode(
             query_texts, 
-            prompt_name=query_prompt_name, 
             normalize_embeddings=True # Typically, queries are normalized for cosine similarity
         )
         
@@ -178,8 +177,7 @@ class ChromaClient:
         results = collection.query(
             query_embeddings=query_embeddings, # Pass the generated embeddings
             n_results=n_results,
-            include=['metadatas', 'documents', 'distances'], # Ensure we get these back
-            **kwargs
+            include=['metadatas', 'documents', 'distances'] # Ensure we get these back
         )
         logger.info(f"Query results: {results}")
         return results

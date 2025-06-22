@@ -119,7 +119,10 @@ class BaseHuggingFaceFacade(ABC):
         self._model = None
         self._tokenizer = None
         gc.collect()
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()    
+            torch.cuda.synchronize()  # Ensure all operations complete
+
         print(f"Model '{self.model_name}' unloaded successfully.")
 
     @abstractmethod
@@ -188,6 +191,11 @@ class BaseHuggingFaceFacade(ABC):
                     **model_inputs,
                     **final_params
                 )
+                print('DEVICE TYPE REAS', generated_ids_full.device.type)
+                if isinstance(generated_ids_full, torch.Tensor):
+                    generated_ids_full = generated_ids_full.cpu()
+
+
             
             input_ids_len = model_inputs["input_ids"].shape[1]
             
