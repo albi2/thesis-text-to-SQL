@@ -7,7 +7,7 @@ from pipeline.pipeline_step_output import PipelineStepOutput
 # Define type variables for the generic step
 C = TypeVar('C', bound=GenericContext)
 O = TypeVar('O', bound=PipelineStepOutput)
-I = TypeVar('I', bound=Optional[PipelineStepOutput])
+I = TypeVar('I', bound=Optional[PipelineStepOutput]) # Does not really apply on type checking because I is missing in the class generic params
 
 class PipelineStep(ABC, Generic[C, O]):
     """

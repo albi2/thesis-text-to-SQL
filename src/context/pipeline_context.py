@@ -23,6 +23,8 @@ class PipelineContext(GenericContext):
         # Add pipeline-specific context attributes here
         self.user_query = query
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
+        self.db_schema_per_keyword = {}  # Dictionary to store schema information per keyword
+        self.selected_schema: dict = None
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint
