@@ -10,6 +10,7 @@ from pipeline.steps.information_retrieval.information_retrieval_step import Info
 from pipeline.steps.print_output.print_output_step import PrintOutputStep
 from pipeline.steps.schema_filter.schema_filter_step import SchemaFilterStep
 from pipeline.steps.schema_filter.executor.schema_filter_executor import SchemaFilterExecutor
+from pipeline.steps.sql_generation.sql_generation_step import SQLGenerationStep
 
 if __name__ == "__main__":
     print("Initializing DatabaseManager...")
@@ -41,6 +42,8 @@ if __name__ == "__main__":
                 .add_step(InformationRetrievalStep()) \
                 .add_step(PrintOutputStep()) \
                 .add_step(SchemaFilterStep()) \
+                .add_step(PrintOutputStep()) \
+                .add_step(SQLGenerationStep()) \
                 .add_step(PrintOutputStep()) \
                 .build()
 

@@ -1,4 +1,5 @@
-from typing import Optional, Any
+from typing import Optional, Any, List
+from util.db.execute import SQLExecInfo # Import locally to avoid circular dependency
 
 from .generic_context import GenericContext
 # Import PipelineStep to allow type hinting, but avoid circular dependency
@@ -25,6 +26,8 @@ class PipelineContext(GenericContext):
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
         self.db_schema_per_keyword = {}  # Dictionary to store schema information per keyword
         self.selected_schema: dict = None
+        self.hint: Optional[str] = None
+        self.generated_sql_queries: List[SQLExecInfo] = []
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint
