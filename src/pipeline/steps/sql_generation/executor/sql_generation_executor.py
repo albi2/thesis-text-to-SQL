@@ -1,11 +1,10 @@
 import json
 import re
-from typing import List, Dict, Any
+from typing import List
 import asyncio
 from components.models.text2sql_model_facade import Text2SQLModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT
-from components.schema.m_schema import MSchema
 from util.db.execute import execute_sql_queries_async, SQLExecInfo
 
 class SQLGenerationExecutor:
@@ -43,8 +42,17 @@ class SQLGenerationExecutor:
             )
 
             model_response = self.text2sql_model_facade.query(full_prompt)
-            print(f"Generated SQL: {model_response}")
-            generated_sql_queries.append(model_response)
+            
+            # Extract SQL from <FINAL_ANSWER> tags
+            sql_match = re.search(r"<FINAL_ANSWER>\s*(.*?)\s*</FINAL_ANSWER>", model_response, re.DOTALL)
+            if sql_match:
+                extracted_sql = sql_match.group(1).strip()
+                print(f"Generated SQL: {extracted_sql}")
+                generated_sql_queries.append(extracted_sql)
+            else:
+                print(f"Could not extract SQL from model response: {model_response}")
+                # Optionally, append the raw response or skip if no SQL is found
+                generated_sql_queries.append(model_response) # Append raw response for now
 
         # Execute and filter queries asynchronously
         # We need to run the async function in an event loop.
