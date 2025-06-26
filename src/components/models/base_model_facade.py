@@ -1,13 +1,15 @@
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:128'
+
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from abc import ABC, abstractmethod
 from util.constants import HuggingFaceModelConstants
 import copy
 
-import os
 import gc
 from huggingface_hub import snapshot_download
-
+import accelerator
 # Set the environment variable
 # Choose HF_HOME or HF_HUB_CACHE based on your preference
 os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
@@ -118,11 +120,14 @@ class BaseHuggingFaceFacade(ABC):
         del self._tokenizer
         self._model = None
         self._tokenizer = None
-        gc.collect()
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()    
-            torch.cuda.synchronize()  # Ensure all operations complete
+            for i in range(torch.cuda.device_count()):
+                torch.cuda.set_device(i)
+                torch.cuda.empty_cache() 
+                gc.collect()
 
+        for i in range(torch.cuda.device_count()):
+            torch.cuda.reset_peak_memory_stats(i)
         print(f"Model '{self.model_name}' unloaded successfully.")
 
     @abstractmethod
@@ -166,6 +171,9 @@ class BaseHuggingFaceFacade(ABC):
         """
         try:
             # Explicitly load model and tokenizer
+            for i in range(torch.cuda.device_count()):
+                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
             self._load_model_and_tokenizer()
 
             model_inputs = self._prepare_model_inputs(prompt, system_prompt)
@@ -191,7 +199,6 @@ class BaseHuggingFaceFacade(ABC):
                     **model_inputs,
                     **final_params
                 )
-                print('DEVICE TYPE REAS', generated_ids_full.device.type)
                 if isinstance(generated_ids_full, torch.Tensor):
                     generated_ids_full = generated_ids_full.cpu()
 
@@ -234,3 +241,6 @@ class BaseHuggingFaceFacade(ABC):
         finally:
             # Explicitly unload model and tokenizer
             self.unload_model()
+            for i in range(torch.cuda.device_count()):
+                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")

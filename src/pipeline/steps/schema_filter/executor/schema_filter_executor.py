@@ -1,6 +1,6 @@
 import json
 from typing import List, Dict, Any
-
+import re
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from components.schema.m_schema import MSchema
 from prompts.column_selection import PROMPT, FEWSHOT_EXAMPLES
@@ -39,10 +39,14 @@ class SchemaFilterExecutor:
 
         model_response = self.reasoning_model_facade.query(full_prompt)
         print(model_response)
-        result_dictionary = {}
+        resulting_schema = {}
         try:
-            result_dictionary = json.loads(model_response)
+            if "```json" in model_response:
+                model_response = model_response.split("```json")[1].split("```")[0]
+                model_response = re.sub(r"^\s+", "", model_response)
+                resulting_schema = json.loads(model_response)
         except Exception as e:
             print("Could not parse JSON for schema filtering", e) 
 
-        return result_dictionary
+        pipeline_context.selected_schema = resulting_schema
+        return resulting_schema

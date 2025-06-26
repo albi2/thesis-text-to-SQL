@@ -26,12 +26,13 @@ Question: How many users, who were a paying subscriber when they rated the movie
 Hint: Directed by Erich von Stroheim refers to director_name = 'Erich von Stroheim'; released in 1924 refers to movie_release_year = 1924; paying subscriber refers to user_has_payment_method = 1; rating score of 5 refers to rating_score = 5;
 
 Response:
-json{
+```json
+{
   "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter movies by director 'Erich von Stroheim' and release year 1924, 2) Join with ratings to find users who rated these movies, 3) Filter for paying subscribers (user_has_payment_method = 1) and rating score of 5, 4) Count the users. The director_name and movie_release_year columns are needed to identify the specific movie. The user_has_payment_method and rating_score columns are needed to filter the ratings. The movie_id is needed to join the tables.",
   "movies": ["movie_id", "director_name", "movie_release_year"],
   "ratings_users": ["movie_id", "rating_score", "user_has_payment_method"]
 }
-
+```
 Example 2:
 
 Database Schema:
@@ -55,12 +56,13 @@ Foreign keys: ratings.movie_id = movies.movie_id
 Question: List the users who gave the worst rating for movie 'Love Will Tear Us Apart'. Also show the movie's popularity.
 Hint: worst rating refers to rating_score = 1;
 Response:
-json{
+```json
+{
   "chain_of_thought_reasoning": "To answer this question, I need to: 1) Find the movie with title 'Love Will Tear Us Apart', 2) Find all ratings for this movie with score = 1, 3) List the user_ids who gave these ratings, 4) Include the movie's popularity. The movie_title column is needed to identify the specific movie. The rating_score column is needed to filter for worst ratings (score = 1). The user_id is needed to identify users. The movie_popularity is explicitly requested. The movie_id is needed to join the tables.",
   "movies": ["movie_id", "movie_title", "movie_popularity"],
   "ratings": ["movie_id", "rating_score", "user_id"]
 }
-
+```
 Example 3: 
 
 Database Schema:
@@ -86,11 +88,13 @@ Foreign keys: user_reviews.app_id = playstore.app_id
 Question: What is the average rating of comic category apps? How many users hold positive attitude towards comic apps?
 Hint: average rating = AVG(Rating where Category = 'COMICS'); number of users who hold a positive attitude towards the app refers to SUM(Sentiment = 'Positive');
 Response:
-json{
+```json
+{
   "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter apps by Category = 'COMICS', 2) Calculate average Rating for these apps, 3) Join with user_reviews to find reviews for comic apps, 4) Count reviews with Sentiment = 'Positive'. The Category column is needed to filter for comic apps. The Rating column is needed for the average calculation. The Sentiment column is needed to count positive attitudes. The app_id is needed to join the tables.",
   "playstore": ["app_id", "Category", "Rating"],
   "user_reviews": ["app_id", "Sentiment"]
 }
+```
 
 Example 4:
 
@@ -120,13 +124,14 @@ Foreign keys: hero_power.hero_id = superhero.id, hero_power.power_id = superpowe
 Question: List all superheroes who have 'Super Strength' power and show their weights. Sort by weight in descending order.
 Hint: Super Strength power refers to power_name = 'Super Strength';
 Response:
-json{
+```json
+{
   "chain_of_thought_reasoning": "To answer this question, I need to: 1) Find the power_id for 'Super Strength' from superpower table, 2) Find heroes who have this power from hero_power table, 3) Get hero details including names and weights from superhero table, 4) Sort by weight descending. The power_name column is needed to filter for 'Super Strength'. The superhero_name and weight_kg columns are needed for the output. The id, hero_id, and power_id columns are needed to join the tables.",
   "superhero": ["id", "superhero_name", "weight_kg"],
   "hero_power": ["hero_id", "power_id"],
   "superpower": ["id", "power_name"]
 }
-
+```
 Example 5:
 
 Database Schema:
@@ -143,10 +148,12 @@ Question: How many users who created a list in February 2016 were eligible for t
 Hint: created a list in February 2016 refers to list_creation_date_utc LIKE '2016-02-%'; eligible for trial refers to user_eligible_for_trial = 1;
 Response:
 
-json{
+```json
+{
   "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter lists created in February 2016 using list_creation_date_utc, 2) Count users who were eligible for trial (user_eligible_for_trial = 1), 3) Find the user_id with maximum list_followers among February 2016 lists. The list_creation_date_utc column is needed to filter for February 2016. The user_eligible_for_trial column is needed to filter for trial-eligible users. The user_id is needed to identify users. The list_followers column is needed to find the user with most followers.",
   "lists_users": ["user_id", "list_creation_date_utc", "user_eligible_for_trial", "list_followers"]
 }
+```
 """
 
 PROMPT="""
@@ -184,6 +191,6 @@ Please respond with a JSON object structured as follows:
   "table_name2": ["column1", "column2", ...],
   ...
 }}
+```
 Only output the JSON, no explanations needed.
-
 """

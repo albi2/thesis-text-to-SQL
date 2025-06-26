@@ -17,7 +17,7 @@ from infrastructure.database.database_manager import DatabaseManager
 from components.schema.schema_engine import SchemaEngine
 from components.schema.schema_engine_factory import SchemaEngineFactory
 from common.config.config_helper import ConfigurationHelper
-from components.models.embedding_model_facade import SentenceTransformerEmbeddingFacade
+from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from util.constants import PreprocessingConstants
 
 # --- Logging Setup ---
@@ -71,9 +71,9 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
     # Pass the engine from DatabaseManager to the factory's creation method
     schema_engine: SchemaEngine = schema_factory.create_schema_engine(engine=db_manager._engine)
 
-    logging.info("Initializing SentenceTransformerEmbeddingFacade...")
+    logging.info("Initializing HuggingFaceEmbeddingFacade...")
     # This will use the default Qwen model from HuggingFaceModelConstants if not overridden
-    embedding_facade = SentenceTransformerEmbeddingFacade()
+    embedding_facade = HuggingFaceEmbeddingFacade()
 
     logging.info(f"Initializing ChromaClient for host: {chroma_host}, port: {chroma_port}")
     chroma_client = ChromaClient(

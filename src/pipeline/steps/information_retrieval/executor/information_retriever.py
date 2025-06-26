@@ -6,7 +6,7 @@ import json # Changed from ast to json
 from typing import Dict, List, Any
 
 from common.config.config_helper import ConfigurationHelper
-from components.models.embedding_model_facade import SentenceTransformerEmbeddingFacade
+from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
@@ -37,9 +37,7 @@ class InformationRetriever:
         chroma_port = chroma_config.get('port', PreprocessingConstants.DEFAULT_CHROMA_PORT)
 
         # Initialize Embedding Facade
-        self.embedding_facade = SentenceTransformerEmbeddingFacade(
-            model_name_or_path=HuggingFaceModelConstants.DEFAULT_EMBEDDING_MODEL,
-        )
+        self.embedding_facade = HuggingFaceEmbeddingFacade()
 
         # Initialize ChromaClient
         self.chroma_client = ChromaClient(
