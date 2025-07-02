@@ -17,12 +17,12 @@ class SQLGenerationExecutor:
         generated_sql_queries: List[str] = []
 
         # Create MSchema string from selected_schema
-        selected_tables = list(pipeline_context.selected_schema.keys())
+        selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name ]
         selected_columns = []
         for table, columns in pipeline_context.selected_schema.items():
             for col in columns:
-                if col != "chain_of_thought_reasoning": # Exclude reasoning from columns
-                    selected_columns.append(f"{table}.{col}")
+                if table != "chain_of_thought_reasoning": # Exclude reasoning from columns
+                    selected_columns.append(f"{table.split('.')[1]}.{col}")
 
         # Ensure that the schema engine is available in the context
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
@@ -34,6 +34,8 @@ class SQLGenerationExecutor:
             show_type_detail=True
         )
 
+        print('SQL GENERATION MSCHEMA', mschema_string)
+
         for _ in range(self.NUM_QUERIES_TO_GENERATE):
             full_prompt = PROMPT.format(
                 DATABASE_SCHEMA=mschema_string,
@@ -42,17 +44,17 @@ class SQLGenerationExecutor:
             )
 
             model_response = self.text2sql_model_facade.query(full_prompt)
+
+            try:
+                if "```sql" in model_response:
+                    model_response = model_response.split("```sql")[1].split("```")[0]
+                    model_response = re.sub(r"^\s+", "", model_response)
+                    resulting_sql = json.loads(model_response)
+                    generated_sql_queries.append(resulting_sql) # Append raw response for now
+            except Exception as e:
+                print("Could not parse JSON for schema filtering", e) 
+                generated_sql_queries.append(model_response) 
             
-            # Extract SQL from <FINAL_ANSWER> tags
-            sql_match = re.search(r"<FINAL_ANSWER>\s*(.*?)\s*</FINAL_ANSWER>", model_response, re.DOTALL)
-            if sql_match:
-                extracted_sql = sql_match.group(1).strip()
-                print(f"Generated SQL: {extracted_sql}")
-                generated_sql_queries.append(extracted_sql)
-            else:
-                print(f"Could not extract SQL from model response: {model_response}")
-                # Optionally, append the raw response or skip if no SQL is found
-                generated_sql_queries.append(model_response) # Append raw response for now
 
         # Execute and filter queries asynchronously
         # We need to run the async function in an event loop.
@@ -68,12 +70,12 @@ class SQLGenerationExecutor:
             # we need to run the task in the existing loop.
             # This is a simplified approach; for complex scenarios, consider a dedicated task runner.
             executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine)
+                execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine, "thesis") # Store the schema/s and other relevant info in the context
             )
         else:
             # If no loop is running, create and run a new one.
             executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine)
+                execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine, "thesis")
             )
         
         pipeline_context.generated_sql_queries = [info for info in executable_sql_infos if info.status == "OK"]

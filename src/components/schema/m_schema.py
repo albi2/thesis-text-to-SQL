@@ -126,8 +126,8 @@ class MSchema:
                    example_num=3, show_type_detail=False) -> str:
         """
         convert to a MSchema string.
-        selected_tables: 默认为None，表示选择所有的表
-        selected_columns: 默认为None，表示所有列全选，格式['table_name.column_name']
+        selected_tables: Selected tables to be included in the MSchema
+        selected_columns: Select columns to be included in the MSchema
         """
         output = []
 

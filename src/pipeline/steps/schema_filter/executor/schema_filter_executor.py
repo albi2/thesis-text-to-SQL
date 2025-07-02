@@ -22,12 +22,12 @@ class SchemaFilterExecutor:
                 if table_name and table_name not in unique_table_names:
                     unique_table_names.append(table_name)
                 if column_name and column_name not in unique_column_names:
-                    unique_column_names.append(column_name)
+                    unique_column_names.append(table_name + "." + column_name)
 
         # The to_mschema method expects selected_tables and selected_columns.
         # We need to pass the unique table names and unique column names.
         # The unique_column_names list contains only column names, not "table.column" format.
-        # The to_mschema method will handle the mapping.
+        # The to_mschema method will handle the mapping. 
         database_schema = pipeline_context.schema_engine.mschema.to_mschema(selected_tables=unique_table_names, selected_columns=unique_column_names)
 
         full_prompt = PROMPT.format(
@@ -38,7 +38,7 @@ class SchemaFilterExecutor:
         )
 
         model_response = self.reasoning_model_facade.query(full_prompt)
-        print(model_response)
+        print('FILTERING RESPONSE', model_response)
         resulting_schema = {}
         try:
             if "```json" in model_response:

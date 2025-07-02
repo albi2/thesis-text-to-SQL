@@ -33,11 +33,11 @@ class HuggingFaceModelConstants:
     TEXT2SQL_GENERATION_TASK = "text2sql-generation"
     REASONING_TEXT_GENERATION_TASK = "reasoning-text-generation"
 
-    DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
+    DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
     DEFAULT_REASONING_MODEL = "Qwen/Qwen3-4B"
     DEFAULT_EMBEDDING_MODEL: str = "Qwen/Qwen3-Embedding-4B"
 
-    DEFAULT_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/XiYanSQL-QwenCoder-7B-2504"
+    DEFAULT_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
     DEFAULT_REASONING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen3-4B"
     DEFAULT_EMBEDDING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen3-Embedding-4B"
 

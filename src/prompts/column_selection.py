@@ -2,7 +2,8 @@
 FEWSHOT_EXAMPLES="""
 Example 1: 
 
-Database Schema:
+【DB_ID】<db_name>
+【Schema】
 # Table: movies
 [
 (movie_id: INTEGER, Primary Key, unique identifier for movies, Examples: [1, 2, 3]),
@@ -35,7 +36,8 @@ Response:
 ```
 Example 2:
 
-Database Schema:
+【DB_ID】<db_name>
+【Schema】
 # Table: movies
 [
 (movie_id: INTEGER, Primary Key, unique identifier for movies, Examples: [1, 2, 3]),
@@ -65,7 +67,8 @@ Response:
 ```
 Example 3: 
 
-Database Schema:
+【DB_ID】<db_name>
+【Schema】
 # Table: playstore
 [
 (app_id: INTEGER, Primary Key, unique identifier for apps, Examples: [1, 2, 3]),
@@ -98,7 +101,8 @@ Response:
 
 Example 4:
 
-Database Schema:
+【DB_ID】<db_name>
+【Schema】
 # Table: superhero
 [
 (id: INTEGER, Primary Key, unique identifier of the superhero, Examples: [1, 2, 3]),
@@ -134,7 +138,7 @@ Response:
 ```
 Example 5:
 
-Database Schema:
+【Schema】
 # Table: lists_users
 [
 (list_id: INTEGER, Primary Key, unique identifier for lists, Examples: [1, 2, 3]),
@@ -181,6 +185,7 @@ For each of the selected columns, explain why exactly it is necessary for answer
 
 Tip: If you are choosing a column for filtering a value within that column, make sure that column has the value as an example.
 
+Examples:
 {FEWSHOT_EXAMPLES}
 
 Please respond with a JSON object structured as follows:
@@ -192,5 +197,4 @@ Please respond with a JSON object structured as follows:
   ...
 }}
 ```
-Only output the JSON, no explanations needed.
 """

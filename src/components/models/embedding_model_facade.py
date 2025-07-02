@@ -1,5 +1,5 @@
 import os
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:128'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -198,12 +198,23 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 torch.cuda.set_device(i)
+                torch.cuda.empty_cache() 
+                torch.cuda.ipc_collect()
+                torch.cuda.synchronize()
                 torch.cuda.empty_cache()
                 gc.collect()
         
 
         for i in range(torch.cuda.device_count()):
+            torch.cuda.memory._dump_snapshot()  # Debug info
+            torch.cuda.reset_accumulated_memory_stats(i)
             torch.cuda.reset_peak_memory_stats(i)
+
+        # if hasattr(torch.cuda, 'memory'):
+        #     for i in range(torch.cuda.device_count()):
+        #         torch.cuda.set_device(i)
+        #         # This forces the allocator to release unused blocks
+        #         torch.cuda.memory.empty_cache()
 
         for i in range(torch.cuda.device_count()):
             print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")

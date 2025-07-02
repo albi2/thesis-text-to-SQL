@@ -52,5 +52,6 @@ class PipelineContext(GenericContext):
         return {
             "user_query": self.user_query,
             "db_schema_per_keyword": self.db_schema_per_keyword,
-            "selected_schema": self.selected_schema
+            "selected_schema": self.selected_schema,
+            "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries]
         }

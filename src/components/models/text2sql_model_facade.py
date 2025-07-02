@@ -9,7 +9,6 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
     def __init__(self, model_name: str = None, default_params_override: dict = None):
         effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL_PATH
         super().__init__(model_name=effective_model_name, default_params_override=default_params_override)
-        print(f"Text2SQLModelFacade initialized with model: {self.model_name}")
 
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
         """
@@ -33,9 +32,9 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
         Returns task-specific default generation parameters for Text2SQL.
         """
         return {
-            "temperature": 0.1,
-            "do_sample": True,
-            "top_p": 0.8,
+            # "temperature": 0.1,
+            # "do_sample": True,
+            # "top_p": 0.8, 
             "max_new_tokens": 1024
             # top_p is already handled by base defaults or instance override
         }

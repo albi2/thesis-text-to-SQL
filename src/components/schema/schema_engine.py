@@ -148,15 +148,16 @@ class SchemaEngine(SQLDatabase):
         for table_name in self._usable_tables:
             table_comment = self.get_table_comment(table_name)
             table_comment = '' if table_comment is None else table_comment.strip()
-            table_with_schema = self._tables_schemas[table_name] + '.' + table_name
-            self._mschema.add_table(table_with_schema, fields={}, comment=table_comment)
+            # table_with_schema = self._tables_schemas[table_name] + '.' + table_name
+
+            self._mschema.add_table(table_name, fields={}, comment=table_comment)
             pks = self.get_pk_constraint(table_name)
 
             fks = self.get_foreign_keys(table_name)
             for fk in fks:
                 referred_schema = fk['referred_schema']
                 for c, r in zip(fk['constrained_columns'], fk['referred_columns']):
-                    self._mschema.add_foreign_key(table_with_schema, c, referred_schema, fk['referred_table'], r)
+                    self._mschema.add_foreign_key(table_name, c, referred_schema, fk['referred_table'], r)
 
             fields = self._inspector.get_columns(table_name, schema=self._tables_schemas[table_name])
             for field in fields:
@@ -177,7 +178,7 @@ class SchemaEngine(SQLDatabase):
                 examples = examples_to_str(examples)
 
                 self._mschema.add_field(
-                    table_with_schema, field_name, field_type=field_type, primary_key=primary_key,
+                    table_name, field_name, field_type=field_type, primary_key=primary_key,
                     nullable=field['nullable'], default=default, autoincrement=autoincrement,
                     comment=field_comment, examples=examples
                 )

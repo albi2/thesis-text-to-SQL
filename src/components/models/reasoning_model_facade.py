@@ -8,7 +8,6 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
     def __init__(self, model_name: str = None, default_params_override: dict = None):
         effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL_PATH
         super().__init__(model_name=effective_model_name, default_params_override=default_params_override)
-        print(f"ReasoningModelFacade initialized with model: {self.model_name}")
 
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
         """
@@ -31,7 +30,7 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
         # Example: Reasoning might benefit from slightly different temperature or sampling.
         # These will be layered on top of base defaults and can be overridden by instance or query kwargs.
         return {
-            "max_new_tokens": 32768
+            "max_new_tokens": 24000
         }
     
     def _get_model_info(self) -> dict:

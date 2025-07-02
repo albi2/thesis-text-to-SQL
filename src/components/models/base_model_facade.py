@@ -124,9 +124,21 @@ class BaseHuggingFaceFacade(ABC):
             for i in range(torch.cuda.device_count()):
                 torch.cuda.set_device(i)
                 torch.cuda.empty_cache() 
+                torch.cuda.ipc_collect()
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
                 gc.collect()
+        
+        # if hasattr(torch.cuda, 'memory'):
+        #     for i in range(torch.cuda.device_count()):
+        #         torch.cuda.set_device(i)
+        #         # This forces the allocator to release unused blocks
+        #         torch.cuda.memory.empty_cache()
+
 
         for i in range(torch.cuda.device_count()):
+            torch.cuda.memory._dump_snapshot()  # Debug info
+            torch.cuda.reset_accumulated_memory_stats(i)
             torch.cuda.reset_peak_memory_stats(i)
         print(f"Model '{self.model_name}' unloaded successfully.")
 
@@ -175,6 +187,9 @@ class BaseHuggingFaceFacade(ABC):
                 print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
                 print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
             self._load_model_and_tokenizer()
+            for i in range(torch.cuda.device_count()):
+                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
             model_inputs = self._prepare_model_inputs(prompt, system_prompt)
             
@@ -194,6 +209,9 @@ class BaseHuggingFaceFacade(ABC):
 
             num_return_sequences = final_params.get("num_return_sequences", 1)
 
+            for i in range(torch.cuda.device_count()):
+                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
             with torch.no_grad():
                 generated_ids_full = self.model.generate(
                     **model_inputs,
@@ -201,7 +219,9 @@ class BaseHuggingFaceFacade(ABC):
                 )
                 if isinstance(generated_ids_full, torch.Tensor):
                     generated_ids_full = generated_ids_full.cpu()
-
+            for i in range(torch.cuda.device_count()):
+                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
             
             input_ids_len = model_inputs["input_ids"].shape[1]
