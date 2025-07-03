@@ -6,6 +6,9 @@ This file records architectural and implementation decisions using a list format
 2025-06-20 15:08:00 - Implemented lazy loading and explicit unloading for models to manage VRAM.
 2025-06-20 15:08:00 - Added logic to remove thinking tags from model outputs.
 
+*   **[2025-07-03] SQL Generation Pipeline Step:** Decided to implement a new pipeline step, `SQLGenerationStep`, with a dedicated `SQLGenerationExecutor`, to generate SQL queries based on the filtered schema from the previous step.
+*   **[2025-07-03] Asynchronous SQL Execution and Validation:** Decided to implement an asynchronous utility to execute and validate the generated SQL queries. This utility uses `asyncio` to run queries concurrently and returns an `SQLExecInfo` object for each query, containing the query, status, and result.
+*   **[2025-07-03] SQL Query Parsing from Model Output:** Decided to implement parsing logic in the `SQLGenerationExecutor` to extract the final SQL query from the model's response, which is expected to be enclosed in `<FINAL_ANSWER>` tags.
 *
 
 ## Decision
@@ -34,6 +37,9 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-05-25] Conditional Step Execution in Pipeline:** To enable dynamic pipeline behavior where certain steps might be skipped or included based on the current context or the results of previous steps, leading to more adaptive processing.
 *   **[2025-06-08] Agent-based Information Retrieval:** To improve modularity by separating the concern of context retrieval from the main Text-to-SQL generation pipeline. This allows for more sophisticated context-aware processing of user queries.
 *   **[2025-06-08] Vector Database for Semantic Search:** To improve the accuracy of schema linking by finding relevant tables and columns based on semantic meaning rather than just exact keyword matches. This is crucial for handling diverse and complex natural language queries.
+*   **[2025-07-03] SQL Generation Pipeline Step:** To modularize the SQL generation process, separating it from schema filtering and other pipeline steps. This improves maintainability and allows for easier testing and extension of the SQL generation logic.
+*   **[2025-07-03] Asynchronous SQL Execution and Validation:** To improve performance by executing multiple generated SQL queries concurrently. This is particularly useful when generating multiple candidate queries, as it allows for faster validation and selection of the best query.
+*   **[2025-07-03] SQL Query Parsing from Model Output:** To ensure that only the final, executable SQL query is extracted from the model's potentially verbose output, which may include reasoning or other text. This improves the reliability of the SQL execution step.
 *   **[2025-06-08] Dedicated Embedding Model Facade:** To centralize and abstract the process of generating text embeddings, making it easier to manage, update, or swap out the embedding model in the future without affecting other parts of the system.
 *   **[2025-06-08] Preprocessing for Vector DB Population:** To ensure that the semantic search capability is fast and efficient at runtime by pre-calculating and indexing all necessary column embeddings.
 *   **[2025-06-19] Pipeline Step Output Passing:** This refactoring enhances the clarity and explicitness of data flow between pipeline steps, making the pipeline easier to understand, debug, and extend. It also reduces the reliance on the `PipelineContext` as a central data store for intermediate step results, promoting a more functional approach to pipeline design.
@@ -76,6 +82,14 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-05-25] Use of SQLAlchemy for Database Interaction:** SQLAlchemy will be integrated into the [`DatabaseManager`](src/infrastructure/database/database_manager.py) to handle database connection, session management, and query execution.
 *   **[2025-05-25] Use of PyYAML for Configuration Parsing:** PyYAML will be used within the [`ConfigurationHelper`](src/common/config/config_manager.py:ConfigurationHelper) in [`src/common/config/config_manager.py`](src/common/config/config_manager.py) to parse [`config/database.yaml`](config/database.yaml) and [`config/schema_engine.yaml`](config/schema_engine.yaml).
 *   **[2025-05-25] Pipeline Core Structure Design:** Implemented abstract base class [`PipelineStep`](src/pipeline/pipeline_step.py:PipelineStep) with `before`, `after`, and `handle_execution` methods, and a [`Pipeline`](src/pipeline/pipeline.py:Pipeline) class with a nested `Builder` for constructing the pipeline. The Chain of Responsibility pattern is used for step delegation.
+*   **[2025-07-03] SQL Generation Pipeline Step:**
+    *   Created `SQLGenerationStep` in [`src/pipeline/steps/sql_generation/sql_generation_step.py`](src/pipeline/steps/sql_generation/sql_generation_step.py) and `SQLGenerationExecutor` in [`src/pipeline/steps/sql_generation/executor/sql_generation_executor.py`](src/pipeline/steps/sql_generation/executor/sql_generation_executor.py).
+    *   The executor uses the `Text2SQLModelFacade` to generate SQL queries based on a prompt from [`src/prompts/sql_generation.py`](src/prompts/sql_generation.py).
+*   **[2025-07-03] Asynchronous SQL Execution and Validation:**
+    *   Created a new utility module [`src/util/db/execute.py`](src/util/db/execute.py) with `execute_sql_queries_async` and `SQLExecInfo` class.
+    *   The `SQLGenerationExecutor` uses this utility to execute queries asynchronously and stores the results in the `PipelineContext`.
+*   **[2025-07-03] SQL Query Parsing from Model Output:**
+    *   Added regex-based parsing in `SQLGenerationExecutor` to extract the SQL query from within `<FINAL_ANSWER>` tags in the model's response.
 *   **[2025-05-25] Conditional Step Execution in Pipeline:** Added a `should_execute(context: PipelineContext) -> bool` method to the [`PipelineStep`](src/pipeline/pipeline_step.py:PipelineStep) base class. The pipeline execution logic will check this method before running a step.
 *   **[2025-06-08] Agent-based Information Retrieval:** Implemented the [`InformationRetriever`](src/components/agents/information_retriever.py) agent, which uses the [`ReasoningModelFacade`](src/components/models/reasoning_model_facade.py) for keyword extraction and the [`ChromaClient`](src/infrastructure/vector_db/chroma_client.py) for context retrieval.
 *   **[2025-06-08] Vector Database for Semantic Search:** Added ChromaDB to [`docker-compose/docker-compose.yaml`](docker-compose/docker-compose.yaml) and implemented a [`ChromaClient`](src/infrastructure/vector_db/chroma_client.py) to interact with it.

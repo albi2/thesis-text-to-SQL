@@ -35,4 +35,8 @@ This file provides a high-level overview of the project and the expected product
         *   Optional SQL Refiner
     *   **Phase 3: Evaluation & Iteration:** Involves preparing datasets, defining evaluation metrics (execution accuracy, exact match, LLM-as-a-judge), conducting experiments, and performing error analysis.
     *   **Phase 4: Integration with Chat LLM:** Defines the framework as a tool for a chat LLM, manages agent orchestration, handles multi-turn conversations, and ensures security.
-*   The core architecture is a pipeline of these modular components, transforming a natural language question and database schema into an executable SQL query. An `InformationRetriever` agent acts as a preliminary step, using a vector database (ChromaDB) to perform semantic search on schema information, providing highly relevant context to the main pipeline.
+*   The core architecture is a pipeline of these modular components, transforming a natural language question and database schema into an executable SQL query. The pipeline consists of the following steps:
+    1.  **Information Retrieval:** An `InformationRetriever` agent extracts keywords from the user query and retrieves relevant schema information from a vector database (ChromaDB).
+    2.  **Schema Filtering:** A `SchemaFilterStep` uses a reasoning model to select the most relevant tables and columns from the retrieved schema.
+    3.  **SQL Generation:** A `SQLGenerationStep` generates multiple SQL query candidates based on the filtered schema and the user query.
+    4.  **SQL Validation:** The generated queries are executed asynchronously to filter out invalid queries.

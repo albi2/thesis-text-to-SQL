@@ -28,6 +28,7 @@ class PipelineContext(GenericContext):
         self.selected_schema: dict = None
         self.hint: Optional[str] = None
         self.generated_sql_queries: List[SQLExecInfo] = []
+        self.selected_sql_query: Optional[SQLExecInfo] = None
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint
@@ -53,5 +54,6 @@ class PipelineContext(GenericContext):
             "user_query": self.user_query,
             "db_schema_per_keyword": self.db_schema_per_keyword,
             "selected_schema": self.selected_schema,
-            "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries]
+            "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries],
+            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None
         }

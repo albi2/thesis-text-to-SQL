@@ -98,3 +98,29 @@ This file documents recurring patterns and standards used in the project.
 *                     self.unload_model()
 *         ```
 *     **Implementation:** [`BaseHuggingFaceFacade`](src/components/models/base_model_facade.py), [`SentenceTransformerEmbeddingFacade`](src/components/models/embedding_model_facade.py)
+*   **[2025-07-03] Asynchronous Execution with `asyncio`:**
+    *   **Guideline:** Use `asyncio` for I/O-bound tasks, such as executing multiple database queries, to improve performance through concurrent execution.
+    *   **When to use:** When multiple independent, I/O-bound operations can be performed concurrently.
+    *   **Conceptual Example:**
+        ```python
+        import asyncio
+
+        async def main():
+            tasks = [async_operation(item) for item in items]
+            results = await asyncio.gather(*tasks)
+            return results
+        ```
+    *   **Implementation:** [`execute_sql_queries_async`](src/util/db/execute.py)
+
+*   **[2025-07-03] Data Transfer Object (DTO) for Operation Results:**
+    *   **Guideline:** Use a dedicated class (e.g., a dataclass or a simple class) to encapsulate the results of an operation, including status, data, and any errors.
+    *   **When to use:** When an operation can have multiple outcomes (e.g., success, failure, timeout) and you need to pass structured information about the outcome to the caller.
+    *   **Conceptual Example:**
+        ```python
+        class OperationResult:
+            def __init__(self, status, data=None, error=None):
+                self.status = status
+                self.data = data
+                self.error = error
+        ```
+    *   **Implementation:** [`SQLExecInfo`](src/util/db/execute.py)
