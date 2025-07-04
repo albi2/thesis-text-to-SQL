@@ -6,9 +6,10 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
     Facade for Hugging Face Causal LM models specialized for Text-to-SQL tasks.
     Supports generating multiple SQL query candidates.
     """
-    def __init__(self, model_name: str = None, default_params_override: dict = None):
-        effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL_PATH
-        super().__init__(model_name=effective_model_name, default_params_override=default_params_override)
+    def __init__(self, model_name: str = None, model_repo: str = None, default_params_override: dict = None):
+        eff_model_name = model_name or HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL_PATH
+        eff_model_repo = model_repo or HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL
+        super().__init__(model_name=eff_model_name, model_repo = eff_model_repo, default_params_override=default_params_override)
 
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
         """
@@ -39,7 +40,7 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
             # top_p is already handled by base defaults or instance override
         }
 
-    def query(self, prompt: str, system_prompt: str = None, num_return_sequences: int = 1, **generation_kwargs) -> str | list[str]:
+    def query(self, prompt: str, system_prompt: str = None, **generation_kwargs) -> str | list[str]:
         """
         Sends a prompt to the loaded Text2SQL model and returns the generated SQL query(s).
 
@@ -57,25 +58,10 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
                              otherwise a list of SQL query strings.
         """
         # Pass num_return_sequences to the base class query method via generation_kwargs
-        generation_kwargs["num_return_sequences"] = num_return_sequences
-        
-        # If num_return_sequences > 1, do_sample must be True.
-        # The generate method in transformers might handle this, but good to be explicit.
-        if num_return_sequences > 1 and not generation_kwargs.get("do_sample", self._get_task_specific_generation_params().get("do_sample", False)):
-            print(f"Warning: num_return_sequences is {num_return_sequences} but do_sample is False. Setting do_sample=True for multiple sequences.")
-            generation_kwargs["do_sample"] = True
-            # Also ensure temperature is reasonable for sampling if not set
-            if "temperature" not in generation_kwargs and "temperature" not in self._get_task_specific_generation_params():
-                 generation_kwargs["temperature"] = self.default_generation_params.get("temperature", 0.7) # A general sampling temp
 
 
         return super().query(prompt, system_prompt=system_prompt, **generation_kwargs)
         
-    def _get_model_info(self) -> dict:
-        return {
-            "path": HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL_PATH,
-            "model_name": HuggingFaceModelConstants.DEFAULT_TEXT2SQL_MODEL,
-        }
 
 # if __name__ == '__main__':
 #     # Ensure `accelerate` is installed: pip install accelerate

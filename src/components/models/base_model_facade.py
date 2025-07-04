@@ -20,8 +20,9 @@ class BaseHuggingFaceFacade(ABC):
     Abstract base class for Hugging Face Causal LM model facades.
     Handles common model loading and querying logic with lazy loading.
     """
-    def __init__(self, model_name: str, default_params_override: dict = None):
+    def __init__(self, model_name: str, model_repo: str, default_params_override: dict = None):
         self.model_name = model_name
+        self.model_repo = model_repo
         self._model = None
         self._tokenizer = None
         self.device_map_config = None
@@ -36,10 +37,9 @@ class BaseHuggingFaceFacade(ABC):
 
     def _download_model_files(self):
         """Downloads model files from Hugging Face Hub."""
-        model_info = self._get_model_info()
-        local_path = model_info.get("path")
-        repo_id = model_info.get("model_name")
-        
+        local_path = self.model_name
+        repo_id = self.model_repo
+
         if not local_path or not repo_id:
             print(f"Warning: Model info for '{self.model_name}' is incomplete. Skipping download.")
             return
@@ -144,14 +144,6 @@ class BaseHuggingFaceFacade(ABC):
 
     @abstractmethod
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
-        """
-        Prepares the tokenized inputs for the model using appropriate chat templates.
-        To be implemented by subclasses.
-        """
-        pass
-
-    @abstractmethod
-    def _get_model_info(self) -> dict:
         """
         Prepares the tokenized inputs for the model using appropriate chat templates.
         To be implemented by subclasses.

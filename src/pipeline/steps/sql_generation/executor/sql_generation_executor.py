@@ -6,16 +6,15 @@ from components.models.text2sql_model_facade import Text2SQLModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo
+from util.constants import HuggingFaceModelConstants
 
 class SQLGenerationExecutor:
-    NUM_QUERIES_TO_GENERATE = 3  # Configurable static field
 
     def __init__(self):
         self.text2sql_model_facade = Text2SQLModelFacade()
+        self.omin_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLExecInfo]:
-        generated_sql_queries: List[str] = []
-
         # Create MSchema string from selected_schema
         selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name ]
         selected_columns = []
@@ -36,15 +35,21 @@ class SQLGenerationExecutor:
 
         print('SQL GENERATION MSCHEMA', mschema_string)
 
-        for _ in range(self.NUM_QUERIES_TO_GENERATE):
-            full_prompt = PROMPT.format(
-                DATABASE_SCHEMA=mschema_string,
-                QUESTION=pipeline_context.user_query,
-                HINT=getattr(pipeline_context, 'hint', '') # Get hint if it exists, otherwise empty string
-            )
+        full_prompt = PROMPT.format(
+            DATABASE_SCHEMA=mschema_string,
+            QUESTION=pipeline_context.user_query,
+            HINT=getattr(pipeline_context, 'hint', '') # Get hint if it exists, otherwise empty string
+        )
 
-            model_response = self.text2sql_model_facade.query(full_prompt)
+        responses: List[str] = []
+        default_response = self.text2sql_model_facade.query(full_prompt)
+        omni_response = sellf.omin_text2sql_model_facade.query(prompt = full_prompt, system_prompt = None, max_tokens = 2048)
+        
+        responses.append(default_response)
+        responses.append(omni_response)
 
+        generated_sql_queries: List[str] = []
+        for model_response in responses:
             try:
                 if "```sql" in model_response:
                     model_response = model_response.split("```sql")[1].split("```")[0]
@@ -54,7 +59,7 @@ class SQLGenerationExecutor:
             except Exception as e:
                 print("Could not parse JSON for schema filtering", e) 
                 generated_sql_queries.append(model_response) 
-            
+        
 
         # Execute and filter queries asynchronously
         # We need to run the async function in an event loop.

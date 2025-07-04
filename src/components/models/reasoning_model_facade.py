@@ -5,9 +5,10 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
     """
     Facade for Hugging Face Causal LM models specialized for reasoning tasks.
     """
-    def __init__(self, model_name: str = None, default_params_override: dict = None):
+    def __init__(self, model_name: str = None, model_repo: str = None default_params_override: dict = None):
         effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL_PATH
-        super().__init__(model_name=effective_model_name, default_params_override=default_params_override)
+        eff_model_repo = model_repo or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL
+        super().__init__(model_name=effective_model_name, model_repo = eff_model_repo, default_params_override=default_params_override)
 
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
         """
@@ -32,13 +33,6 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
         return {
             "max_new_tokens": 24000
         }
-    
-    def _get_model_info(self) -> dict:
-        return {
-            "path": HuggingFaceModelConstants.DEFAULT_REASONING_MODEL_PATH,
-            "model_name": HuggingFaceModelConstants.DEFAULT_REASONING_MODEL,
-        }
-        
 
 # if __name__ == '__main__':
 #     # Ensure `accelerate` is installed: pip install accelerate
