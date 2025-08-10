@@ -1,6 +1,7 @@
 # Decision Log
 
 This file records architectural and implementation decisions using a list format.
+2025-07-04 22:06:00 - Added Query Selection pipeline step.
 2025-06-19 23:03:00 - Log of updates made.
 2025-06-19 23:28:00 - Refactored pipeline to pass step output as input to the next step.
 2025-06-20 15:08:00 - Implemented lazy loading and explicit unloading for models to manage VRAM.
@@ -9,6 +10,7 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-07-03] SQL Generation Pipeline Step:** Decided to implement a new pipeline step, `SQLGenerationStep`, with a dedicated `SQLGenerationExecutor`, to generate SQL queries based on the filtered schema from the previous step.
 *   **[2025-07-03] Asynchronous SQL Execution and Validation:** Decided to implement an asynchronous utility to execute and validate the generated SQL queries. This utility uses `asyncio` to run queries concurrently and returns an `SQLExecInfo` object for each query, containing the query, status, and result.
 *   **[2025-07-03] SQL Query Parsing from Model Output:** Decided to implement parsing logic in the `SQLGenerationExecutor` to extract the final SQL query from the model's response, which is expected to be enclosed in `<FINAL_ANSWER>` tags.
+*   **[2025-07-04] Query Selection Pipeline Step:** Decided to implement a new pipeline step, `QuerySelectionStep`, with a dedicated `QuerySelectionExecutor`, to select the best SQL query from a list of candidates using a reasoning model.
 *
 
 ## Decision
@@ -26,6 +28,7 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-06-08] Dedicated Embedding Model Facade:** Decided to create a dedicated facade for text embedding models to ensure consistent vector generation and to easily manage the underlying model. Selected "Qwen/Qwen2-Embedding-4B" as the default model.
 *   **[2025-06-08] Preprocessing for Vector DB Population:** Decided to create an offline script to populate the vector database with embeddings of database column names and descriptions.
 *   **[2025-06-19] Pipeline Step Output Passing:** Decided to refactor the pipeline to pass the output of each step directly as an input to the next step, rather than storing it in the `PipelineContext`.
+*   **[2025-07-04] Query Selection Pipeline Step:** Decided to implement a new pipeline step, `QuerySelectionStep`, with a dedicated `QuerySelectionExecutor`, to select the best SQL query from a list of candidates using a reasoning model.
 
 ## Rationale
 
@@ -43,6 +46,7 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-06-08] Dedicated Embedding Model Facade:** To centralize and abstract the process of generating text embeddings, making it easier to manage, update, or swap out the embedding model in the future without affecting other parts of the system.
 *   **[2025-06-08] Preprocessing for Vector DB Population:** To ensure that the semantic search capability is fast and efficient at runtime by pre-calculating and indexing all necessary column embeddings.
 *   **[2025-06-19] Pipeline Step Output Passing:** This refactoring enhances the clarity and explicitness of data flow between pipeline steps, making the pipeline easier to understand, debug, and extend. It also reduces the reliance on the `PipelineContext` as a central data store for intermediate step results, promoting a more functional approach to pipeline design.
+*   **[2025-07-04] Query Selection Pipeline Step:** To improve the accuracy of the final SQL query by using a reasoning model to evaluate multiple candidates based on their relevance and correctness, considering both the query itself and its execution result.
 
 ## Rationale
 
@@ -96,3 +100,7 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-06-08] Dedicated Embedding Model Facade:** Implemented the [`SentenceTransformerEmbeddingFacade`](src/components/models/embedding_model_facade.py) and configured it to use the "Qwen/Qwen2-Embedding-4B" model via [`src/util/constants.py`](src/util/constants.py).
 *   **[2025-06-08] Preprocessing for Vector DB Population:** Created the [`populate_column_vectors.py`](scripts/vector_db/populate_column_vectors.py) script to extract schema information using `SchemaEngine` and index it into ChromaDB.
 *   **[2025-06-22] Schema Filtering Step Implementation:** Implemented a new pipeline step, `SchemaFilterStep`, with a dedicated `SchemaFilterExecutor`, to refine the database schema context based on information retrieved from the `InformationRetrievalStep` and a reasoning model. This step stores the filtered schema directly in the `PipelineContext`.
+*   **[2025-07-04] Query Selection Pipeline Step:**
+    *   Created `QuerySelectionStep` in [`src/pipeline/steps/query_selection/query_selection_step.py`](src/pipeline/steps/query_selection/query_selection_step.py) and `QuerySelectionExecutor` in [`src/pipeline/steps/query_selection/executor/query_selection_executor.py`](src/pipeline/steps/query_selection/executor/query_selection_executor.py).
+    *   The executor uses the `ReasoningModelFacade` to select the best query based on a prompt from [`src/prompts/query_selection.py`](src/prompts/query_selection.py).
+    *   The selected `SQLExecInfo` object is stored in the `selected_sql_query` attribute of the `PipelineContext`.
