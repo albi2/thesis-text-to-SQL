@@ -9,11 +9,11 @@ import copy
 
 import gc
 from huggingface_hub import snapshot_download
-import accelerator
 # Set the environment variable
 # Choose HF_HOME or HF_HUB_CACHE based on your preference
 os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
 os.environ['HF_HOME'] = "/var/tmp/ge62nok"
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 class BaseHuggingFaceFacade(ABC):
     """
@@ -74,14 +74,23 @@ class BaseHuggingFaceFacade(ABC):
             return
 
         print(f"--- Starting lazy load for: {self.model_name} ---")
-        
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
+
         # Determine device mapping
-        if not torch.cuda.is_available():
-            print(f"Warning: CUDA not available. Model '{self.model_name}' will run on CPU.")
-            self.device_map_config = None
+        if torch.cuda.device_count() == 0:
+            # print(f"Warning: CUDA not available. Model '{self.model_name}' will run on CPU.")
+            # self.device_map_config = None
+            raise RuntimeError("No GPU found! Please make sure a CUDA-enabled GPU is available.")
         else:
             print(f"{torch.cuda.device_count()} GPU(s) detected. Using device_map='auto' for '{self.model_name}'.")
             self.device_map_config = "auto"
+        
+        # self.device_map_config = "auto"
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
         try:
             print(f"Loading tokenizer for '{self.model_name}'...")
@@ -108,6 +117,9 @@ class BaseHuggingFaceFacade(ABC):
             self._tokenizer = None
             raise
         print(f"--- Finished lazy load for: {self.model_name} ---")
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
     def unload_model(self):
         """Unloads the model and tokenizer to free up memory."""
@@ -141,6 +153,9 @@ class BaseHuggingFaceFacade(ABC):
             torch.cuda.reset_accumulated_memory_stats(i)
             torch.cuda.reset_peak_memory_stats(i)
         print(f"Model '{self.model_name}' unloaded successfully.")
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
     @abstractmethod
     def _prepare_model_inputs(self, prompt: str, system_prompt: str = None) -> dict:
@@ -175,9 +190,6 @@ class BaseHuggingFaceFacade(ABC):
         """
         try:
             # Explicitly load model and tokenizer
-            for i in range(torch.cuda.device_count()):
-                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
-                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
             self._load_model_and_tokenizer()
             for i in range(torch.cuda.device_count()):
                 print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
@@ -211,9 +223,6 @@ class BaseHuggingFaceFacade(ABC):
                 )
                 if isinstance(generated_ids_full, torch.Tensor):
                     generated_ids_full = generated_ids_full.cpu()
-            for i in range(torch.cuda.device_count()):
-                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
-                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
             
             input_ids_len = model_inputs["input_ids"].shape[1]
@@ -247,12 +256,7 @@ class BaseHuggingFaceFacade(ABC):
 
         except Exception as e:
             print(f"Error during model query for '{self.model_name}': {e}")
-            if final_params.get("num_return_sequences", 1) > 1:
-                return [f"Error generating response: {e}"]
             return f"Error generating response: {e}"
         finally:
             # Explicitly unload model and tokenizer
             self.unload_model()
-            for i in range(torch.cuda.device_count()):
-                print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
-                print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")

@@ -37,11 +37,13 @@ class HuggingFaceModelConstants:
     DEFAULT_REASONING_MODEL = "Qwen/Qwen3-4B"
     DEFAULT_EMBEDDING_MODEL: str = "Qwen/Qwen3-Embedding-4B"
     OMNI_TEXT2SQL_MODEL_REPO = "seeklhy/OmniSQL-7B"
+    DEFOG_TEXT2SQL_MODEL_REPO = "defog/sqlcoder-7b-2"
 
     DEFAULT_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
     DEFAULT_REASONING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen3-4B"
     DEFAULT_EMBEDDING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen3-Embedding-4B"
-    OMNI_TEXT2SQL_MODEL_PATH = "var/tmp/ge62nok/models/seeklhy/OmniSQL-7B"
+    OMNI_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/seeklhy/OmniSQL-7B"
+    DEFOG_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/defog/sqlcoder-7b-2"
 
     DEFAULT_MODEL_GENERATION_PARAMS = {
         "max_new_tokens": 512,

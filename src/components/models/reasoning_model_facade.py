@@ -5,7 +5,7 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
     """
     Facade for Hugging Face Causal LM models specialized for reasoning tasks.
     """
-    def __init__(self, model_name: str = None, model_repo: str = None default_params_override: dict = None):
+    def __init__(self, model_name: str = None, model_repo: str = None, default_params_override: dict = None):
         effective_model_name = model_name or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL_PATH
         eff_model_repo = model_repo or HuggingFaceModelConstants.DEFAULT_REASONING_MODEL
         super().__init__(model_name=effective_model_name, model_repo = eff_model_repo, default_params_override=default_params_override)
@@ -31,7 +31,7 @@ class ReasoningModelFacade(BaseHuggingFaceFacade):
         # Example: Reasoning might benefit from slightly different temperature or sampling.
         # These will be layered on top of base defaults and can be overridden by instance or query kwargs.
         return {
-            "max_new_tokens": 24000
+            "max_new_tokens": 16000
         }
 
 # if __name__ == '__main__':

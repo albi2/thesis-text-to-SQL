@@ -14,7 +14,8 @@ class QuerySelectionExecutor:
         queries_with_results = ""
         for i, info in enumerate(pipeline_context.generated_sql_queries):
             queries_with_results += f"{i}: {info.sql}\n"
-            queries_with_results += f"   Query output: {info.result}\n"
+            if info.result is not None:
+                queries_with_results += f"  Query output: {info.result[:500]}\n"
 
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             raise ValueError("SchemaEngine not found in pipeline context.")

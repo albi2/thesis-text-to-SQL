@@ -4,15 +4,17 @@ from typing import List
 import asyncio
 from components.models.text2sql_model_facade import Text2SQLModelFacade
 from context.pipeline_context import PipelineContext
-from prompts.sql_generation import PROMPT
+from prompts.sql_generation import PROMPT, DEFOG_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo
 from util.constants import HuggingFaceModelConstants
+import time
 
 class SQLGenerationExecutor:
 
     def __init__(self):
         self.text2sql_model_facade = Text2SQLModelFacade()
-        self.omin_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
+        # self.omin_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
+        self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLExecInfo]:
         # Create MSchema string from selected_schema
@@ -41,21 +43,34 @@ class SQLGenerationExecutor:
             HINT=getattr(pipeline_context, 'hint', '') # Get hint if it exists, otherwise empty string
         )
 
+        defog_prompt = DEFOG_PROMPT.format(
+            DATABASE_SCHEMA=mschema_string,
+            QUESTION=pipeline_context.user_query,
+        )
+
         responses: List[str] = []
-        default_response = self.text2sql_model_facade.query(full_prompt)
-        omni_response = sellf.omin_text2sql_model_facade.query(prompt = full_prompt, system_prompt = None, max_tokens = 2048)
-        
-        responses.append(default_response)
-        responses.append(omni_response)
+        try:
+            default_response = self.text2sql_model_facade.query(full_prompt)
+            print('FIRST RESPONSE', default_response)
+            responses.append(default_response)
+            defog_response = self.defog_text2sql_model_facade.query(prompt = defog_prompt, system_prompt = None, max_new_tokens = 800)
+            responses.append(defog_response)
+            print('SECOND RESPONSE', defog_response)
+        except Exception as e:
+            print("Failed to generate query because of", e)
 
         generated_sql_queries: List[str] = []
         for model_response in responses:
             try:
+                print('SQL GENERATION MODEL RESPONSE', model_response)
                 if "```sql" in model_response:
                     model_response = model_response.split("```sql")[1].split("```")[0]
                     model_response = re.sub(r"^\s+", "", model_response)
                     resulting_sql = json.loads(model_response)
                     generated_sql_queries.append(resulting_sql) # Append raw response for now
+                elif "```" in model_response:
+                    resulting_sql = generated_text.split(";")[0].split("```")[0].strip()+ ";";
+                    generated_sql_queries.append(resulting_sql)
             except Exception as e:
                 print("Could not parse JSON for schema filtering", e) 
                 generated_sql_queries.append(model_response) 

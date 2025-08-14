@@ -38,12 +38,15 @@ class SchemaFilterExecutor:
         )
 
         model_response = self.reasoning_model_facade.query(full_prompt)
+        
         print('FILTERING RESPONSE', model_response)
         resulting_schema = {}
         try:
             if "```json" in model_response:
                 model_response = model_response.split("```json")[1].split("```")[0]
                 model_response = re.sub(r"^\s+", "", model_response)
+                resulting_schema = json.loads(model_response)
+            else:
                 resulting_schema = json.loads(model_response)
         except Exception as e:
             print("Could not parse JSON for schema filtering", e) 

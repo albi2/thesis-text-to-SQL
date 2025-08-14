@@ -18,8 +18,4 @@ class SchemaFilterStep(PipelineStep[PipelineContext, None]):
         )
         pipeline_context.selected_schema = result_dictionary
 
-
-        print("--------------- WAITING 10 SECONDS ----------------------")
-        time.sleep(10)
-
         return None

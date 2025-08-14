@@ -11,7 +11,6 @@ from util.constants import HuggingFaceModelConstants
 import gc
 import torch.nn.functional as F
 from torch import Tensor
-import accelerator 
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -20,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 # Consistent cache directory
 os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
 os.environ['HF_HOME'] = "/var/tmp/ge62nok"
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 def last_token_pool(last_hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """
@@ -157,12 +157,14 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
         logger.info(f"Loading model '{self.model_name_or_path}'")
 
         # Determine device mapping
-        if not torch.cuda.is_available():
-            print(f"Warning: CUDA not available. Model '{self.model_name_or_path}' will run on CPU.")
-            self.device_map_config = None
+        if torch.cuda.device_count() == 0:
+            # print(f"Warning: CUDA not available. Model '{self.model_name_or_path}' will run on CPU.")
+            # self.device_map_config = None
+            raise RuntimeError("No GPU found! Please make sure a CUDA-enabled GPU is available.")
         else:
-            print(f"{torch.cuda.device_count()} GPU(s) detected. Using device_map='auto' for '{self.model_name_or_path}'.")
             self.device_map_config = "auto"
+            print(f"{torch.cuda.device_count()} GPU(s) detected. Using device_map='auto' for '{self.model_name_or_path}'.")
+
 
         try:
             self._model = AutoModel.from_pretrained(

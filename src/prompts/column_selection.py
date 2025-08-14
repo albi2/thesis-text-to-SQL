@@ -98,7 +98,9 @@ Response:
   "user_reviews": ["app_id", "Sentiment"]
 }
 ```
+"""
 
+EXTRA_FEWSHOTS = """
 Example 4:
 
 【DB_ID】<db_name>
@@ -163,13 +165,15 @@ Response:
 PROMPT="""
 You are an expert and very smart data analyst.
 Your task is to examine the provided database schema, understand the posed question, and use the hint to pinpoint the specific columns within tables that are essential for crafting a SQL query to answer the question.
-
-Database Schema Overview:
-{DATABASE_SCHEMA}
-
 This schema offers an in-depth description of the database's architecture, detailing tables, columns, primary keys, foreign keys, and any pertinent information regarding relationships or constraints. Special attention should be given to the examples listed beside each column, as they directly hint at which columns are relevant to our query.
 
-For key phrases mentioned in the question, we have provided the most similar values within the columns denoted by "-- examples" in front of the corresponding column names. This is a critical hint to identify the columns that will be used in the SQL query.
+Examples:
+{FEWSHOT_EXAMPLES}
+
+Now it is your turn to extract the most relevant columns and tables to the given query.
+
+Database Schema:
+{DATABASE_SCHEMA}
 
 Question:
 {QUESTION}
@@ -185,10 +189,8 @@ For each of the selected columns, explain why exactly it is necessary for answer
 
 Tip: If you are choosing a column for filtering a value within that column, make sure that column has the value as an example.
 
-Examples:
-{FEWSHOT_EXAMPLES}
+Please respond with a JSON object structured exactly as shown below:
 
-Please respond with a JSON object structured as follows:
 ```json
 {{
   "chain_of_thought_reasoning": "Your reasoning for selecting the columns, be concise and clear.",

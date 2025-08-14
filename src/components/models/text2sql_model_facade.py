@@ -21,6 +21,9 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
                   "Ensure your main prompt includes all necessary instructions, "
                   "as system prompts are typically not used separately in the chat template for Text2SQL.")
 
+        if not getattr(self.tokenizer, "chat_template", None):
+            return self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+
         messages = [{"role": "user", "content": prompt}]
         
         templated_text = self.tokenizer.apply_chat_template(

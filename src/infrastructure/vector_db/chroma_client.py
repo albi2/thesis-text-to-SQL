@@ -10,7 +10,7 @@ from chromadb.config import Settings
 # For now, let's assume it's in a place Python can find, or we'll define a placeholder.
 # If this script is run directly, the relative import will fail.
 try:
-    from components.models.embedding_model_facade import BaseEmbeddingModelFacade, SentenceTransformerEmbeddingFacade
+    from components.models.embedding_model_facade import BaseEmbeddingModelFacade, HuggingFaceEmbeddingFacade
 except ImportError:
     logging.warning("Could not import BaseEmbeddingModelFacade. Define a placeholder if running standalone for type hinting.")
     # Placeholder for type hinting if the actual class isn't found (e.g. running script directly)
@@ -104,7 +104,7 @@ class ChromaClient:
         )
         
         logger.info(f"Getting or creating collection '{collection_name}' with custom embedding function.")
-        self.client.delete_collection(name=collection_name)
+        # self.client.delete_collection(name=collection_name)
         collection = self.client.get_or_create_collection(
             name=collection_name,
             embedding_function=custom_embedding_function, 

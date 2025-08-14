@@ -1053,3 +1053,54 @@ Wrap the resulting SQL in
 ```sql
 ```
 """
+
+OMNI_PROMPT = """
+'''Task Overview:
+You are a data science expert. Below, you are provided with a database schema and a natural language question. Your task is to understand the schema and generate a valid SQL query to answer the question.
+
+Database Engine:
+PostgreSQL
+
+Database Schema:
+{DATABASE_SCHEMA}
+
+This schema describes the database's structure, including tables, columns, primary keys, foreign keys, and any relevant relationships or constraints.
+
+Question:
+{QUESTION}
+
+Hint:
+{HINT}
+
+Instructions:
+- Make sure you only output the information that is asked in the question. If the question asks for a specific column, make sure to only include that column in the SELECT clause, nothing more.
+- The generated query should return all of the information asked in the question without any missing or extra information.
+- Before generating the final SQL query, please think through the steps of how to write the query.
+- Always use double quotes for column names in the constructed query(E.g Given a column with name "Column Name" use SELECT T1."Column Name")
+- Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
+
+Output Format:
+In your answer, please enclose the generated SQL query in a code block:
+```sql
+-- Your SQL query
+```
+
+Take a deep breath and think step by step to find the correct SQL query.'''
+"""
+
+DEFOG_PROMPT="""
+### Task
+Generate a SQL query to answer [QUESTION]{QUESTION}[/QUESTION]
+
+### Instructions
+- If you cannot answer the question with the available database schema, return 'I do not know'
+- The resulting SQL must be wrapped in ```<generated-sql>```
+
+### Database Schema
+The query will run on a database with the following schema:
+{DATABASE_SCHEMA}
+
+### Answer
+Given the database schema, here is the SQL query that answers [QUESTION]{QUESTION}[/QUESTION]
+[SQL]
+"""

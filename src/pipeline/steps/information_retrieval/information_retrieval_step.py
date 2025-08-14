@@ -21,8 +21,5 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
         
         retrieved_context = self.information_retriever.retrieve_context(keywords=keywords, question=context.user_query)
         context.db_schema_per_keyword = retrieved_context
-
-        print("--------------- WAITING 10 SECONDS ----------------------")
-        time.sleep(10)
         
         return InformationRetrievalStepOutput(retrieved_context=retrieved_context)
