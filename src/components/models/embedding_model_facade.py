@@ -157,7 +157,7 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
         logger.info(f"Loading model '{self.model_name_or_path}'")
 
         # Determine device mapping
-        if torch.cuda.device_count() == 0:
+        if not torch.cuda.is_available():
             # print(f"Warning: CUDA not available. Model '{self.model_name_or_path}' will run on CPU.")
             # self.device_map_config = None
             raise RuntimeError("No GPU found! Please make sure a CUDA-enabled GPU is available.")
@@ -172,6 +172,7 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
                 device_map=self.device_map_config,
                 torch_dtype=torch.bfloat16
             )
+            self._model = self._model.to_bettertransformer()
             logger.info(f"Model '{self.model_name_or_path}' loaded successfully.")
             if self.device_map_config == "auto" and hasattr(self._model, 'hf_device_map'):
                  logger.info(f"Model device map: {self._model.hf_device_map}")

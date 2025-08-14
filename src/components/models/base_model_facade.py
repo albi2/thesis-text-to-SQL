@@ -79,7 +79,7 @@ class BaseHuggingFaceFacade(ABC):
             print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
         # Determine device mapping
-        if torch.cuda.device_count() == 0:
+        if not torch.cuda.is_available():
             # print(f"Warning: CUDA not available. Model '{self.model_name}' will run on CPU.")
             # self.device_map_config = None
             raise RuntimeError("No GPU found! Please make sure a CUDA-enabled GPU is available.")
@@ -105,6 +105,7 @@ class BaseHuggingFaceFacade(ABC):
                 torch_dtype=torch.bfloat16,
                 device_map=self.device_map_config
             )
+            self._model = self._model.to_bettertransformer()
             print(f"Model '{self.model_name}' loaded successfully.")
             if self.device_map_config == "auto" and hasattr(self._model, 'hf_device_map'):
                  print(f"Model device map: {self._model.hf_device_map}")
