@@ -5,12 +5,14 @@ This script connects to a database, extracts schema information (tables and colu
 and then stores representations of these columns (name or description) into
 a ChromaDB vector store. This allows for semantic searching of database columns.
 """
+import os
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
+
 import logging
 import argparse
 from typing import List, Dict, Any
 import sys
 import torch
-import os
 
 from infrastructure.vector_db.chroma_client import ChromaClient
 from infrastructure.database.database_manager import DatabaseManager
@@ -23,9 +25,9 @@ from util.constants import PreprocessingConstants
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-if torch.cuda.is_available():
-    torch.cuda.empty_cache()
-    print("CUDA cache emptied.")
+# if torch.cuda.is_available():
+#     torch.cuda.empty_cache()
+#     print("CUDA cache emptied.")
 
 os.environ['CHROMA_TELEMETRY_ANALYTICS'] = 'False'
 
@@ -37,6 +39,7 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
         chroma_config_file (str, optional): Name of the ChromaDB configuration file.
         chroma_config_path_in_file (str, optional): Path within the ChromaDB config file to its settings.
     """
+    os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
     logging.info("Starting database column preprocessing for ChromaDB population.")
 
 

@@ -97,6 +97,9 @@ class SQLGenerationExecutor:
             executable_sql_infos = loop.run_until_complete(
                 execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine, "thesis")
             )
+
+        for executable in executable_sql_infos:
+            print('QUERY EXECUTION', executable.to_dict())
         
         pipeline_context.generated_sql_queries = [info for info in executable_sql_infos if info.status == "OK"]
         return [info for info in executable_sql_infos if info.status == "OK"]

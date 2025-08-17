@@ -1,5 +1,6 @@
 import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:128'
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -105,7 +106,7 @@ class BaseHuggingFaceFacade(ABC):
                 torch_dtype=torch.bfloat16,
                 device_map=self.device_map_config
             )
-            self._model = self._model.to_bettertransformer()
+            # self._model = self._model.to_bettertransformer()
             print(f"Model '{self.model_name}' loaded successfully.")
             if self.device_map_config == "auto" and hasattr(self._model, 'hf_device_map'):
                  print(f"Model device map: {self._model.hf_device_map}")
@@ -136,9 +137,9 @@ class BaseHuggingFaceFacade(ABC):
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 torch.cuda.set_device(i)
-                torch.cuda.empty_cache() 
-                torch.cuda.ipc_collect()
-                torch.cuda.synchronize()
+                # torch.cuda.empty_cache() 
+                # torch.cuda.ipc_collect()
+                # torch.cuda.synchronize()
                 torch.cuda.empty_cache()
                 gc.collect()
         

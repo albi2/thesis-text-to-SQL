@@ -1,5 +1,6 @@
 import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -19,7 +20,6 @@ logging.basicConfig(level=logging.INFO)
 # Consistent cache directory
 os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
 os.environ['HF_HOME'] = "/var/tmp/ge62nok"
-os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 def last_token_pool(last_hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """
@@ -172,7 +172,7 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
                 device_map=self.device_map_config,
                 torch_dtype=torch.bfloat16
             )
-            self._model = self._model.to_bettertransformer()
+            # self._model = self._model.to_bettertransformer()
             logger.info(f"Model '{self.model_name_or_path}' loaded successfully.")
             if self.device_map_config == "auto" and hasattr(self._model, 'hf_device_map'):
                  logger.info(f"Model device map: {self._model.hf_device_map}")
@@ -201,17 +201,17 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 torch.cuda.set_device(i)
-                torch.cuda.empty_cache() 
-                torch.cuda.ipc_collect()
-                torch.cuda.synchronize()
+                # torch.cuda.empty_cache() 
+                # torch.cuda.ipc_collect()
+                # torch.cuda.synchronize()
                 torch.cuda.empty_cache()
                 gc.collect()
         
 
-        for i in range(torch.cuda.device_count()):
-            torch.cuda.memory._dump_snapshot()  # Debug info
-            torch.cuda.reset_accumulated_memory_stats(i)
-            torch.cuda.reset_peak_memory_stats(i)
+        # for i in range(torch.cuda.device_count()):
+        #     torch.cuda.memory._dump_snapshot()  # Debug info
+        #     torch.cuda.reset_accumulated_memory_stats(i)
+        #     torch.cuda.reset_peak_memory_stats(i)
 
         # if hasattr(torch.cuda, 'memory'):
         #     for i in range(torch.cuda.device_count()):
