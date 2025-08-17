@@ -2,6 +2,9 @@
 This module defines the SemanticSimilarityUtil class for calculating semantic similarity
 using sentence embeddings.
 """
+import os
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
+
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
