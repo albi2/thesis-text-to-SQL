@@ -25,6 +25,7 @@ class DatabaseConstants:
 
     # Default database URL format string
     DEFAULT_DB_URL_FORMAT = "postgresql://{user}:{password}@{host}:{port}/{database}"
+    DB_PATH = "thesis"
 
 class HuggingFaceModelConstants:
     """

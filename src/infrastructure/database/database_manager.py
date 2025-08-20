@@ -171,3 +171,5 @@ class DatabaseManager:
 #         db_manager.close_connection()
 #     else:
 #         print("Failed to initialize DatabaseManager or connect to database.")
+
+db_manager = DatabaseManager()

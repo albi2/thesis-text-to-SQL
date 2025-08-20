@@ -7,7 +7,6 @@ from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT, DEFOG_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo
 from util.constants import HuggingFaceModelConstants
-import time
 
 class SQLGenerationExecutor:
 
@@ -69,7 +68,7 @@ class SQLGenerationExecutor:
                     resulting_sql = json.loads(model_response)
                     generated_sql_queries.append(resulting_sql) # Append raw response for now
                 elif "```" in model_response:
-                    resulting_sql = generated_text.split(";")[0].split("```")[0].strip()+ ";";
+                    resulting_sql = model_response.split(";")[0].split("```")[0].strip()+ ";";
                     generated_sql_queries.append(resulting_sql)
             except Exception as e:
                 print("Could not parse JSON for schema filtering", e) 
