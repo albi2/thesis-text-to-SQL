@@ -13,12 +13,12 @@ from pipeline.steps.schema_filter.schema_filter_step import SchemaFilterStep
 from pipeline.steps.sql_generation.sql_generation_step import SQLGenerationStep
 from pipeline.steps.query_selection.query_selection_step import QuerySelectionStep
 from executor.task_model import Task
-from infrastructure.database.database_manager import db_manager
 from executor.statistics_manager import StatisticsManager
 from pipeline.steps.evaluation.evaluation_step import EvaluationStep
+from infrastructure.database.database_manager import DatabaseManager
 
 class RunningManager:
-    RESULT_ROOT_PATH = "../results"
+    RESULT_ROOT_PATH = "./results"
 
     """
     Manages the process of loading tasks and running the evaluation pipeline for each.
@@ -54,15 +54,16 @@ class RunningManager:
         This method is designed to be run in a separate process.
         """
         print(f"Running pipeline for question_id: {task.question_id} on db_id: {task.db_id}")
-        
-        database_engine: Engine | None = db_manager._engine
 
+        db_manager = DatabaseManager()
+        database_engine = db_manager.create_engine(task.db_id)
+        
         if not database_engine:
             print(f"Failed to create database engine for db_id: {task.db_id}. Skipping task.")
             return
 
         schema_factory = SchemaEngineFactory()
-        schema_engine = schema_factory.create_schema_engine(engine=database_engine)
+        schema_engine = schema_factory.create_schema_engine(engine=database_engine, db_name=task.db_id)
 
         if not schema_engine:
             print(f"Failed to create SchemaEngine for db_id: {task.db_id}. Skipping task.")
@@ -112,6 +113,8 @@ class RunningManager:
         # if not result_queue.empty():
         #     result = result_queue.get()
         #     self.statistics_manager.add_result(result)
+
+        in_processing_tasks = self.tasks[:2]
 
         for task in self.tasks:
             self.run_pipeline_for_task(task)

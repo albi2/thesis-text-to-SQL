@@ -4,7 +4,7 @@ def main():
     """
     Initializes the RunningManager and starts the evaluation process.
     """
-    dataset_path = "../dataset/dev/bird_subset.json"
+    dataset_path = "./dataset/dev/bird_subset.json"
     manager = RunningManager(dataset_path)
     manager.load_tasks()
     manager.run_evaluation()

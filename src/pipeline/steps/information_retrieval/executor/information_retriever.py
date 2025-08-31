@@ -11,7 +11,7 @@ from components.models.reasoning_model_facade import ReasoningModelFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
 from util.constants import PreprocessingConstants
-
+from executor.task_model import Task
 
 class InformationRetriever:
     """
@@ -126,7 +126,7 @@ class InformationRetriever:
         # or a more direct database lookup if feasible.
         return []
 
-    def retrieve_context(self, keywords: List[str], question: str, k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+    def retrieve_context(self, keywords: List[str], task: Task, k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
         """
         Retrieves the top-k most relevant column descriptions (or names)
         from the ChromaDB collection based on semantic similarity to the input keywords.
@@ -151,7 +151,8 @@ class InformationRetriever:
                 retrieved_contexts[keyword] = []
                 continue
             try:
-                question_and_keyword = str(question + " " + keyword)
+                question_and_keyword = str(task.question + " " + keyword)
+                collection_name = f"{PreprocessingConstants.COLUMN_COLLECTION_NAME}_{task.db_id}"
                 query_results = self.chroma_client.query_collection(
                     collection_name=self.column_collection_name,
                     query_texts=[question_and_keyword],

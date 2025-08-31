@@ -12,8 +12,8 @@ import gc
 from huggingface_hub import snapshot_download
 # Set the environment variable
 # Choose HF_HOME or HF_HUB_CACHE based on your preference
-os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
-os.environ['HF_HOME'] = "/var/tmp/ge62nok"
+os.environ['HF_HUB_CACHE'] = "/workspace/data"
+os.environ['HF_HOME'] = "/workspace/data"
 os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 class BaseHuggingFaceFacade(ABC):

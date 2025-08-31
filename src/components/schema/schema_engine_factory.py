@@ -9,7 +9,7 @@ class SchemaEngineFactory:
     def __init__(self):
         self._config_helper = ConfigurationHelper()
 
-    def create_schema_engine(self, engine: Engine) -> SchemaEngine:
+    def create_schema_engine(self, engine: Engine, db_name: str) -> SchemaEngine:
         """
         Creates a SchemaEngine instance using configuration from schema_engine.yaml.
 
@@ -36,7 +36,6 @@ class SchemaEngineFactory:
         custom_table_info = schema_engine_config.get("custom_table_info", {})
         view_support = schema_engine_config.get("view_support", False)
         max_string_length = schema_engine_config.get("max_string_length", 300)
-        db_name = schema_engine_config.get("db_name", "")
 
         # Instantiate SchemaEngine with configured parameters
         return SchemaEngine(
@@ -49,7 +48,7 @@ class SchemaEngineFactory:
             custom_table_info=custom_table_info,
             view_support=view_support,
             max_string_length=max_string_length,
-            db_name=db_name
+            db_name=db_name 
             # mschema is handled internally by SchemaEngine if not provided
         )
 

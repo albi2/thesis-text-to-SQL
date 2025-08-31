@@ -29,6 +29,7 @@ class SchemaFilterExecutor:
         # The unique_column_names list contains only column names, not "table.column" format.
         # The to_mschema method will handle the mapping. 
         database_schema = pipeline_context.schema_engine.mschema.to_mschema(selected_tables=unique_table_names, selected_columns=unique_column_names)
+        print(f"SCHEMA USED FOR FILTERING", database_schema)
 
         ## TODO: These table names are included in the prompt in format(database.table) -> this adds extra effort for model which we might want to avoid
         full_prompt = PROMPT.format(
@@ -53,8 +54,10 @@ class SchemaFilterExecutor:
             print("Could not parse JSON during schema filtering", e) 
 
         pipeline_context.selected_schema = resulting_schema
+        
 
         # TODO: See if more porcessing is need here for a better format of representation of chosen tables and columns - maybe some extra filtering or retry in case
         # something does not exist in the database at all
+        # TODO: Add the schema to the tables that are missing it in the name so we need schema.table
         return resulting_schema
     

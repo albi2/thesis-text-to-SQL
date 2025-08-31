@@ -1,7 +1,7 @@
 from context.pipeline_context import PipelineContext
 from executor.statistics_manager import EvaluationResult
 from util.constants import DatabaseConstants
-from util.db.execute import _compare_sqls_outcomes
+from util.db.execute import compare_sqls_outcomes
 
 
 class EvaluationExecutor:
@@ -13,12 +13,20 @@ class EvaluationExecutor:
         gold_query = pipeline_context.task.SQL
 
         if not selected_query or not gold_query:
-            raise ValueError("Selected query or gold query not found in pipeline context.")
+            return EvaluationResult(
+                question=pipeline_context.task.question,
+                evidence=pipeline_context.task.evidence,
+                generated_sql=None,
+                gold_sql=gold_query,
+                comparison_status=0,
+                execution_status=None
+            )
 
-        comparison_status = _compare_sqls_outcomes(
+        comparison_status = compare_sqls_outcomes(
             predicted_sql=selected_query.sql,
             ground_sql=gold_query,
-            db_path=DatabaseConstants.DB_PATH
+            db_path=DatabaseConstants.DB_PATH,
+            engine=pipeline_context.db_engine
         )
 
         return EvaluationResult(

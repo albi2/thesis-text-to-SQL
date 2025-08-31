@@ -5,7 +5,6 @@ import asyncio
 import logging
 from enum import Enum
 from pydantic import BaseModel, PrivateAttr
-from infrastructure.database.database_manager import db_manager
 from common.config.config_helper import ConfigurationHelper
 from ..constants import DatabaseConstants
 
@@ -44,7 +43,7 @@ class SQLExecInfo(BaseModel):
     #         return self._execution_results
 
 
-async def execute_sql_query_async(query: str, db_path: str, timeout: int = 60) -> SQLExecInfo:
+async def execute_sql_query_async(query: str, db_path: str, engine: Engine, timeout: int = 60) -> SQLExecInfo:
     """
     Executes a SQL query asynchronously against the provided database engine.
 
@@ -66,7 +65,7 @@ async def execute_sql_query_async(query: str, db_path: str, timeout: int = 60) -
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None, # Use default ThreadPoolExecutor
-            lambda: _sync_execute_sql(query, db_path)
+            lambda: _sync_execute_sql(query, engine, db_path)
         )
 
         if len(result) == 0:
@@ -83,7 +82,7 @@ async def execute_sql_query_async(query: str, db_path: str, timeout: int = 60) -
     
 
 
-def _sync_execute_sql(query: str, db_path: str = None, fetch: Union[str, int] = 500) -> List[Dict[str, Any]]:
+def _sync_execute_sql(query: str, engine: Engine, db_path: str = None, fetch: Union[str, int] = 500) -> List[Dict[str, Any]]:
     """
     Synchronously executes a SQL query and fetches results.
     This is a helper for the async function to run in an executor.
@@ -122,7 +121,7 @@ def _sync_execute_sql(query: str, db_path: str = None, fetch: Union[str, int] = 
         
         return [row._asdict() for row in rows]
 
-async def execute_sql_queries_async(queries: List[str], db_path: str, timeout: int = 60) -> List[SQLExecInfo]:
+async def execute_sql_queries_async(queries: List[str], db_path: str, engine: Engine, timeout: int = 60) -> List[SQLExecInfo]:
     """
     Executes a list of SQL queries asynchronously and returns their execution information.
 
@@ -135,10 +134,10 @@ async def execute_sql_queries_async(queries: List[str], db_path: str, timeout: i
     Returns:
         List[SQLExecInfo]: A list of SQLExecInfo objects for each query.
     """
-    tasks = [execute_sql_query_async(query, db_path, timeout) for query in queries]
+    tasks = [execute_sql_query_async(query, db_path, engine, timeout) for query in queries]
     return await asyncio.gather(*tasks)
 
-def _compare_sqls_outcomes(predicted_sql: str, ground_sql: str, db_path: str) -> int:
+def compare_sqls_outcomes(predicted_sql: str, ground_sql: str, db_path: str, engine: Engine) -> int:
     """
     Compares the outcomes of two SQL queries to check for equivalence.
     
@@ -154,8 +153,8 @@ def _compare_sqls_outcomes(predicted_sql: str, ground_sql: str, db_path: str) ->
         Exception: If an error occurs during SQL execution.
     """
     try:
-        predicted_res = _sync_execute_sql(predicted_sql, db_path=db_path)
-        ground_truth_res = _sync_execute_sql(ground_sql, db_path=db_path)
+        predicted_res = _sync_execute_sql(predicted_sql, engine, db_path=db_path)
+        ground_truth_res = _sync_execute_sql(ground_sql, engine, db_path=db_path)
         return int(set(predicted_res) == set(ground_truth_res))
     except Exception as e:
         logging.critical(f"Error comparing SQL outcomes: {e}")

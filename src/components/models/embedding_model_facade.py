@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Consistent cache directory
-os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
-os.environ['HF_HOME'] = "/var/tmp/ge62nok"
+os.environ['HF_HUB_CACHE'] = "/workspace/data"
+os.environ['HF_HOME'] = "/workspace/data"
 
 def last_token_pool(last_hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """
@@ -184,6 +184,9 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
             raise e
         
         logger.info(f"--- Finished lazy load for HuggingFaceEmbeddingFacade: {self.model_name_or_path} ---")
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
     def unload_model(self):
         """Unloads the model and tokenizer to free up memory."""
@@ -220,8 +223,8 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
         #         torch.cuda.memory.empty_cache()
 
         for i in range(torch.cuda.device_count()):
-            print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
-            print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} allocated after loading the model: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"GPU {i} reserved after loading the model: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
         logger.info(f"Embedding model '{self.model_name_or_path}' unloaded successfully.")
 
     def encode(self, texts: List[str], batch_size: int = 32, normalize_embeddings: bool = True, **kwargs) -> List[List[float]]:
@@ -281,6 +284,7 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
             return all_embeddings
         finally:
             self.unload_model()
+
 
     def encode_single(self, text: str, normalize_embeddings: bool = True, **kwargs) -> List[float]:
         """

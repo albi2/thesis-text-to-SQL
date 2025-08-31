@@ -27,7 +27,7 @@ class SQLGenerationExecutor:
 
         # Ensure that the schema engine is available in the context
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
-            raise ValueError("SchemaEngine not found in pipeline context.")
+            return []
 
         mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
             selected_tables=selected_tables,
@@ -88,12 +88,12 @@ class SQLGenerationExecutor:
             # we need to run the task in the existing loop.
             # This is a simplified approach; for complex scenarios, consider a dedicated task runner.
             executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, "thesis") # Store the schema/s and other relevant info in the context
+                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, pipeline_context.db_engine, "thesis") # Store the schema/s and other relevant info in the context
             )
         else:
             # If no loop is running, create and run a new one.
             executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, "thesis")
+                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, pipeline_context.db_engine, "thesis")
             )
 
         for executable in executable_sql_infos:

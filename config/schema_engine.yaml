@@ -1,6 +1,6 @@
 schema_engine:
   # Optional schema name to filter tables
-  schema: "thesis"
+  schema: "public"
 
   # List of tables to ignore (if include_tables is not used)
   ignore_tables: []

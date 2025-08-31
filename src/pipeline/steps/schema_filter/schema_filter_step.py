@@ -11,7 +11,7 @@ class SchemaFilterStep(PipelineStep[PipelineContext, None]):
                          pipeline_context: PipelineContext,
                          previous_step_output: InformationRetrievalStepOutput) -> Optional[PipelineStepOutput]:
         print("------------------ SCHEMA FILTER STEP ---------------------- \n")
-        if len(pipeline_context.db_schema_per_keyword.keys()) == 0:
+        if pipeline_context.db_schema_per_keyword is None or len(pipeline_context.db_schema_per_keyword.keys()) == 0:
             print(f"Schema Filter step did not run successfully. Empty DB Schema")
             return None
         executor = SchemaFilterExecutor()

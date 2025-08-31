@@ -3,6 +3,8 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from components.schema.schema_engine import SchemaEngine
 from common.config.config_helper import ConfigurationHelper
 from util.constants import DatabaseConfigKeys, DatabaseConstants # Import DatabaseConstants
+from sqlalchemy.engine import Engine
+
 
 class DatabaseManager:
     def __init__(self):
@@ -14,28 +16,20 @@ class DatabaseManager:
         # Load the 'database' section from 'database.yaml'
         self.config = config_helper.get_config("database.yaml", "database")
 
-        self._engine = None
-        self._connection = None
-
         if not self.config:
             print("Failed to load database configuration. Cannot proceed.")
-        else:
-            self._ensure_database_exists() # Ensure database exists before creating engine
-            self._engine = self._create_engine()
 
 
-    def _ensure_database_exists(self):
+    def _ensure_database_exists(self, db_name: str):
         """Ensures the target database exists, creating it if configured to do so."""
         create_db_flag = self.config.get(DatabaseConfigKeys.CREATE_DATABASE_IF_NOT_EXISTS, False)
-        db_name = self.config.get(DatabaseConfigKeys.DATABASE_NAME)
         host = self.config.get(DatabaseConfigKeys.HOST)
         port = self.config.get(DatabaseConfigKeys.PORT)
         user = self.config.get(DatabaseConfigKeys.USERNAME)
         password = self.config.get(DatabaseConfigKeys.PASSWORD)
 
         if not all([db_name, host, port, user, password]):
-            print("Missing database connection details in configuration. Cannot ensure database exists.")
-            return
+            raise RuntimeError(f"Missing database connection details in configuration. Cannot ensure database exists.")
 
         if create_db_flag:
             # Attempt to connect to the default 'postgres' database to create the target database
@@ -81,17 +75,16 @@ class DatabaseManager:
                     engine_default.dispose()
 
 
-    def _create_engine(self):
+    def create_engine(self, database_name: str):
         """Creates the SQLAlchemy engine for the target database."""
+
+        self._ensure_database_exists(database_name) # Ensure database exists before creating engine
+
         host = self.config.get(DatabaseConfigKeys.HOST)
         port = self.config.get(DatabaseConfigKeys.PORT)
         user = self.config.get(DatabaseConfigKeys.USERNAME)
         password = self.config.get(DatabaseConfigKeys.PASSWORD)
-        database_name = self.config.get(DatabaseConfigKeys.DATABASE_NAME)
 
-        if not all([host, port, user, password, database_name]):
-            print("Missing database connection details in configuration. Cannot create engine.")
-            return None
 
         # Construct the database URL using the constant format string
         database_url = DatabaseConstants.DEFAULT_DB_URL_FORMAT.format(
@@ -113,11 +106,8 @@ class DatabaseManager:
             print(f"Error creating SQLAlchemy engine for database '{database_name}': {e}")
             return None
 
-    def _connect(self):
+    def _connect(self, engine: Engine):
         """Establishes a connection from the engine."""
-        if not self._engine:
-            print("Cannot establish connection: SQLAlchemy engine not created.")
-            return None
         try:
             connection = self._engine.connect()
             print("Database connection established via SQLAlchemy engine.")
@@ -131,25 +121,23 @@ class DatabaseManager:
             return None
 
 
-    # Removed get_schema_engine as requested
+    # def close_connection(self):
+    #     """Closes the database connection and disposes the engine."""
+    #     if self._connection:
+    #         try:
+    #             self._connection.close()
+    #             print("Database connection closed.")
+    #         except Exception as e:
+    #             print(f"Error closing database connection: {e}")
+    #         self._connection = None
 
-    def close_connection(self):
-        """Closes the database connection and disposes the engine."""
-        if self._connection:
-            try:
-                self._connection.close()
-                print("Database connection closed.")
-            except Exception as e:
-                print(f"Error closing database connection: {e}")
-            self._connection = None
-
-        if self._engine:
-            try:
-                self._engine.dispose()
-                print("SQLAlchemy engine disposed.")
-            except Exception as e:
-                print(f"Error disposing SQLAlchemy engine: {e}")
-            self._engine = None
+    #     if self._engine:
+    #         try:
+    #             self._engine.dispose()
+    #             print("SQLAlchemy engine disposed.")
+    #         except Exception as e:
+    #             print(f"Error disposing SQLAlchemy engine: {e}")
+    #         self._engine = None
 
 # Example Usage (optional, for testing)
 # if __name__ == "__main__":
@@ -168,5 +156,3 @@ class DatabaseManager:
 #         db_manager.close_connection()
 #     else:
 #         print("Failed to initialize DatabaseManager or connect to database.")
-
-db_manager = DatabaseManager()

@@ -138,6 +138,8 @@ class ChromaClient:
             normalize_embeddings=True # Typically, document embeddings are normalized
         )
 
+        print("Finished encoding documents")
+
         logger.info(f"Adding {len(documents)} documents to collection '{collection_name}'.")
         collection.add(
             embeddings=embeddings,
