@@ -1,16 +1,16 @@
 import json
-from typing import List, Dict, Any
+from typing import List
 import re
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from components.schema.m_schema import MSchema
 from prompts.column_selection import PROMPT, FEWSHOT_EXAMPLES
-
+from context.pipeline_context import PipelineContext
 
 class SchemaFilterExecutor:
     def __init__(self):
         self.reasoning_model_facade = ReasoningModelFacade()
 
-    def execute(self, pipeline_context) -> dict:
+    def execute(self, pipeline_context: PipelineContext) -> dict:
         unique_table_names: List[str] = []
         unique_column_names: List[str] = []
 
@@ -30,10 +30,11 @@ class SchemaFilterExecutor:
         # The to_mschema method will handle the mapping. 
         database_schema = pipeline_context.schema_engine.mschema.to_mschema(selected_tables=unique_table_names, selected_columns=unique_column_names)
 
+        ## TODO: These table names are included in the prompt in format(database.table) -> this adds extra effort for model which we might want to avoid
         full_prompt = PROMPT.format(
             DATABASE_SCHEMA=database_schema,
             QUESTION=pipeline_context.user_query,
-            HINT="",
+            HINT=pipeline_context.task.evidence,
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
         )
 
@@ -49,7 +50,11 @@ class SchemaFilterExecutor:
             else:
                 resulting_schema = json.loads(model_response)
         except Exception as e:
-            print("Could not parse JSON for schema filtering", e) 
+            print("Could not parse JSON during schema filtering", e) 
 
         pipeline_context.selected_schema = resulting_schema
+
+        # TODO: See if more porcessing is need here for a better format of representation of chosen tables and columns - maybe some extra filtering or retry in case
+        # something does not exist in the database at all
         return resulting_schema
+    

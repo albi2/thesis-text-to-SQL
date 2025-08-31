@@ -1,12 +1,16 @@
-import json, os
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
-from sqlalchemy import create_engine, MetaData, Table, Column, String, Integer, select, text
+from typing import Any, Dict, List, Optional
+from sqlalchemy import MetaData, Table, select
 from sqlalchemy.engine import Engine
 from llama_index.core import SQLDatabase
-from util.utils import read_json, write_json, save_raw_text, examples_to_str
+from util.utils import examples_to_str
 from components.schema.m_schema import MSchema
 
 
+'''
+The schema engine provides the necessary functions for building the M-Schema.
+
+The default schema here should be actually "public" not none
+'''
 class SchemaEngine(SQLDatabase):
     def __init__(self, engine: Engine, schema: Optional[str] = None, metadata: Optional[MetaData] = None,
                  ignore_tables: Optional[List[str]] = None, include_tables: Optional[List[str]] = None,
@@ -20,8 +24,8 @@ class SchemaEngine(SQLDatabase):
         # Dictionary to store table names and their corresponding schema
         self._tables_schemas: Dict[str, str] = {}
 
-        # If a schema is specified, filter by that schema and store that value for every table.
         if schema:
+            # If a schema is specified, filter tables by that schema and store that value for every table.
             self._usable_tables = [
                 table_name for table_name in self._usable_tables
                 if self._inspector.has_table(table_name, schema)
@@ -131,7 +135,7 @@ class SchemaEngine(SQLDatabase):
     def get_unique_constraints(self, table_name: str):
         return self._inspector.get_unique_constraints(table_name, self._tables_schemas[table_name])
 
-    def fectch_distinct_values(self, table_name: str, column_name: str, max_num: int = 5):
+    def fetch_distinct_values(self, table_name: str, column_name: str, max_num: int = 5):
         table = Table(table_name, self.metadata_obj, autoload_with=self._engine, schema=self._tables_schemas[table_name])
         # Construct SELECT DISTINCT query
         query = select(table.c[column_name]).distinct().limit(max_num)
@@ -172,7 +176,7 @@ class SchemaEngine(SQLDatabase):
                     default = f'{default}'
 
                 try:
-                    examples = self.fectch_distinct_values(table_name, field_name, 5)
+                    examples = self.fetch_distinct_values(table_name, field_name, 5)
                 except:
                     examples = []
                 examples = examples_to_str(examples)

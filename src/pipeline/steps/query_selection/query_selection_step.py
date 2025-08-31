@@ -17,7 +17,9 @@ class QuerySelectionStep(PipelineStep[PipelineContext, QuerySelectionStepOutput]
 
     def handle_execution(self, context: PipelineContext, previous_step_output: Optional[Any] = None) -> Optional[QuerySelectionStepOutput]:
         print("------------------ QUERY SELECTION STEP ---------------------- \n")
-        
+        if context.generated_sql_queries is None or len(context.generated_sql_queries) == 0:
+            return None
+
         selected_query = self.executor.execute(
             pipeline_context=context
         )

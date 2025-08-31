@@ -10,7 +10,7 @@ class EvaluationExecutor:
         Compares the selected SQL query with the gold standard query and returns the evaluation result.
         """
         selected_query = pipeline_context.selected_sql_query
-        gold_query = pipeline_context.task.sql
+        gold_query = pipeline_context.task.SQL
 
         if not selected_query or not gold_query:
             raise ValueError("Selected query or gold query not found in pipeline context.")

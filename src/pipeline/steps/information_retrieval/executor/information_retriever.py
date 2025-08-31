@@ -10,7 +10,7 @@ from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
-from util.constants import HuggingFaceModelConstants, PreprocessingConstants
+from util.constants import PreprocessingConstants
 
 
 class InformationRetriever:
@@ -78,10 +78,10 @@ class InformationRetriever:
         try:
             # Use the 'query' method from ReasoningModelFacade
             response_text = self.reasoning_model.query(formatted_prompt)
-            
+            print(f"LLM Unparsed Response for keyword extraction: {response_text}")
             # Expecting the LLM to output a JSON string representing a dictionary.
+            # TODO: Actually extract the json from ```json ``` or ``` ``` or just try to find any JSON dictionary
             parsed_response = json.loads(response_text.strip())
-            print(f"LLM Response for keyword extraction: {parsed_response}")
 
             if isinstance(parsed_response, dict):
                 keywords = parsed_response.get("keywords", [])
@@ -90,27 +90,20 @@ class InformationRetriever:
                 if isinstance(keywords, list) and all(isinstance(kw, str) for kw in keywords):
                     keywords_list = [kw.strip() for kw in keywords if kw.strip()]
                 else:
-                    # TODO: Log warning - "keywords" in response is not a list of strings or malformed.
-                    pass
+                    print(f"WARNING: The keyword extraction response does not contain a list for 'keywords' key")
                 
                 if isinstance(phrases, list) and all(isinstance(ph, str) for ph in phrases):
                     phrases_list = [ph.strip() for ph in phrases if ph.strip()]
                 else:
-                    # TODO: Log warning - "phrases" in response is not a list of strings or malformed.
-                    pass
+                    print(f"WARNING: The keyword extraction response does not contain a list for 'phrases' key")
             else:
-                # LLM did not return a dictionary as expected after parsing
-                # TODO: Log this unexpected format after json.loads (not a dict)
-                pass
+                print(f"WARNING: The keyword extraction failed. No dictionary returned.")
+
 
         except json.JSONDecodeError as e:
-            # Handle cases where the response is not a valid JSON string
-            # TODO: Log parsing error: f"Error parsing LLM response as JSON for keyword extraction: {e}. Response: {response_text}"
-            pass # Returns empty lists
+            print(f"ERROR: Error parsing the json: {str(e)}")
         except Exception as e:
-            # Catch any other unexpected errors during LLM call or parsing
-            # TODO: Log generic error: f"Unexpected error in extract_keywords: {e}"
-            pass # Returns empty lists
+            print(f"Error extracting the keywords: {str(e)}" )
         return {"keywords": keywords_list, "phrases": phrases_list}
 
     def retrieve_entities(self, keywords: List[str], phrases: List[str]) -> List[str]:
@@ -162,8 +155,7 @@ class InformationRetriever:
                 query_results = self.chroma_client.query_collection(
                     collection_name=self.column_collection_name,
                     query_texts=[question_and_keyword],
-                    n_results=k,
-                    # include=["metadatas", "documents"] # Ensure documents (descriptions) are included
+                    n_results=k
                 )
 
                 keyword_contexts: List[Dict[str, Any]] = []
@@ -179,15 +171,12 @@ class InformationRetriever:
                                 "description": doc_text
                             })
                         else:
-                            # TODO: Log a warning for malformed metadata
-                            pass
+                            print(f"Missing metadata for potential column with description {doc_text} for keyword '{keyword}'")
                 
                 retrieved_contexts[keyword] = keyword_contexts
 
             except Exception as e:
-                # TODO: Log the error, e.g., f"Error retrieving context for keyword '{keyword}': {e}"
-                # For now, return an empty list for this keyword in case of an error.
-                print('ERROR QUERYING', e)
+                print(f"Error retrieving context for keyword '{keyword}': {str(e)}")
                 retrieved_contexts[keyword] = []
         
         return retrieved_contexts

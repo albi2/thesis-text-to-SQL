@@ -22,8 +22,6 @@ class DatabaseManager:
         else:
             self._ensure_database_exists() # Ensure database exists before creating engine
             self._engine = self._create_engine()
-            if self._engine:
-                 self._connection = self._connect()
 
 
     def _ensure_database_exists(self):
@@ -50,7 +48,6 @@ class DatabaseManager:
                 database=DatabaseConstants.DEFAULT_DB_NAME # Use the default database name constant
             )
 
-            print('DB URL', default_db_url)
             engine_default = None # Initialize engine_default to None
             try:
                 engine_default = create_engine(default_db_url)

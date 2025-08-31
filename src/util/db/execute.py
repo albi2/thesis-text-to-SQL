@@ -61,6 +61,8 @@ async def execute_sql_query_async(query: str, db_path: str, timeout: int = 60) -
         # SQLAlchemy's execute is synchronous, so we run it in a thread pool executor
         # to simulate non-blocking behavior for the async context.
         # For true async DB operations, an async driver like asyncpg or aiomysql would be needed.
+
+        # TODO: Inlcude the timeout here
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None, # Use default ThreadPoolExecutor

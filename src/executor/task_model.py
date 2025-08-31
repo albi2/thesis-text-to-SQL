@@ -10,5 +10,5 @@ class Task:
     db_id: str
     question: str
     evidence: Optional[str] = None
-    sql: Optional[str] = None
+    SQL: Optional[str] = None
     difficulty: Optional[str] = None

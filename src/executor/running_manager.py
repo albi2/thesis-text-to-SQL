@@ -18,7 +18,7 @@ from executor.statistics_manager import StatisticsManager
 from pipeline.steps.evaluation.evaluation_step import EvaluationStep
 
 class RunningManager:
-    RESULT_ROOT_PATH = "results"
+    RESULT_ROOT_PATH = "../results"
 
     """
     Manages the process of loading tasks and running the evaluation pipeline for each.
@@ -68,7 +68,7 @@ class RunningManager:
             print(f"Failed to create SchemaEngine for db_id: {task.db_id}. Skipping task.")
             return
 
-        initial_context = PipelineContext(
+        context = PipelineContext(
             task=task,
             db_engine=database_engine,
             schema_engine=schema_engine
@@ -86,10 +86,9 @@ class RunningManager:
             .add_step(EvaluationStep()) \
             .build()
 
-        pipeline.run(initial_context)
+        pipeline.run(context)
         
-        self.statistics_manager.add_result(initial_context.evaluation_result)
-        
+        self.statistics_manager.add_result(context.evaluation_result)
         print(f"Finished pipeline for question_id: {task.question_id}")
 
     def run_evaluation(self):
@@ -100,10 +99,22 @@ class RunningManager:
             print("No tasks to run. Please load tasks first.")
             return
 
+        # for task in self.tasks:
+        #     result_queue = multiprocessing.Queue()
+        #     process = multiprocessing.Process(
+        #         target=self.run_pipeline_for_task, 
+        #         args=(task, result_queue)
+        #     )
+        #     process.start()
+        #     process.join()  # Wait for THIS process to complete before starting next
+            
+        # # Collect result from this process
+        # if not result_queue.empty():
+        #     result = result_queue.get()
+        #     self.statistics_manager.add_result(result)
+
         for task in self.tasks:
-            process = multiprocessing.Process(target=self.run_pipeline_for_task, args=(task,))
-            process.start()
-            process.join()  # Wait for the process to complete before starting the next one
-        
+            self.run_pipeline_for_task(task)
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.statistics_manager.save_results(f"{self.RESULT_ROOT_PATH}/evaluation_results_{timestamp}.json")

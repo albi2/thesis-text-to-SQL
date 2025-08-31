@@ -6,7 +6,7 @@ from components.models.text2sql_model_facade import Text2SQLModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT, DEFOG_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo
-from util.constants import HuggingFaceModelConstants
+from util.constants import DatabaseConstants, HuggingFaceModelConstants
 
 class SQLGenerationExecutor:
 
@@ -17,6 +17,7 @@ class SQLGenerationExecutor:
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLExecInfo]:
         # Create MSchema string from selected_schema
+
         selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name ]
         selected_columns = []
         for table, columns in pipeline_context.selected_schema.items():
@@ -50,11 +51,9 @@ class SQLGenerationExecutor:
         responses: List[str] = []
         try:
             default_response = self.text2sql_model_facade.query(full_prompt)
-            print('FIRST RESPONSE', default_response)
             responses.append(default_response)
             defog_response = self.defog_text2sql_model_facade.query(prompt = defog_prompt, system_prompt = None, max_new_tokens = 800)
             responses.append(defog_response)
-            print('SECOND RESPONSE', defog_response)
         except Exception as e:
             print("Failed to generate query because of", e)
 
@@ -89,12 +88,12 @@ class SQLGenerationExecutor:
             # we need to run the task in the existing loop.
             # This is a simplified approach; for complex scenarios, consider a dedicated task runner.
             executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine, "thesis") # Store the schema/s and other relevant info in the context
+                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, "thesis") # Store the schema/s and other relevant info in the context
             )
         else:
             # If no loop is running, create and run a new one.
             executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, pipeline_context.db_engine, "thesis")
+                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, "thesis")
             )
 
         for executable in executable_sql_infos:

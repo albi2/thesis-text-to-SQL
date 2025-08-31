@@ -241,34 +241,44 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
         try:
             self._load_model(model_kwargs=self.model_kwargs.get('model_kwargs'), tokenizer_kwargs=self.model_kwargs.get('tokenizer_kwargs'), trust_remote_code=self.model_kwargs.get('trust_remote_code', True))
             logger.debug(f"Encoding {len(texts)} texts with batch_size={batch_size}, normalize={normalize_embeddings}")
-
-            # Tokenize the input texts
-            batch_dict = self.tokenizer(
-                texts,
-                padding=True,
-                truncation=True,
-                max_length=kwargs.get("max_length", 8192), # Default max_length
-                return_tensors="pt",
-            )
             
-            # Move batch to model's device
-            if self.model.device.type == 'cuda':
-                batch_dict = {k: v.to(self.model.device) for k, v in batch_dict.items()}
+            all_embeddings = []
+            for i in range(0, len(texts), batch_size):
+                batch_texts = texts[i:i + batch_size]
 
-            with torch.no_grad():
-                outputs = self.model(**batch_dict)
-            
-            # Apply pooling
-            embeddings = last_token_pool(outputs.last_hidden_state, batch_dict['attention_mask'])
+                # Tokenize the input texts
+                batch_dict = self.tokenizer(
+                    batch_texts,
+                    padding=True,
+                    truncation=True,
+                    max_length=kwargs.get("max_length", 8192), # Default max_length
+                    return_tensors="pt",
+                )
+                
+                # Move batch to model's device
+                if self.model.device.type == 'cuda':
+                    batch_dict = {k: v.to(self.model.device) for k, v in batch_dict.items()}
 
-            # Normalize embeddings
-            if normalize_embeddings:
-                embeddings = F.normalize(embeddings, p=2, dim=1)
+                with torch.no_grad():
+                    outputs = self.model(**batch_dict)
+                
+                # Apply pooling
+                embeddings = last_token_pool(outputs.last_hidden_state, batch_dict['attention_mask'])
 
-            # Move embeddings to CPU and convert to list of lists
-            if isinstance(embeddings, torch.Tensor):
-                embeddings = embeddings.cpu().tolist()
-            return embeddings
+                # Normalize embeddings
+                if normalize_embeddings:
+                    embeddings = F.normalize(embeddings, p=2, dim=1)
+
+                # Move embeddings to CPU and convert to list of lists
+                if isinstance(embeddings, torch.Tensor):
+                    all_embeddings.extend(embeddings.cpu().tolist())
+
+                # Clear batch_dict from GPU memory
+                del batch_dict
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+            return all_embeddings
         finally:
             self.unload_model()
 

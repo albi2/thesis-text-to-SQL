@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: govdata # You can change the default database name here
     ports:
-      - "5433:5432"
+      - "6543:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
 

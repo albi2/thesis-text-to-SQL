@@ -18,6 +18,10 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
     def handle_execution(self, context: PipelineContext, previous_step_output: Optional[Any] = None) -> Optional[InformationRetrievalStepOutput]:
         keywords_and_phrases = self.information_retriever.extract_keywords(user_query=context.user_query)
         keywords = keywords_and_phrases.get("keywords", [])
+
+        if len(keywords) == 0:
+            print(f"Information retriever failed to extract keywords!")
+            return InformationRetrievalStepOutput(retrieved_context={})
         
         retrieved_context = self.information_retriever.retrieve_context(keywords=keywords, question=context.user_query)
         context.db_schema_per_keyword = retrieved_context

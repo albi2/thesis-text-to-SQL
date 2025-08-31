@@ -1,5 +1,5 @@
 # Configuration for ChromaDB client
 chroma_db:
   host: "localhost"
-  port: 8000
+  port: 8080
   # collection_name: "database_columns" # This is defined in PreprocessingConstants
