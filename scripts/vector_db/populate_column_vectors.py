@@ -98,7 +98,8 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
                 continue
 
             for col_data in columns_data:
-                document_text = col_data.get('comment', '').strip() or col_data['name']
+                comment = col_data.get('comment')
+                document_text = comment.strip() if comment else col_data['name']
                 documents_to_add.append(document_text)
                 metadatas_to_add.append({
                     "table_name": table_name,

@@ -121,23 +121,14 @@ class DatabaseManager:
             return None
 
 
-    # def close_connection(self):
-    #     """Closes the database connection and disposes the engine."""
-    #     if self._connection:
-    #         try:
-    #             self._connection.close()
-    #             print("Database connection closed.")
-    #         except Exception as e:
-    #             print(f"Error closing database connection: {e}")
-    #         self._connection = None
-
-    #     if self._engine:
-    #         try:
-    #             self._engine.dispose()
-    #             print("SQLAlchemy engine disposed.")
-    #         except Exception as e:
-    #             print(f"Error disposing SQLAlchemy engine: {e}")
-    #         self._engine = None
+    def close_connections(self, engine: Engine):
+        """Disposes the given engine, closing all of its connections."""
+        if engine:
+            try:
+                engine.dispose()
+                print("SQLAlchemy engine disposed.")
+            except Exception as e:
+                print(f"Error disposing SQLAlchemy engine: {e}")
 
 # Example Usage (optional, for testing)
 # if __name__ == "__main__":
