@@ -25,10 +25,24 @@ if ! command -v pgloader &> /dev/null; then
   exit 1
 fi
 
+# --- Ensure database exists ---
+echo "📦 Ensuring database $PG_DB exists in PostgreSQL..."
+if ! PGPASSWORD="$PG_PASS" psql -U "$PG_USER" -h "$PG_HOST" -p "$PG_PORT" -lqt | cut -d \| -f 1 | grep -qw "$PG_DB"; then
+  echo "   Database $PG_DB does not exist. Creating..."
+  PGPASSWORD="$PG_PASS" createdb -U "$PG_USER" -h "$PG_HOST" -p "$PG_PORT" "$PG_DB"
+  echo "   Database $PG_DB created."
+else
+  echo "   Database $PG_DB already exists."
+fi
+
+
 # --- Ensure schema exists ---
 echo "📦 Ensuring schema $PG_SCHEMA exists in PostgreSQL..."
 PGPASSWORD="$PG_PASS" psql -U "$PG_USER" -h "$PG_HOST" -p "$PG_PORT" -d "$PG_DB" \
   -c "CREATE SCHEMA IF NOT EXISTS \"$PG_SCHEMA\";"
+
+
+
 
 # --- Run Migration ---
 pgloader --verbose pgloader.load

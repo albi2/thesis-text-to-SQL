@@ -53,11 +53,18 @@ class SchemaFilterExecutor:
         except Exception as e:
             print("Could not parse JSON during schema filtering", e) 
 
-        pipeline_context.selected_schema = resulting_schema
+        db_id = pipeline_context.task.db_id
+        transformed_schema = {}
+        for key, value in resulting_schema.items():
+            if '.' not in key:
+                transformed_key = f"{db_id}.{key}"
+                transformed_schema[transformed_key] = value
+            else:
+                transformed_schema[key] = value
         
-
+        pipeline_context.selected_schema = transformed_schema
+ 
         # TODO: See if more porcessing is need here for a better format of representation of chosen tables and columns - maybe some extra filtering or retry in case
         # something does not exist in the database at all
-        # TODO: Add the schema to the tables that are missing it in the name so we need schema.table
-        return resulting_schema
+        return transformed_schema
     
