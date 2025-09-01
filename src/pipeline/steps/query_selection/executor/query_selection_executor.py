@@ -21,13 +21,17 @@ class QuerySelectionExecutor:
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             raise ValueError("SchemaEngine not found in pipeline context.")
 
-        selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name]
+
+        selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name ]
         selected_columns = []
         for table, columns in pipeline_context.selected_schema.items():
             for col in columns:
-                if table != "chain_of_thought_reasoning":
-                    selected_columns.append(f"{table.split('.')[1]}.{col}")
-        
+                if table != "chain_of_thought_reasoning": # Exclude reasoning from columns
+                    if '.' in table:
+                        selected_columns.append(f"{table.split('.')[1]}.{col}")
+                    else:
+                        selected_columns.append(f"{table}.{col}")
+
         mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
             selected_tables=selected_tables,
             selected_columns=selected_columns,

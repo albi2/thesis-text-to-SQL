@@ -5,7 +5,7 @@ import asyncio
 from components.models.text2sql_model_facade import Text2SQLModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT, DEFOG_PROMPT
-from util.db.execute import execute_sql_queries_async, SQLExecInfo
+from util.db.execute import execute_sql_queries_async, SQLExecInfo, SQLExecStatus
 from util.constants import DatabaseConstants, HuggingFaceModelConstants
 
 class SQLGenerationExecutor:
@@ -23,8 +23,11 @@ class SQLGenerationExecutor:
         for table, columns in pipeline_context.selected_schema.items():
             for col in columns:
                 if table != "chain_of_thought_reasoning": # Exclude reasoning from columns
-                    selected_columns.append(f"{table.split('.')[1]}.{col}")
-
+                    if '.' in table:
+                        selected_columns.append(f"{table.split('.')[1]}.{col}")
+                    else:
+                        selected_columns.append(f"{table}.{col}")
+                        
         # Ensure that the schema engine is available in the context
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             return []
@@ -63,12 +66,13 @@ class SQLGenerationExecutor:
                 print('SQL GENERATION MODEL RESPONSE', model_response)
                 if "```sql" in model_response:
                     model_response = model_response.split("```sql")[1].split("```")[0]
-                    model_response = re.sub(r"^\s+", "", model_response)
-                    resulting_sql = json.loads(model_response)
+                    resulting_sql = re.sub(r"^\s+", "", model_response)
                     generated_sql_queries.append(resulting_sql) # Append raw response for now
                 elif "```" in model_response:
                     resulting_sql = model_response.split(";")[0].split("```")[0].strip()+ ";";
                     generated_sql_queries.append(resulting_sql)
+                else:
+                    generated_sql_queries.append(model_response)
             except Exception as e:
                 print("Could not parse JSON for schema filtering", e) 
                 generated_sql_queries.append(model_response) 
@@ -99,5 +103,5 @@ class SQLGenerationExecutor:
         for executable in executable_sql_infos:
             print('QUERY EXECUTION', executable.to_dict())
         
-        pipeline_context.generated_sql_queries = [info for info in executable_sql_infos if info.status == "OK"]
-        return [info for info in executable_sql_infos if info.status == "OK"]
+        pipeline_context.generated_sql_queries = [info for info in executable_sql_infos if info.status == SQLExecStatus.CORRECT_SYNTAX]
+        return [info for info in executable_sql_infos if info.status == SQLExecStatus.CORRECT_SYNTAX]

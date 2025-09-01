@@ -39,7 +39,8 @@ class StatisticsManager:
         results_data = []
         for res in self.results:
             res_dict = asdict(res)
-            res_dict['execution_status'] = res.execution_status.value
+            if res.execution_status is not None:
+                res_dict['execution_status'] = res.execution_status.value 
             results_data.append(res_dict)
 
         with open(output_path, "w") as f:

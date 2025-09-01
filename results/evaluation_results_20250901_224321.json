@@ -1,0 +1,402 @@
+[
+    {
+        "question": "Among the schools with the average score in Math over 560 in the SAT test, how many schools are directly charter-funded?",
+        "evidence": "",
+        "generated_sql": "SELECT COUNT(*) FROM satscores s JOIN schools sch ON s.cds = sch.cdscode WHERE s.avgscrmath > 560 AND sch.charter = 1 AND sch.fundingtype = 'Directly funded';",
+        "gold_sql": "SELECT COUNT(T2.`School Code`) FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE T1.AvgScrMath > 560 AND T2.`Charter Funding Type` = 'Directly funded'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "In Los Angeles how many schools have more than 500 free meals but less than 700 free or reduced price meals for K-12?",
+        "evidence": "",
+        "generated_sql": "SELECT COUNT(*) FROM frpm WHERE \"Free Meal Count (K-12)\" > 500 AND \"Free Meal Count (K-12)\" < 700",
+        "gold_sql": "SELECT COUNT(CDSCode) FROM frpm WHERE `County Name` = 'Los Angeles' AND `Free Meal Count (K-12)` > 500 AND `Free Meal Count (K-12)` < 700",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Name schools in Riverside which the average of average math score for SAT is grater than 400, what is the funding type of these schools?",
+        "evidence": "Average of average math = sum(average math scores) / count(schools).",
+        "generated_sql": null,
+        "gold_sql": "SELECT T1.sname, T2.`Charter Funding Type` FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE T2.`District Name` LIKE 'Riverside%' GROUP BY T1.sname, T2.`Charter Funding Type` HAVING CAST(SUM(T1.AvgScrMath) AS REAL) / COUNT(T1.cds) > 400",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "What is the administrator's email address of the chartered school with the fewest students enrolled in grades 1 through 12?",
+        "evidence": "Charted school means `Charter School (Y/N)` = 1 in the table frpm; Students enrolled in grades 1 through 12 refers to `Enrollment (K-12)`",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.AdmEmail1 FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.`Charter School (Y/N)` = 1 ORDER BY T1.`Enrollment (K-12)` ASC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "What is the telephone number for the school with the lowest average score in reading in Fresno Unified?",
+        "evidence": "Fresno Unified is a name of district;",
+        "generated_sql": "SELECT T1.phone FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T2.dname = 'Fresno Unified' ORDER BY T2.AvgScrRead ASC LIMIT 1",
+        "gold_sql": "SELECT T2.Phone FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.District = 'Fresno Unified' AND T1.AvgScrRead IS NOT NULL ORDER BY T1.AvgScrRead ASC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "What is the average math score of the school with the lowest average score for all subjects, and in which county is it located?",
+        "evidence": "Average score for all subjects can be computed by AvgScrMath + AvgScrRead + AvgScrWrite",
+        "generated_sql": "SELECT CAST(SUM(T1.AvgScrMath) + SUM(T1.AvgScrRead) + SUM(T1.AvgScrWrite) AS REAL) / COUNT(T1.cds) , T2.County FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode GROUP BY T2.County ORDER BY SUM(T1.AvgScrMath) + SUM(T1.AvgScrRead) + SUM(T1.AvgScrWrite) ASC LIMIT 1",
+        "gold_sql": "SELECT T1.AvgScrMath, T2.County FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T1.AvgScrMath IS NOT NULL ORDER BY T1.AvgScrMath + T1.AvgScrRead + T1.AvgScrWrite ASC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "What is the city location of the high school level school with Lunch Provision 2 whose lowest grade is 9 and the highest grade is 12 in the county of Merced?",
+        "evidence": "High school can be represented as EILCode = 'HS'",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.City FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.`NSLP Provision Status` = 'Lunch Provision 2' AND T2.County = 'Merced' AND T1.`Low Grade` = 9 AND T1.`High Grade` = 12 AND T2.EILCode = 'HS'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "In which city can you find the school in the state of California with the lowest latitude coordinates and what is its lowest grade? Indicate the school name.",
+        "evidence": "State of California refers to state = 'CA'",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.City, T1.`Low Grade`, T1.`School Name` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.State = 'CA' ORDER BY T2.Latitude ASC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "How many male customers who are living in North Bohemia have average salary greater than 8000?",
+        "evidence": "Male means that gender = 'M'; A3 refers to region; A11 pertains to average salary.",
+        "generated_sql": "SELECT COUNT(T1.gender) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.\"A3\" = 'North Bohemia' AND T2.\"A11\" > 8000",
+        "gold_sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A3 = 'North Bohemia' AND T2.A11 > 8000",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "List out the clients who choose statement of issuance after transaction are Disponent?",
+        "evidence": "'POPLATEK PO OBRATU' stands for issuance after transaction",
+        "generated_sql": "SELECT T1.\"client_id\" FROM disp AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id WHERE T2.frequency = 'POPLATEK PO OBRATU' AND T1.type = 'DISPONENT'",
+        "gold_sql": "SELECT T2.client_id FROM account AS T1 INNER JOIN disp AS T2 ON T1.account_id = T2.account_id WHERE T1.frequency = 'POPLATEK PO OBRATU' AND T2.type = 'DISPONENT'",
+        "comparison_status": 1,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Among the accounts who have approved loan date in 1997, list out the accounts that have the lowest approved amount and choose weekly issuance statement.",
+        "evidence": "'POPLATEK TYDNE' stands for weekly issuance",
+        "generated_sql": "SELECT T1.account_id FROM account AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE STRFTIME('%Y', T2.\"date\") = '1997' ORDER BY T2.amount ASC LIMIT 1",
+        "gold_sql": "SELECT T2.account_id FROM loan AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id WHERE STRFTIME('%Y', T1.date) = '1997' AND T2.frequency = 'POPLATEK TYDNE' ORDER BY T1.amount LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "How many accounts were opened in Litomerice in 1996?",
+        "evidence": "A2 refers to district name; Litomerice is one of district names.",
+        "generated_sql": null,
+        "gold_sql": "SELECT COUNT(T2.account_id) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) = '1996' AND T1.A2 = 'Litomerice'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "How many of the account holders in South Bohemia still do not own credit cards?",
+        "evidence": "A3 contains the region names; South Bohemia is one of region names.",
+        "generated_sql": "SELECT COUNT(T1.account_id) FROM account AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T2.\"A3\" = 'south Bohemia'",
+        "gold_sql": "SELECT COUNT(T3.account_id) FROM district AS T1 INNER JOIN client AS T2 ON T1.district_id = T2.district_id INNER JOIN disp AS T3 ON T2.client_id = T3.client_id WHERE T1.A3 = 'south Bohemia' AND T3.type != 'OWNER'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "How many high-level credit cards have \"disponent\" type of disposition?",
+        "evidence": "High-level credit cards refers to the cards with the gold type.",
+        "generated_sql": "SELECT COUNT(*) FROM card AS T1 INNER JOIN disp AS T2 ON T1.disp_id = T2.disp_id WHERE T1.type = 'gold' AND T2.type = 'DISPONENT'",
+        "gold_sql": "SELECT COUNT(T1.card_id) FROM card AS T1 INNER JOIN disp AS T2 ON T1.disp_id = T2.disp_id WHERE T1.type = 'gold' AND T2.type = 'DISPONENT'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "What is the district Id of the account that placed the order with the id 33333?",
+        "evidence": "",
+        "generated_sql": null,
+        "gold_sql": "SELECT T3.district_id FROM `order` AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id INNER JOIN district AS T3 ON T2.district_id = T3.district_id WHERE T1.order_id = 33333",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "Who placed the order with the id 32423?",
+        "evidence": "",
+        "generated_sql": null,
+        "gold_sql": "SELECT T3.client_id FROM `order` AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id INNER JOIN client AS T3 ON T2.district_id = T3.district_id WHERE T1.order_id = 32423",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "What is the amount of debt that client number 992 has, and how is this client doing with payments?",
+        "evidence": "",
+        "generated_sql": null,
+        "gold_sql": "SELECT T3.amount, T3.status FROM client AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id INNER JOIN loan AS T3 ON T2.account_id = T3.account_id WHERE T1.client_id = 992",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "Name the account numbers of female clients who are oldest and have lowest average salary?",
+        "evidence": "Female refers to 'F' in the gender; A11 contains information about average salary",
+        "generated_sql": "SELECT a.account_id FROM account a JOIN client c ON a.account_id = c.client_id WHERE c.gender = 'F' ORDER BY c.birth_date ASC, a.account_id ASC LIMIT 1;",
+        "gold_sql": "SELECT T3.account_id FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id INNER JOIN account AS T3 ON T2.district_id = T3.district_id WHERE T1.gender = 'F' ORDER BY T1.birth_date ASC, T2.A11 ASC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Which bond type accounted for the majority of the bonds found in molecule TR018 and state whether or not this molecule is carcinogenic?",
+        "evidence": "TR018 is the molecule id; majority of the bond found refers to MAX(COUNT(bond_type)); label = '+' mean molecules are carcinogenic; label = '-' means molecules are non-carcinogenic",
+        "generated_sql": "SELECT b.bond_type, COUNT(b.bond_type) AS COUNT FROM bond b WHERE b.molecule_id = 'TR018' GROUP BY b.bond_type ORDER BY COUNT DESC LIMIT 1",
+        "gold_sql": "SELECT T.bond_type FROM ( SELECT T1.bond_type, COUNT(T1.molecule_id) FROM bond AS T1  WHERE T1.molecule_id = 'TR018' GROUP BY T1.bond_type ORDER BY COUNT(T1.molecule_id) DESC LIMIT 1 ) AS T",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "List all the elements of the toxicology of the molecule \"TR004\".",
+        "evidence": "TR004 is the molecule id; element = 'cl' means Chlorine; element = 'c' means Carbon; element = 'h' means Hydrogen; element = 'o' means Oxygen, element = 's' means Sulfur; element = 'n' means Nitrogen, element = 'p' means Phosphorus, element = 'na' means Sodium, element = 'br' means Bromine, element = 'f' means Fluorine; element = 'i' means Iodine; element = 'sn' means Tin; element = 'pb' means Lead; element = 'te' means Tellurium; element = 'ca' means Calcium",
+        "generated_sql": "SELECT a.element FROM atom a WHERE a.molecule_id = 'TR004'",
+        "gold_sql": "SELECT DISTINCT T.element FROM atom AS T WHERE T.molecule_id = 'TR004'",
+        "comparison_status": 1,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "List down atom id2 for atoms with element sulfur.",
+        "evidence": "element sulfur refers to element = 's'",
+        "generated_sql": null,
+        "gold_sql": "SELECT DISTINCT T2.atom_id2 FROM atom AS T1 INNER JOIN connected AS T2 ON T1.atom_id = T2.atom_id WHERE T1.element = 's'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "List down the bond type for molecules from molecule id TR000 to TR050.",
+        "evidence": "double bond refers to bond_type = ' = '; single bond refers to bond_type = '-'; triple bond refers to bond_type = '#';",
+        "generated_sql": "SELECT \"bond_type\" FROM bond WHERE \"molecule_id\" BETWEEN \"TR000\" AND \"TR050\"\n",
+        "gold_sql": "SELECT T2.molecule_id, T2.bond_type FROM molecule AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id BETWEEN 'TR000' AND 'TR050'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Among all chemical compounds identified in the database, what percent of compounds form a triple-bond.",
+        "evidence": "triple bond refers to bond_type = '#';",
+        "generated_sql": "SELECT CAST(SUM(CASE WHEN T1.\"bond_type\" = '#' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.molecule_id) FROM bond AS T1",
+        "gold_sql": "SELECT CAST(COUNT(CASE WHEN T.bond_type = '#' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id) FROM bond AS T",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Among all chemical compounds that contain molecule TR047, identify the percent that form a double-bond.",
+        "evidence": "TR047 is the molecule id; double bond refers to bond_type = ' = '; percentage = DIVIDE(SUM(bond_type = ' = '), COUNT(all bond_id)) as percent where molecule_id = 'TR047'",
+        "generated_sql": "SELECT CAST(COUNT(CASE WHEN b.bond_type = '=' THEN 1 END) AS FLOAT) / NULLIF(COUNT(*), 0) AS proportion FROM bond b WHERE b.molecule_id = 'TR047';",
+        "gold_sql": "SELECT CAST(COUNT(CASE WHEN T.bond_type = '=' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id) FROM bond AS T WHERE T.molecule_id = 'TR047'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Identify whether the molecule that contains atom TR001_1 is carcinogenic.",
+        "evidence": "label = '+' mean molecules are carcinogenic;",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.label AS flag_carcinogenic FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.atom_id = 'TR001_1'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "How many chemical compounds in the database are identified as carcinogenic.",
+        "evidence": "label = '+' mean molecules are carcinogenic;",
+        "generated_sql": "SELECT COUNT(*) FROM molecule WHERE label = '+'",
+        "gold_sql": "SELECT COUNT(T.molecule_id) FROM molecule AS T WHERE T.label = '+'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "How many double bonds does TR006 have and is it carcinogenic?",
+        "evidence": "label = '+' mean molecules are carcinogenic; label = '-' means molecules are non-carcinogenic; double bond refers to bond_type = ' = ';",
+        "generated_sql": "SELECT m.label, COUNT(b.bond_type) AS double_bonds FROM molecule m JOIN bond b ON m.molecule_id = b.molecule_id WHERE m.molecule_id = 'TR006' GROUP BY m.label",
+        "gold_sql": "SELECT COUNT(T1.bond_id), T2.label FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '=' AND T2.molecule_id = 'TR006' GROUP BY T2.label",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Name the atoms' elements that form bond TR000_2_3.",
+        "evidence": "element = 'cl' means Chlorine; element = 'c' means Carbon; element = 'h' means Hydrogen; element = 'o' means Oxygen, element = 's' means Sulfur; element = 'n' means Nitrogen, element = 'p' means Phosphorus, element = 'na' means Sodium, element = 'br' means Bromine, element = 'f' means Fluorine; element = 'i' means Iodine; element = 'sn' means Tin; element = 'pb' means Lead; element = 'te' means Tellurium; element = 'ca' means Calcium",
+        "generated_sql": "SELECT c.atom_id, c.atom_id2 FROM connected c WHERE c.bond_id = 'TR000_2_3';",
+        "gold_sql": "SELECT T2.element FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id = T2.atom_id WHERE T1.bond_id = 'TR000_2_3'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "List out the atom id that belongs to the TR346 molecule and how many bond type can be created by this molecule?",
+        "evidence": "",
+        "generated_sql": "SELECT a.atom_id, COUNT(b.bond_type) AS num_bond_types FROM atom a JOIN bond b ON a.molecule_id = b.molecule_id WHERE a.molecule_id = 'TR346' GROUP BY a.atom_id ORDER BY a.atom_id NULLS LAST;",
+        "gold_sql": "SELECT T1.atom_id, COUNT(DISTINCT T2.bond_type) FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id = 'TR346' GROUP BY T1.atom_id, T2.bond_type",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Which molecule consisted of Sulphur atom with double bond?",
+        "evidence": "sulphur refers to element - 's'; double bond refers to bond_type = ' = ';",
+        "generated_sql": null,
+        "gold_sql": "SELECT DISTINCT T1.molecule_id FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.element = 's' AND T2.bond_type = '='",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "List the element and bond type included in the molecule with molecule ID of TR016.",
+        "evidence": "element = 'cl' means Chlorine; element = 'c' means Carbon; element = 'h' means Hydrogen; element = 'o' means Oxygen, element = 's' means Sulfur; element = 'n' means Nitrogen, element = 'p' means Phosphorus, element = 'na' means Sodium, element = 'br' means Bromine, element = 'f' means Fluorine; element = 'i' means Iodine; element = 'sn' means Tin; element = 'pb' means Lead; element = 'te' means Tellurium; element = 'ca' means Calcium; double bond refers to bond_type = ' = '; single bond refers to bond_type = '-'; triple bond refers to bond_type = '#';",
+        "generated_sql": "SELECT T1.\"element\", T2.\"bond_type\" FROM atom AS T1 INNER JOIN bond AS T2 ON T1.\"molecule_id\" = T2.\"molecule_id\" WHERE T1.\"molecule_id\" = \"TR016\"",
+        "gold_sql": "SELECT DISTINCT T1.element, T2.bond_type FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id = 'TR016'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "What is the atom ID of double bonded carbon in TR012 molecule?",
+        "evidence": "carbon refers to element = 'c'; double bond refers to bond_type = ' = ';",
+        "generated_sql": "SELECT c.atom_id FROM connected c JOIN bond b ON c.bond_id = b.bond_id JOIN molecule m ON b.molecule_id = m.molecule_id WHERE m.molecule_id = 'TR012' AND b.bond_type = '=';",
+        "gold_sql": "SELECT T1.atom_id FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id INNER JOIN bond AS T3 ON T2.molecule_id = T3.molecule_id WHERE T2.molecule_id = 'TR012' AND T3.bond_type = '=' AND T1.element = 'c'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Find all cards illustrated by Stephen Daniel and describe the text of the ruling of these cards. State if these cards have missing or degraded properties and values.",
+        "evidence": "cards have missing or degraded properties and value refers to hasContentWarning = 1; 'Stephen Daniele' is artist;",
+        "generated_sql": null,
+        "gold_sql": "SELECT T1.id, T2.text, T1.hasContentWarning FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid WHERE T1.artist = 'Stephen Daniele'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "State the alternative languages available for card named Annul numbered 29.",
+        "evidence": "annul refers to name = 'annul'; numbered 29 refers to number = '29';",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.language FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T1.name = 'Annul' AND T1.number = 29",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "List all the sets available in Italian translation. State the total number of cards per set.",
+        "evidence": "Italian translation refers to language = 'Italian'; total number of card per set refers to totalSetSize;",
+        "generated_sql": "SELECT s.code, s.totalSetSize FROM sets s JOIN set_translations st ON s.code = st.setCode WHERE st.language = 'Italian' ORDER BY s.code NULLS LAST;",
+        "gold_sql": "SELECT T1.name, T1.totalSetSize FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T2.language = 'Italian'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "What is the description about the ruling of card \"Condemn\"?",
+        "evidence": "Ancestor's Chosen' is the name of card; description about the ruling refers to text;",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.text FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid WHERE T1.name = 'Condemn'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "What are the cards for set OGW? State the colour for these cards.",
+        "evidence": "set OGW refers to setCode = 'OGW';",
+        "generated_sql": "SELECT c.name, c.borderColor FROM cards c JOIN sets s ON c.setCode = s.code WHERE s.code = 'OGW';",
+        "gold_sql": "SELECT id, colors FROM cards WHERE id IN ( SELECT id FROM set_translations WHERE setCode = 'OGW' )",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "What is the percentage of Story Spotlight cards that also have a text box? List them by their ID.",
+        "evidence": "Story Spotlight cards that do not have a text box refers to isStorylight = 1 and isTextless = 1; Percentage refer to DIVIDE(SUM(count(id) where isStorylight = 1), SUM(count(id))) * 100\n\n",
+        "generated_sql": "SELECT CAST(SUM(CASE WHEN isStorySpotlight = 1 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) FROM cards",
+        "gold_sql": "SELECT CAST(SUM(CASE WHEN isTextless = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(id) FROM cards WHERE isStorySpotlight = 1",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "How many color cards with no borders have been ranked higher than 12000 on EDHRec?",
+        "evidence": "color cards with no borders refers to borderColor = 'borderless'; ranked higher than 12000 on EDHRec refers to edhrecRank > 12000",
+        "generated_sql": "SELECT COUNT(*) FROM cards WHERE borderColor = 'borderless' AND edhrecRank > 12000",
+        "gold_sql": "SELECT COUNT(id) FROM cards WHERE edhrecRank > 12000 AND borderColor = 'borderless'",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Please provide the ids of top three powerful pairs of Kingdom Foil and Kingdom Cards sorted by Kingdom Foil id in alphabetical order.",
+        "evidence": "poweful refers to cardKingdomFoilId is not null AND cardKingdomId is not null",
+        "generated_sql": "SELECT \"cardKingdomFoilId\" FROM cards WHERE \"cardKingdomId\" IS NOT NULL AND \"cardKingdomFoilId\" IS NOT NULL ORDER BY \"cardKingdomFoilId\" LIMIT 3",
+        "gold_sql": "SELECT cardKingdomFoilId, cardKingdomId FROM cards WHERE cardKingdomFoilId IS NOT NULL AND cardKingdomId IS NOT NULL ORDER BY cardKingdomFoilId LIMIT 3",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "How many cards have frame effect as extendedart? List out the id of those cards.",
+        "evidence": "\nframe effect as extendedart refers to frameEffects = 'extendedart'\n",
+        "generated_sql": "SELECT COUNT(\"cardKingdomFoilId\"), \"cardKingdomFoilId\" FROM cards WHERE frameEffects = 'extendedart'",
+        "gold_sql": "SELECT id FROM cards WHERE frameEffects = 'extendedart' GROUP BY id",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Name the foreign name of the card that has abzan watermark? List out the type of this card.",
+        "evidence": "",
+        "generated_sql": null,
+        "gold_sql": "SELECT DISTINCT T1.name, T1.type FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T2.uuid = T1.uuid WHERE T1.watermark = 'abzan'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "When was the set of cards with \"Ancestor's Chosen\" released?",
+        "evidence": "card set \"Ancestor's Chosen\" refers to name = 'Ancestor''s Chosen'; when released refers to releaseDate",
+        "generated_sql": null,
+        "gold_sql": "SELECT DISTINCT T2.releaseDate FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T1.name = 'Ancestor''s Chosen'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "Among the cards with converted mana cost higher than 5 in the set Coldsnap, how many of them have unknown power?",
+        "evidence": "card set Coldsnap refers to name = 'Coldsnap'; converted mana cost higher than 5 refers to convertedManaCost > 5; unknown power refers to power = '*' or T1.power is null",
+        "generated_sql": "SELECT COUNT(*) FROM cards AS T1 WHERE T1.name = 'Coldsnap' AND T1.\"convertedManaCost\" > 5 AND ( T1.power = '*' OR T1.power IS NULL )",
+        "gold_sql": "SELECT SUM(CASE WHEN T1.power LIKE '%*%' OR T1.power IS NULL THEN 1 ELSE 0 END) FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T2.name = 'Coldsnap' AND T1.convertedManaCost > 5",
+        "comparison_status": 0,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Please list the Italian text ruling of all the cards in the set Coldsnap.",
+        "evidence": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'",
+        "generated_sql": null,
+        "gold_sql": "SELECT DISTINCT T1.text FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian'",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "Please list the Italian names of the cards in the set Coldsnap with the highest converted mana cost.",
+        "evidence": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'",
+        "generated_sql": null,
+        "gold_sql": "SELECT T2.name FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian' ORDER BY T2.convertedManaCost DESC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "List the keyrune code for the set whose code is 'PKHC'.",
+        "evidence": "keyrune code refers to keyruneCode",
+        "generated_sql": "SELECT \"keyruneCode\" FROM sets WHERE \"code\" = 'PKHC'",
+        "gold_sql": "SELECT keyruneCode FROM sets WHERE code = 'PKHC'",
+        "comparison_status": 1,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "Among the cards that doesn't have multiple faces on the same card, who is the illustrator of the card art that has the highest cost of converted mana?",
+        "evidence": "doesn't have multiple faces refers to side IS NULL; illustrator refers to artist",
+        "generated_sql": "SELECT artist FROM cards WHERE side IS NULL ORDER BY convertedManaCost DESC LIMIT 1",
+        "gold_sql": "SELECT artist FROM cards WHERE side IS NULL ORDER BY convertedManaCost DESC LIMIT 1",
+        "comparison_status": 1,
+        "execution_status": "CORRECT_SYNTAX"
+    },
+    {
+        "question": "When was the oldest mythic card released and what are its legal play formats?",
+        "evidence": "the oldest card refers to MIN(originalReleaseDate); mythic card refers to rarity = 'mythic'; legal play refers to status = 'legal'; play format refers to format",
+        "generated_sql": null,
+        "gold_sql": "SELECT T1.originalReleaseDate, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T1.rarity = 'mythic' AND T1.originalReleaseDate IS NOT NULL AND T2.status = 'Legal' ORDER BY T1.originalReleaseDate LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": null
+    },
+    {
+        "question": "Who is the illustrator that illustrated the least amount of cards? List the format of play of the cards that he/she illustrated.",
+        "evidence": "format of the cards refers to format; illustrator refers to artist; the least amount of cards refers to MIN(artist)",
+        "generated_sql": null,
+        "gold_sql": "SELECT T1.artist, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T2.uuid = T1.uuid GROUP BY T1.artist ORDER BY COUNT(T1.id) ASC LIMIT 1",
+        "comparison_status": 0,
+        "execution_status": null
+    }
+]

@@ -27,6 +27,9 @@ class DatabaseConstants:
     DEFAULT_DB_URL_FORMAT = "postgresql://{user}:{password}@{host}:{port}/{database}"
     DB_PATH = "public"
 
+    # SQL-Lite Path
+    SQLITE_PATH = "sqlite:////workspace/data/dev_databases"
+
 class HuggingFaceModelConstants:
     """
     Constants for Hugging Face model tasks and default model names.

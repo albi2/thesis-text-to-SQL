@@ -56,11 +56,12 @@ class SchemaFilterExecutor:
         db_id = pipeline_context.task.db_id
         transformed_schema = {}
         for key, value in resulting_schema.items():
-            if '.' not in key:
-                transformed_key = f"{db_id}.{key}"
-                transformed_schema[transformed_key] = value
-            else:
-                transformed_schema[key] = value
+            transformed_schema[key] = value
+            # if '.' not in key:
+            #     transformed_key = f"public.{key}"
+            #     transformed_schema[transformed_key] = value
+            # else:
+            #     transformed_schema[key] = value
         
         pipeline_context.selected_schema = transformed_schema
  

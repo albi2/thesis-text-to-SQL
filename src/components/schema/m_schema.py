@@ -56,7 +56,7 @@ class MSchema:
             return {}
 
     def single_table_mschema(self, table_name: str, selected_columns: List = None,
-                             example_num=3, show_type_detail=False) -> str:
+                             example_num=5, show_type_detail=False) -> str:
         table_info = self.tables.get(table_name, {})
         output = []
         table_comment = table_info.get('comment', '')
@@ -152,6 +152,7 @@ class MSchema:
                 output.append(self.single_table_mschema(table_name, cur_selected_columns, example_num, show_type_detail))
 
         # 添加外键信息，选择table_type为view时不展示外键
+        print('FOREIGN KEYS', self.foreign_keys)
         if self.foreign_keys:
             output.append("【Foreign keys】")
             for fk in self.foreign_keys:
@@ -159,8 +160,8 @@ class MSchema:
                 table1, column1, _, table2, column2 = fk
                 if selected_tables is None or \
                         (table1.lower() in selected_tables and table2.lower() in selected_tables):
-                    if ref_schema == self.schema:
-                        output.append(f"{fk[0]}.{fk[1]}={fk[3]}.{fk[4]}")
+                    # if ref_schema == self.schema:
+                    output.append(f"{fk[0]}.{fk[1]}={fk[3]}.{fk[4]}")
 
         return '\n'.join(output)
 

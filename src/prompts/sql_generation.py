@@ -810,8 +810,8 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 
 PROMPT = """
-You are a PostgreSQL expert. You need to read and understand the following database schema description, as well as the evidence that may be used,
- and use your PostgreSQL knowledge to generate SQL statements to answer user questions.
+You are a SQLite expert. You need to read and understand the following database schema description, as well as the evidence that may be used,
+ and use your SQLite knowledge to generate SQL statements to answer user questions.
 
 The following examples are for your reference.
 
@@ -1059,7 +1059,7 @@ OMNI_PROMPT = """
 You are a data science expert. Below, you are provided with a database schema and a natural language question. Your task is to understand the schema and generate a valid SQL query to answer the question.
 
 Database Engine:
-PostgreSQL
+SQLite
 
 Database Schema:
 {DATABASE_SCHEMA}
@@ -1092,9 +1092,14 @@ DEFOG_PROMPT="""
 ### Task
 Generate a SQL query to answer [QUESTION]{QUESTION}[/QUESTION]
 
+Database Engine:
+SQLite
+
 ### Instructions
 - If you cannot answer the question with the available database schema, return 'I do not know'
 - The resulting SQL must be wrapped in ```<generated-sql>```
+- Always use double quotes for column names in the constructed query(E.g Given a column with name "Column Name" use SELECT T1."Column Name")
+- Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
 
 ### Database Schema
 The query will run on a database with the following schema:
@@ -1102,5 +1107,7 @@ The query will run on a database with the following schema:
 
 ### Answer
 Given the database schema, here is the SQL query that answers [QUESTION]{QUESTION}[/QUESTION]
+```
 [SQL]
+```
 """

@@ -21,7 +21,7 @@ from components.schema.schema_engine import SchemaEngine
 from components.schema.schema_engine_factory import SchemaEngineFactory
 from common.config.config_helper import ConfigurationHelper
 from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
-from util.constants import PreprocessingConstants
+from util.constants import PreprocessingConstants, DatabaseConfigKeys
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -47,7 +47,11 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
     db_config = cfg_helper.get_config("database.yaml", "database")
     
     # --- Database Connection Setup ---
-    db_url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/postgres"
+    host = db_config.get(DatabaseConfigKeys.HOST)
+    port = db_config.get(DatabaseConfigKeys.PORT)
+    user = db_config.get(DatabaseConfigKeys.USERNAME)
+    password = db_config.get(DatabaseConfigKeys.PASSWORD)
+    db_url = f"postgresql://{user}:{password}@{host}:{port}/postgres"
     engine = create_engine(db_url)
     
     with engine.connect() as connection:
@@ -72,7 +76,7 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
         db_manager = DatabaseManager()
         db_engine = db_manager.create_engine(db_name)
 
-        schema_engine: SchemaEngine = schema_factory.create_schema_engine(engine=db_engine)
+        schema_engine: SchemaEngine = schema_factory.create_schema_engine(engine=db_engine, db_name=db_name)
         collection_name = f"{PreprocessingConstants.COLUMN_COLLECTION_NAME}_{db_name}"
         
         chroma_client.get_or_create_collection(collection_name=collection_name)
@@ -81,12 +85,12 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
             table_names: List[str] = schema_engine.get_table_names()
         except Exception as e:
             logging.error(f"Failed to fetch table names for {db_name}: {e}")
-            db_manager.close_connection()
+            db_manager.close_connections(db_engine)
             continue
 
         if not table_names:
             logging.info(f"No tables found in database {db_name}.")
-            db_manager.close_connection()
+            db_manager.close_connections(db_engine)
             continue
 
         documents_to_add, metadatas_to_add, ids_to_add = [], [], []
@@ -120,7 +124,7 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
             except Exception as e:
                 logging.error(f"Failed to add/update documents in ChromaDB for {db_name}: {e}")
         
-        db_manager.close_connection()
+        db_manager.close_connections(db_engine)
 
     logging.info("Database column preprocessing and ChromaDB population finished.")
 

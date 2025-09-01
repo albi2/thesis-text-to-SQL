@@ -40,7 +40,7 @@ class SchemaEngineFactory:
         # Instantiate SchemaEngine with configured parameters
         return SchemaEngine(
             engine=engine,
-            schema=schema,
+            # schema=schema,
             ignore_tables=ignore_tables,
             include_tables=include_tables,
             sample_rows_in_table_info=sample_rows_in_table_info,

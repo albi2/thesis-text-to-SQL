@@ -78,23 +78,24 @@ class DatabaseManager:
     def create_engine(self, database_name: str):
         """Creates the SQLAlchemy engine for the target database."""
 
-        self._ensure_database_exists(database_name) # Ensure database exists before creating engine
+        # self._ensure_database_exists(database_name) # Ensure database exists before creating engine
 
-        host = self.config.get(DatabaseConfigKeys.HOST)
-        port = self.config.get(DatabaseConfigKeys.PORT)
-        user = self.config.get(DatabaseConfigKeys.USERNAME)
-        password = self.config.get(DatabaseConfigKeys.PASSWORD)
+        # host = self.config.get(DatabaseConfigKeys.HOST)
+        # port = self.config.get(DatabaseConfigKeys.PORT)
+        # user = self.config.get(DatabaseConfigKeys.USERNAME)
+        # password = self.config.get(DatabaseConfigKeys.PASSWORD)
 
 
         # Construct the database URL using the constant format string
-        database_url = DatabaseConstants.DEFAULT_DB_URL_FORMAT.format(
-            user=user,
-            password=password,
-            host=host,
-            port=port,
-            database=database_name
-        )
+        # database_url = DatabaseConstants.DEFAULT_DB_URL_FORMAT.format(
+        #     user=user,
+        #     password=password,
+        #     host=host,
+        #     port=port,
+        #     database=database_name
+        # )
 
+        database_url = DatabaseConstants.SQLITE_PATH + f"/{database_name}/{database_name}.sqlite"
         try:
             engine = create_engine(database_url)
             # Optional: Test the connection
@@ -105,21 +106,6 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error creating SQLAlchemy engine for database '{database_name}': {e}")
             return None
-
-    def _connect(self, engine: Engine):
-        """Establishes a connection from the engine."""
-        try:
-            connection = self._engine.connect()
-            print("Database connection established via SQLAlchemy engine.")
-            return connection
-        except OperationalError as e:
-             print(f"Error establishing connection via SQLAlchemy engine: {e}")
-             print("Please ensure the database is accessible.")
-             return None
-        except Exception as e:
-            print(f"An unexpected error occurred during connection establishment: {e}")
-            return None
-
 
     def close_connections(self, engine: Engine):
         """Disposes the given engine, closing all of its connections."""

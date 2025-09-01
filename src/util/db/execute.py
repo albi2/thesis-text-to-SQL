@@ -15,13 +15,10 @@ class SQLExecStatus(Enum):
     INCORRECT_SYNTAX = "INCORRECT_SYNTAX"
     EMPTY_RESULT = "EMPTY_RESULT"
 
-class SQLExecInfo(BaseModel):
+class SQLExecInfo:
     sql: str = ''
     status: SQLExecStatus = None
     result: List[Any] = []
-    
-    _execution_status: SQLExecStatus = PrivateAttr(default=None)
-    _execution_results: List[Any] = PrivateAttr(default=[])
 
     def __init__(self, sql: str, status: str, result: List[Any] = []):
         self.sql = sql
@@ -31,7 +28,7 @@ class SQLExecInfo(BaseModel):
     def to_dict(self):
         return {
             "sql": self.sql,
-            "status": self.status,
+            "status": self.status.value if self.status is not None else None,
             "result": str(self.result) if self.result is not None else None
         }
     
@@ -74,11 +71,11 @@ async def execute_sql_query_async(query: str, db_path: str, engine: Engine, time
         return SQLExecInfo(sql=query, status=SQLExecStatus.CORRECT_SYNTAX, result=result)
         
     except asyncio.TimeoutError:
-        logging.error(f"SQL query execution timed out after {timeout} seconds: {query}")
-        return SQLExecInfo(sql=query, status=SQLExecStatus.SYNTACTICALLY_INCORRECT)
+        logging.info(f"SQL query execution timed out after {timeout} seconds: {query}")
+        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX)
     except Exception as e:
-        logging.error(f"SQL query execution failed: {query}. Error: {e}")
-        return SQLExecInfo(sql=query, status=SQLExecStatus.SYNTACTICALLY_INCORRECT)
+        logging.info(f"SQL query execution failed: {query}. Error: {e}")
+        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX)
     
 
 
@@ -96,12 +93,8 @@ def _sync_execute_sql(query: str, engine: Engine, db_path: str = None, fetch: Un
     if db_path is None:
         db_path = DatabaseConstants.DB_PATH
 
-    engine = db_manager._engine
-
     with engine.connect() as connection:
         # Set the PostgreSQL search path for this connection
-        if db_path:
-            connection.execute(text(f"SET search_path TO {db_path}"))
         
         # Execute the main query
         result = connection.execute(text(query))
@@ -119,7 +112,7 @@ def _sync_execute_sql(query: str, engine: Engine, db_path: str = None, fetch: Un
         elif isinstance(fetch, int):
             rows = result.fetchmany(fetch)
         
-        return [row._asdict() for row in rows]
+    return [row._asdict() for row in rows]
 
 async def execute_sql_queries_async(queries: List[str], db_path: str, engine: Engine, timeout: int = 60) -> List[SQLExecInfo]:
     """
@@ -155,7 +148,12 @@ def compare_sqls_outcomes(predicted_sql: str, ground_sql: str, db_path: str, eng
     try:
         predicted_res = _sync_execute_sql(predicted_sql, engine, db_path=db_path)
         ground_truth_res = _sync_execute_sql(ground_sql, engine, db_path=db_path)
-        return int(set(predicted_res) == set(ground_truth_res))
+
+        # Convert each dict to a frozenset of key-value pairs
+        pred_set = {frozenset(d.items()) for d in predicted_res}
+        ground_set = {frozenset(d.items()) for d in ground_truth_res}
+
+        return int(pred_set == ground_set)
     except Exception as e:
         logging.critical(f"Error comparing SQL outcomes: {e}")
         raise e

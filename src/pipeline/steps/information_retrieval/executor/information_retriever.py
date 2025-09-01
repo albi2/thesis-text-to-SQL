@@ -154,7 +154,7 @@ class InformationRetriever:
                 question_and_keyword = str(task.question + " " + keyword)
                 collection_name = f"{PreprocessingConstants.COLUMN_COLLECTION_NAME}_{task.db_id}"
                 query_results = self.chroma_client.query_collection(
-                    collection_name=self.column_collection_name,
+                    collection_name=collection_name,
                     query_texts=[question_and_keyword],
                     n_results=k
                 )
