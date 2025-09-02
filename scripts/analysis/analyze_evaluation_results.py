@@ -18,7 +18,7 @@ def analyze_results(results_dir: str):
             if total_tasks == 0:
                 continue
 
-            executable_queries = sum(1 for r in results_data if r['execution_status'] != "INCORRECT_SYNTAX")
+            executable_queries = sum(1 for r in results_data if r['execution_status'] != "INCORRECT_SYNTAX" and r["generated_sql"] is not None)
             correct_queries = sum(1 for r in results_data if r['comparison_status'] == 1)
 
             execution_accuracy = (executable_queries / total_tasks) * 100
