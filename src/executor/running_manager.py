@@ -114,7 +114,7 @@ class RunningManager:
         #     result = result_queue.get()
         #     self.statistics_manager.add_result(result)
 
-        in_processing_tasks = self.tasks[:50]
+        in_processing_tasks = self.tasks[:2]
 
         for task in in_processing_tasks:
             self.run_pipeline_for_task(task)
