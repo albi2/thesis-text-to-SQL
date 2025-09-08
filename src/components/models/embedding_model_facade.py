@@ -101,7 +101,7 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
             device (str): The device to run the model on (e.g., "cpu", "cuda").
             **kwargs: Additional keyword arguments for the superclass and _load_model.
         """
-        effective_model_name = model_name_or_path or HuggingFaceModelConstants.DEFAULT_EMBEDDING_MODEL_PATH
+        effective_model_name = model_name_or_path or HuggingFaceModelConstants.DEFAULT_EMBEDDING_MODEL
         super().__init__(model_name_or_path=effective_model_name, device=device, **kwargs)
 
         # Use default model and path
@@ -109,17 +109,17 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
 
         # Ensure the target directory exists
 
-        try:
-            logger.info(f"Downloading/verifying {default_model_repo_id} to {effective_model_name}...")
-            os.makedirs(effective_model_name, exist_ok=True)
-            snapshot_download(
-                repo_id=default_model_repo_id,
-                local_dir=effective_model_name,
-                # consider adding allow_patterns or ignore_patterns if needed
-            )
-            logger.info(f"Successfully downloaded/verified {default_model_repo_id} to {effective_model_name}.")
-        except Exception as e:
-            logger.error(f"Error downloading default embedding model {default_model_repo_id} to {effective_model_name}: {e}", exc_info=True)
+        # try:
+        #     logger.info(f"Downloading/verifying {default_model_repo_id} to {effective_model_name}...")
+        #     os.makedirs(effective_model_name, exist_ok=True)
+        #     snapshot_download(
+        #         repo_id=default_model_repo_id,
+        #         local_dir=effective_model_name,
+        #         # consider adding allow_patterns or ignore_patterns if needed
+        #     )
+        #     logger.info(f"Successfully downloaded/verified {default_model_repo_id} to {effective_model_name}.")
+        # except Exception as e:
+        #     logger.error(f"Error downloading default embedding model {default_model_repo_id} to {effective_model_name}: {e}", exc_info=True)
         
 
     def _load_model(self, model_kwargs: Optional[Dict] = None, tokenizer_kwargs: Optional[Dict] = None, trust_remote_code: bool = True) -> None:

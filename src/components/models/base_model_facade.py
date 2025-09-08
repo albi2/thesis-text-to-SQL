@@ -34,7 +34,7 @@ class BaseHuggingFaceFacade(ABC):
             self.default_generation_params.update(default_params_override)
 
         # Download the model files in the constructor
-        self._download_model_files()
+        # self._download_model_files()
 
     def _download_model_files(self):
         """Downloads model files from Hugging Face Hub."""
@@ -74,7 +74,7 @@ class BaseHuggingFaceFacade(ABC):
         if self._model is not None and self._tokenizer is not None:
             return
 
-        print(f"--- Starting lazy load for: {self.model_name} ---")
+        print(f"--- Starting lazy load for: {self.model_repo} ---")
         for i in range(torch.cuda.device_count()):
             print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
             print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
@@ -85,7 +85,7 @@ class BaseHuggingFaceFacade(ABC):
             # self.device_map_config = None
             raise RuntimeError("No GPU found! Please make sure a CUDA-enabled GPU is available.")
         else:
-            print(f"{torch.cuda.device_count()} GPU(s) detected. Using device_map='auto' for '{self.model_name}'.")
+            print(f"{torch.cuda.device_count()} GPU(s) detected. Using device_map='auto' for '{self.model_repo}'.")
             self.device_map_config = "auto"
         
         # self.device_map_config = "auto"
@@ -94,31 +94,31 @@ class BaseHuggingFaceFacade(ABC):
             print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
 
         try:
-            print(f"Loading tokenizer for '{self.model_name}'...")
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            print(f"Loading tokenizer for '{self.model_repo}'...")
+            self._tokenizer = AutoTokenizer.from_pretrained(self.model_repo)
             if self._tokenizer.pad_token_id is None:
                 self._tokenizer.pad_token_id = self._tokenizer.eos_token_id
                 print(f"Tokenizer pad_token_id set to eos_token_id: {self._tokenizer.eos_token_id}")
 
-            print(f"Loading model '{self.model_name}' with torch_dtype=torch.bfloat16 and device_map='{self.device_map_config or 'cpu'}'...")
+            print(f"Loading model '{self.model_repo}' with torch_dtype=torch.bfloat16 and device_map='{self.device_map_config or 'cpu'}'...")
             self._model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
+                self.model_repo,
                 torch_dtype=torch.bfloat16,
                 device_map=self.device_map_config
             )
             # self._model = self._model.to_bettertransformer()
-            print(f"Model '{self.model_name}' loaded successfully.")
+            print(f"Model '{self.model_repo}' loaded successfully.")
             if self.device_map_config == "auto" and hasattr(self._model, 'hf_device_map'):
                  print(f"Model device map: {self._model.hf_device_map}")
             elif hasattr(self._model, 'device'):
                  print(f"Model loaded on device: {self._model.device}")
 
         except Exception as e:
-            print(f"Error loading model '{self.model_name}': {e}")
+            print(f"Error loading model '{self.model_repo}': {e}")
             self._model = None
             self._tokenizer = None
             raise
-        print(f"--- Finished lazy load for: {self.model_name} ---")
+        print(f"--- Finished lazy load for: {self.model_repo} ---")
         for i in range(torch.cuda.device_count()):
             print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
             print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
@@ -126,10 +126,10 @@ class BaseHuggingFaceFacade(ABC):
     def unload_model(self):
         """Unloads the model and tokenizer to free up memory."""
         if self._model is None and self._tokenizer is None:
-            print(f"Model '{self.model_name}' is not loaded, nothing to unload.")
+            print(f"Model '{self.model_repo}' is not loaded, nothing to unload.")
             return
 
-        print(f"Unloading model and tokenizer for '{self.model_name}'...")
+        print(f"Unloading model and tokenizer for '{self.model_repo}'...")
         del self._model
         del self._tokenizer
         self._model = None
@@ -154,7 +154,7 @@ class BaseHuggingFaceFacade(ABC):
             torch.cuda.memory._dump_snapshot()  # Debug info
             torch.cuda.reset_accumulated_memory_stats(i)
             torch.cuda.reset_peak_memory_stats(i)
-        print(f"Model '{self.model_name}' unloaded successfully.")
+        print(f"Model '{self.model_repo}' unloaded successfully.")
         for i in range(torch.cuda.device_count()):
             print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
             print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
@@ -257,7 +257,7 @@ class BaseHuggingFaceFacade(ABC):
             return responses if num_return_sequences > 1 else responses[0]
 
         except Exception as e:
-            print(f"Error during model query for '{self.model_name}': {e}")
+            print(f"Error during model query for '{self.model_repo}': {e}")
             return f"Error generating response: {e}"
         finally:
             # Explicitly unload model and tokenizer

@@ -28,7 +28,7 @@ class DatabaseConstants:
     DB_PATH = "public"
 
     # SQL-Lite Path
-    SQLITE_PATH = "sqlite:////workspace/data/dev_databases"
+    SQLITE_PATH = "sqlite:////root/data/dev_databases"
 
 class HuggingFaceModelConstants:
     """
@@ -43,11 +43,11 @@ class HuggingFaceModelConstants:
     OMNI_TEXT2SQL_MODEL_REPO = "seeklhy/OmniSQL-7B"
     DEFOG_TEXT2SQL_MODEL_REPO = "defog/sqlcoder-7b-2"
 
-    DEFAULT_TEXT2SQL_MODEL_PATH = "/workspace/data/models/XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
-    DEFAULT_REASONING_MODEL_PATH = "/workspace/data/models/Qwen3-8B"
-    DEFAULT_EMBEDDING_MODEL_PATH = "/workspace/data/models/Qwen3-Embedding-4B"
-    OMNI_TEXT2SQL_MODEL_PATH = "/workspace/data/models/seeklhy/OmniSQL-7B"
-    DEFOG_TEXT2SQL_MODEL_PATH = "/workspace/data/models/defog/sqlcoder-7b-2"
+    DEFAULT_TEXT2SQL_MODEL_PATH = "/root/data/models/XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
+    DEFAULT_REASONING_MODEL_PATH = "/root/data/models/Qwen3-8B"
+    DEFAULT_EMBEDDING_MODEL_PATH = "/root/data/models/Qwen3-Embedding-4B"
+    OMNI_TEXT2SQL_MODEL_PATH = "/root/data/models/seeklhy/OmniSQL-7B"
+    DEFOG_TEXT2SQL_MODEL_PATH = "/root/data/models/defog/sqlcoder-7b-2"
 
     DEFAULT_MODEL_GENERATION_PARAMS = {
         "max_new_tokens": 512,

@@ -1,7 +1,6 @@
 import json
 import multiprocessing
 from typing import List
-from sqlalchemy.engine import Engine
 from datetime import datetime
 
 from components.schema.schema_engine_factory import SchemaEngineFactory
@@ -16,9 +15,8 @@ from executor.task_model import Task
 from executor.statistics_manager import StatisticsManager
 from pipeline.steps.evaluation.evaluation_step import EvaluationStep
 from infrastructure.database.database_manager import DatabaseManager
-
 class RunningManager:
-    RESULT_ROOT_PATH = "./results"
+    RESULT_ROOT_PATH = "/root/data/results"
 
     """
     Manages the process of loading tasks and running the evaluation pipeline for each.
@@ -61,9 +59,15 @@ class RunningManager:
         if not database_engine:
             print(f"Failed to create database engine for db_id: {task.db_id}. Skipping task.")
             return
+        
+        print("ZZZZZ - Created db")
+
 
         schema_factory = SchemaEngineFactory()
         schema_engine = schema_factory.create_schema_engine(engine=database_engine, db_name=task.db_id)
+
+        print("ZZZZZ - Created schema engine")
+
 
         if not schema_engine:
             print(f"Failed to create SchemaEngine for db_id: {task.db_id}. Skipping task.")
@@ -88,6 +92,7 @@ class RunningManager:
             .build()
 
         pipeline.run(context)
+        print("ZZZZZ - Created schema engine")
         
         self.statistics_manager.add_result(context.evaluation_result)
         print(f"Finished pipeline for question_id: {task.question_id}")
@@ -114,7 +119,8 @@ class RunningManager:
         #     result = result_queue.get()
         #     self.statistics_manager.add_result(result)
 
-        in_processing_tasks = self.tasks[:2]
+
+        in_processing_tasks = self.tasks[:7]
 
         for task in in_processing_tasks:
             self.run_pipeline_for_task(task)

@@ -19,6 +19,7 @@ class SchemaEngine(SQLDatabase):
                  mschema: Optional[MSchema] = None, db_name: Optional[str] = ''):
         super().__init__(engine, schema, metadata, ignore_tables, include_tables, sample_rows_in_table_info,
                          indexes_in_table_info, custom_table_info, view_support, max_string_length)
+        print(engine)
 
         self._db_name = db_name
         # Dictionary to store table names and their corresponding schema

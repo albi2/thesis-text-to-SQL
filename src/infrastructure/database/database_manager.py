@@ -80,22 +80,22 @@ class DatabaseManager:
 
         # self._ensure_database_exists(database_name) # Ensure database exists before creating engine
 
-        # host = self.config.get(DatabaseConfigKeys.HOST)
-        # port = self.config.get(DatabaseConfigKeys.PORT)
-        # user = self.config.get(DatabaseConfigKeys.USERNAME)
-        # password = self.config.get(DatabaseConfigKeys.PASSWORD)
+        host = self.config.get(DatabaseConfigKeys.HOST)
+        port = self.config.get(DatabaseConfigKeys.PORT)
+        user = self.config.get(DatabaseConfigKeys.USERNAME)
+        password = self.config.get(DatabaseConfigKeys.PASSWORD)
 
 
-        # Construct the database URL using the constant format string
-        # database_url = DatabaseConstants.DEFAULT_DB_URL_FORMAT.format(
-        #     user=user,
-        #     password=password,
-        #     host=host,
-        #     port=port,
-        #     database=database_name
-        # )
+        # # Construct the database URL using the constant format string
+        database_url = DatabaseConstants.DEFAULT_DB_URL_FORMAT.format(
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            database=database_name
+        )
 
-        database_url = DatabaseConstants.SQLITE_PATH + f"/{database_name}/{database_name}.sqlite"
+        # database_url = DatabaseConstants.SQLITE_PATH + f"/{database_name}/{database_name}.sqlite"
         try:
             engine = create_engine(database_url)
             # Optional: Test the connection
