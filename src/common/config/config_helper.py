@@ -2,7 +2,11 @@ import yaml
 import os
 
 class ConfigurationHelper:
+<<<<<<< Updated upstream
     def __init__(self, config_dir="config"):
+=======
+    def __init__(self, config_dir="/root/data/thesis/config"):
+>>>>>>> Stashed changes
         """
         Initializes the ConfigurationHelper.
 
