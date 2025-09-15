@@ -6,27 +6,29 @@ app = modal.App("thesis")
 volume = modal.Volume.from_name("data", create_if_missing=True)
 # with volume.batch_upload() as batch:
 #     batch.put_directory("/Users/I746200/Downloads/dev_20240627/dev_databases", "/dev_databases")
+#     batch.put_directory("/Users/I746200/Desktop/TUM/Thesis/thesis-text-to-SQL/dataset/chroma", "/chroma")
+
 
 image = (modal.Image
          .debian_slim(python_version="3.12")
-        .apt_install("openssh-server")
+        # .apt_install("openssh-server")
         .pip_install_from_requirements("requirements.txt")
         .pip_install(["accelerate"])
-        .run_commands("mkdir /run/sshd")
-        .add_local_file("/Users/I746200/.ssh/modal_rsa.pub", "/root/.ssh/authorized_keys", copy=True)
+        # .run_commands("mkdir /run/sshd")
+        # .add_local_file("/Users/I746200/.ssh/modal_rsa.pub", "/root/.ssh/authorized_keys", copy=True)
         .add_local_python_source("init", "util", "prompts", "pipeline", "infrastructure", "executor", "context", "components", "common")
         .add_local_dir(
             local_path=".",
             remote_path="/root/thesis",
-            ignore=["venv/*" ])
+            ignore=["venv/*", "src/*"])
     )
         
 @app.function(
     image=image,
     gpu="l4",  # Each model gets its own A100 
     volumes={"/root/data": volume},
-    memory=(100*1024, 150*1024),
-    cpu=(2, 16),        # 100GB RAM per model
+    memory=(100*1024, 150*1024), # 100GB RAM per model
+    cpu=(12, 16),        
     timeout=7200,                   # 2 hours
     scaledown_window=600  
 )
@@ -59,27 +61,27 @@ def run_evaluation():
         return {"status": "error", "message": str(e)}
 
 
-@app.function(
-    image=image,
-    gpu="l4",  # Each model gets its own A100 
-    volumes={"/root/data": volume},
-    memory=(100*1024, 150*1024),
-    cpu=(8, 16),        # 100GB RAM per model
-    timeout=7200,                   # 2 hours
-    container_idle_timeout=600  
-)
-def start_port_forward():
-    import subprocess
-    import time
+# @app.function(
+#     image=image,
+#     gpu="l4",  # Each model gets its own A100 
+#     volumes={"/root/data": volume},
+#     memory=(100*1024, 150*1024),
+#     cpu=(8, 16),        # 100GB RAM per model
+#     timeout=7200,                   # 2 hours
+#     container_idle_timeout=600  
+# )
+# def start_port_forward():
+#     import subprocess
+#     import time
 
-    subprocess.Popen(["/usr/sbin/sshd", "-D", "-e"])
-    with modal.forward(port=22, unencrypted=True) as tunnel:
-        hostname, port = tunnel.tcp_socket
-        print(f"HOSTNAME: {hostname} port: {port}")
+#     subprocess.Popen(["/usr/sbin/sshd", "-D", "-e"])
+#     with modal.forward(port=22, unencrypted=True) as tunnel:
+#         hostname, port = tunnel.tcp_socket
+#         print(f"HOSTNAME: {hostname} port: {port}")
 
-        while True:
-            time.sleep(3600)  # sleep for 1 hour per iteration
+#         while True:
+#             time.sleep(3600)  # sleep for 1 hour per iteration
 
 @app.local_entrypoint()
 def main():
-    start_port_forward.remote()
+    run_evaluation.remote()

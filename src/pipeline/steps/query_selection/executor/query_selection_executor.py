@@ -32,6 +32,7 @@ class QuerySelectionExecutor:
                     else:
                         selected_columns.append(f"{table}.{col}")
 
+        pipeline_context.schema_engine.mschema.set_database_descriptor(pipeline_context.descriptions_database)
         mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
             selected_tables=selected_tables,
             selected_columns=selected_columns,

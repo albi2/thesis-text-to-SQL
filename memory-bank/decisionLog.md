@@ -11,6 +11,7 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-07-03] Asynchronous SQL Execution and Validation:** Decided to implement an asynchronous utility to execute and validate the generated SQL queries. This utility uses `asyncio` to run queries concurrently and returns an `SQLExecInfo` object for each query, containing the query, status, and result.
 *   **[2025-07-03] SQL Query Parsing from Model Output:** Decided to implement parsing logic in the `SQLGenerationExecutor` to extract the final SQL query from the model's response, which is expected to be enclosed in `<FINAL_ANSWER>` tags.
 *   **[2025-07-04] Query Selection Pipeline Step:** Decided to implement a new pipeline step, `QuerySelectionStep`, with a dedicated `QuerySelectionExecutor`, to select the best SQL query from a list of candidates using a reasoning model.
+*   **[2025-07-18] CSV-based Schema Descriptions:** Decided to use CSV files to store detailed database schema descriptions, including column descriptions and value descriptions. This decouples the schema enrichment from the database itself and allows for more detailed and consistent schema information.
 *
 
 ## Decision

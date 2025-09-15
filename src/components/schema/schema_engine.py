@@ -3,7 +3,7 @@ from sqlalchemy import MetaData, Table, select
 from sqlalchemy.engine import Engine
 from llama_index.core import SQLDatabase
 from util.utils import examples_to_str
-from components.schema.m_schema import MSchema
+from components.schema.m_schema import MSchemaGenerator
 
 
 '''
@@ -16,11 +16,9 @@ class SchemaEngine(SQLDatabase):
                  ignore_tables: Optional[List[str]] = None, include_tables: Optional[List[str]] = None,
                  sample_rows_in_table_info: int = 3, indexes_in_table_info: bool = False,
                  custom_table_info: Optional[dict] = None, view_support: bool = False, max_string_length: int = 300,
-                 mschema: Optional[MSchema] = None, db_name: Optional[str] = ''):
+                 mschema: Optional[MSchemaGenerator] = None, db_name: Optional[str] = ''):
         super().__init__(engine, schema, metadata, ignore_tables, include_tables, sample_rows_in_table_info,
                          indexes_in_table_info, custom_table_info, view_support, max_string_length)
-        print(engine)
-
         self._db_name = db_name
         # Dictionary to store table names and their corresponding schema
         self._tables_schemas: Dict[str, str] = {}
@@ -47,11 +45,11 @@ class SchemaEngine(SQLDatabase):
         if mschema is not None:
             self._mschema = mschema
         else:
-            self._mschema = MSchema(db_id=db_name, schema=schema)
+            self._mschema = MSchemaGenerator(db_id=db_name, schema=schema)
             self.init_mschema()
 
     @property
-    def mschema(self) -> MSchema:
+    def mschema(self) -> MSchemaGenerator:
         """Return M-Schema"""
         return self._mschema
 

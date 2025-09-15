@@ -6,7 +6,7 @@ def main():
     """
     Initializes the RunningManager and starts the evaluation process.
     """
-    load_comments()
+    # load_comments()
 
     dataset_path = "/root/thesis/dataset/dev/bird_subset.json"
     manager = RunningManager(dataset_path)

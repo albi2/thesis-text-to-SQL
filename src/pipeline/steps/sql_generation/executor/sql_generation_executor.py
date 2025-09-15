@@ -16,92 +16,56 @@ class SQLGenerationExecutor:
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLExecInfo]:
-        # Create MSchema string from selected_schema
+        all_generated_queries = []
+        for selected_schema in pipeline_context.selected_schemas:
+            selected_tables = [table_name.split('.')[1] for table_name in selected_schema.keys() if '.' in table_name]
+            selected_columns = [f"{table.split('.')[1]}.{col}" if '.' in table else f"{table}.{col}" for table, columns in selected_schema.items() if table != "chain_of_thought_reasoning" for col in columns]
 
-        selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name ]
-        selected_columns = []
-        for table, columns in pipeline_context.selected_schema.items():
-            for col in columns:
-                if table != "chain_of_thought_reasoning": # Exclude reasoning from columns
-                    if '.' in table:
-                        selected_columns.append(f"{table.split('.')[1]}.{col}")
-                    else:
-                        selected_columns.append(f"{table}.{col}")
-                        
-        # Ensure that the schema engine is available in the context
-        if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
-            return []
+            if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
+                continue
 
-        mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
-            selected_tables=selected_tables,
-            selected_columns=selected_columns,
-            show_type_detail=True
-        )
+            mschema_string = pipeline_context.schema_engine.mschema.to_mschema(
+                selected_tables=selected_tables,
+                selected_columns=selected_columns,
+                show_type_detail=True
+            )
 
-        print('SQL GENERATION MSCHEMA', mschema_string)
+            print('SQL GENERATION MSCHEMA', mschema_string)
 
-        full_prompt = PROMPT.format(
-            DATABASE_SCHEMA=mschema_string,
-            QUESTION=pipeline_context.user_query,
-            HINT=getattr(pipeline_context, 'hint', '') # Get hint if it exists, otherwise empty string
-        )
+            full_prompt = PROMPT.format(DATABASE_SCHEMA=mschema_string, QUESTION=pipeline_context.user_query, HINT=getattr(pipeline_context, 'hint', ''))
+            defog_prompt = DEFOG_PROMPT.format(DATABASE_SCHEMA=mschema_string, QUESTION=pipeline_context.user_query)
 
-        defog_prompt = DEFOG_PROMPT.format(
-            DATABASE_SCHEMA=mschema_string,
-            QUESTION=pipeline_context.user_query,
-        )
-
-        responses: List[str] = []
-        try:
-            default_response = self.text2sql_model_facade.query(full_prompt)
-            responses.append(default_response)
-            defog_response = self.defog_text2sql_model_facade.query(prompt = defog_prompt, system_prompt = None, max_new_tokens = 800)
-            responses.append(defog_response)
-        except Exception as e:
-            print("Failed to generate query because of", e)
-
-        generated_sql_queries: List[str] = []
-        for model_response in responses:
+            responses = []
             try:
-                print('SQL GENERATION MODEL RESPONSE', model_response)
-                if "```sql" in model_response:
-                    model_response = model_response.split("```sql")[1].split("```")[0]
-                    resulting_sql = re.sub(r"^\s+", "", model_response)
-                    generated_sql_queries.append(resulting_sql) # Append raw response for now
-                elif "```" in model_response:
-                    resulting_sql = model_response.split(";")[0].split("```")[0].strip()+ ";";
-                    generated_sql_queries.append(resulting_sql)
-                else:
-                    generated_sql_queries.append(model_response)
+                responses.append(self.text2sql_model_facade.query(full_prompt))
+                responses.append(self.defog_text2sql_model_facade.query(prompt=defog_prompt, system_prompt=None, max_new_tokens=800))
             except Exception as e:
-                print("Could not parse JSON for schema filtering", e) 
-                generated_sql_queries.append(model_response) 
-        
+                print(f"Failed to generate query because of {e}")
 
-        # Execute and filter queries asynchronously
-        # We need to run the async function in an event loop.
-        # Since 'execute' is a synchronous method, we create a new event loop for it.
+            for model_response in responses:
+                try:
+                    print('SQL GENERATION MODEL RESPONSE', model_response)
+                    if "```sql" in model_response:
+                        all_generated_queries.append(re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]))
+                    elif "```" in model_response:
+                        all_generated_queries.append(model_response.split(";")[0].split("```")[0].strip() + ";")
+                    else:
+                        all_generated_queries.append(model_response)
+                except Exception as e:
+                    print(f"Could not parse response: {e}")
+                    all_generated_queries.append(model_response)
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        if loop.is_running():
-            # If a loop is already running (e.g., in a Jupyter notebook or another async context),
-            # we need to run the task in the existing loop.
-            # This is a simplified approach; for complex scenarios, consider a dedicated task runner.
-            executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, pipeline_context.db_engine, "thesis") # Store the schema/s and other relevant info in the context
-            )
-        else:
-            # If no loop is running, create and run a new one.
-            executable_sql_infos = loop.run_until_complete(
-                execute_sql_queries_async(generated_sql_queries, DatabaseConstants.DB_PATH, pipeline_context.db_engine, "thesis")
-            )
+        executable_sql_infos = loop.run_until_complete(
+            execute_sql_queries_async(all_generated_queries, DatabaseConstants.DB_PATH, pipeline_context.db_engine)
+        )
 
-        for executable in executable_sql_infos:
-            print('QUERY EXECUTION', executable.to_dict())
-        
         pipeline_context.generated_sql_queries = [info for info in executable_sql_infos if info.status == SQLExecStatus.CORRECT_SYNTAX]
-        return [info for info in executable_sql_infos if info.status == SQLExecStatus.CORRECT_SYNTAX]
+        pipeline_context.non_executable_sql_queries = [info for info in executable_sql_infos if info.status != SQLExecStatus.CORRECT_SYNTAX]
+
+        return pipeline_context.generated_sql_queries

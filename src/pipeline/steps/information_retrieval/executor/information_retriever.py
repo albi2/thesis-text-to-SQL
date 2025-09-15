@@ -2,7 +2,7 @@
 """
 InformationRetriever agent for extracting keywords, phrases, and relevant context.
 """
-import json # Changed from ast to json
+import json
 from typing import Dict, List, Any
 
 from common.config.config_helper import ConfigurationHelper
@@ -10,8 +10,11 @@ from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
-from util.constants import PreprocessingConstants
+from util.constants import PreprocessingConstants, DatabaseConstants
+from util.db.database_descriptor import DatabaseDescriptor, TableDescriptor, ColumnDefinition
 from executor.task_model import Task
+from util.similarity_measures.lsh import LSHUtil
+from util.similarity_measures.semantic import SemanticSimilarityUtil
 
 class InformationRetriever:
     """
@@ -48,6 +51,7 @@ class InformationRetriever:
 
         # Store collection name
         self.column_collection_name = PreprocessingConstants.COLUMN_COLLECTION_NAME
+        self.semantic_similarity_util = SemanticSimilarityUtil()
 
 
     def extract_keywords(self, user_query: str, hint: str = "") -> Dict[str, List[str]]:
@@ -106,25 +110,60 @@ class InformationRetriever:
             print(f"Error extracting the keywords: {str(e)}" )
         return {"keywords": keywords_list, "phrases": phrases_list}
 
-    def retrieve_entities(self, keywords: List[str], phrases: List[str]) -> List[str]:
+    def retrieve_entities(self, db_id: str, keywords: List[str], phrases: List[str]) -> DatabaseDescriptor:
         """
-        Placeholder method to retrieve relevant entities (e.g., tables) based on
-        keywords and phrases. The goal is to find tables whose columns might
-        contain values similar to the provided phrases.
+        Retrieves relevant entities (tables and columns) based on keywords and phrases.
 
         Args:
+            db_id: The ID of the database.
             keywords: A list of keywords extracted from the user query.
             phrases: A list of phrases (potential data values) from the user query.
 
         Returns:
-            A list of relevant entity names (e.g., table names).
-            Currently returns an empty list.
+            A DatabaseDescriptor object containing the relevant tables and columns.
         """
-        # TODO: Implement logic to find relevant tables/entities.
-        # This will likely involve checking column contents or metadata
-        # against the provided phrases, possibly using the schema information
-        # or a more direct database lookup if feasible.
-        return []
+        lsh = LSHUtil.load_lsh_index(db_id)
+        minhashes = LSHUtil.load_minhashes(db_id)
+        
+        entities_db_descriptor = DatabaseDescriptor(db_id=db_id)
+        
+        for keyword in keywords + phrases:
+            similar_values = LSHUtil.query_lsh(lsh, minhashes, keyword)
+            
+            all_candidates = []
+            for table_name, columns in similar_values.items():
+                for column_name, values in columns.items():
+                    for value in values:
+                        all_candidates.append({
+                            "value": value,
+                            "table_name": table_name,
+                            "column_name": column_name
+                        })
+
+            # Get top-n most similar candidates using semantic similarity
+            top_candidates = self.semantic_similarity_util.get_top_n_similar(
+                keyword,
+                all_candidates,
+                top_n=10
+            )
+
+            # Create a new DatabaseDescriptor with the relevant entities
+            for candidate in top_candidates:
+                table_name = candidate["table_name"]
+                column_name = candidate["column_name"]
+                
+                if table_name not in entities_db_descriptor.tables:
+                    entities_db_descriptor.tables[table_name] = TableDescriptor(table_name=table_name)
+                
+                if column_name not in entities_db_descriptor.tables[table_name].columns:
+                    # We don't have the full column definition here, so we create a partial one
+                    entities_db_descriptor.tables[table_name].columns[column_name] = ColumnDefinition(
+                        original_column_name=column_name,
+                        column_name=column_name
+                    )
+                    
+        return entities_db_descriptor
+
 
     def retrieve_context(self, keywords: List[str], task: Task, k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
         """

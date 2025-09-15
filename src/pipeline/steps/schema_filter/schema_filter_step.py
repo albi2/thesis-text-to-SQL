@@ -15,9 +15,8 @@ class SchemaFilterStep(PipelineStep[PipelineContext, None]):
             print(f"Schema Filter step did not run successfully. Empty DB Schema")
             return None
         executor = SchemaFilterExecutor()
-        result_dictionary = executor.execute(
+        executor.execute(
             pipeline_context=pipeline_context
         )
-        pipeline_context.selected_schema = result_dictionary
 
         return None

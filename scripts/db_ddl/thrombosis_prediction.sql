@@ -65,3 +65,8 @@ COMMENT ON COLUMN patient."description" IS 'The first date when a patient data w
 COMMENT ON COLUMN patient."First Date" IS 'The date when a patient came to the hospital';
 COMMENT ON COLUMN patient."admission" IS 'Patient was admitted to the hospital (+) or followed at the outpatient clinic (-)';
 COMMENT ON COLUMN patient."diagnosis" IS 'Disease names';
+
+-- Add table comments
+COMMENT ON TABLE examination IS 'Records the results of clinical examinations, including symptoms, coagulation tests, and thrombosis status.';
+COMMENT ON TABLE laboratory IS 'Contains a comprehensive log of all laboratory test results for patients on specific dates.';
+COMMENT ON TABLE patient IS 'Stores core demographic, administrative, and diagnostic information for each patient.';

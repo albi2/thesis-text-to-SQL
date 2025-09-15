@@ -1,16 +1,21 @@
 from util.utils import examples_to_str, read_json, write_json
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
+from util.db.database_descriptor import DatabaseDescriptor
 
 
-class MSchema:
-    def __init__(self, db_id: str = 'Anonymous', schema: Optional[str] = None):
+class MSchemaGenerator:
+    def __init__(self, db_id: str = 'Anonymous', schema: Optional[str] = None, database_descriptor: Optional[DatabaseDescriptor] = None):
         self.db_id = db_id
         self.schema = schema
         self.tables = {}
         self.foreign_keys = []
+        self.database_descriptor = database_descriptor
 
     def add_table(self, name, fields={}, comment=None):
         self.tables[name] = {"fields": fields.copy(), 'examples': [], 'comment': comment}
+
+    def set_database_descriptor(self, database_descriptor: DatabaseDescriptor):
+        self.database_descriptor = database_descriptor
 
     def add_field(self, table_name: str, field_name: str, field_type: str = "",
             primary_key: bool = False, nullable: bool = True, default: Any = None,
@@ -79,10 +84,16 @@ class MSchema:
 
             raw_type = self.get_field_type(field_info['type'], not show_type_detail)
             field_line = f"({field_name}:{raw_type.upper()}"
-            if field_info['comment'] != '':
-                field_line += f", {field_info['comment'].strip()}"
-            else:
-                pass
+            comment = field_info.get('comment', '')
+            if not comment and self.database_descriptor:
+                table_descriptor = self.database_descriptor.tables.get(table_name)
+                if table_descriptor:
+                    column_definition = table_descriptor.columns.get(field_name)
+                    if column_definition:
+                        comment = f"{column_definition.column_name}: {column_definition.column_description}-{column_definition.value_description}"
+            
+            if comment:
+                field_line += f", {comment.strip()}"
 
             ## 打上主键标识
             is_primary_key = field_info.get('primary_key', False)

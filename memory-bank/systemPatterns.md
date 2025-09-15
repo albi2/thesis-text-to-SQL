@@ -124,3 +124,12 @@ This file documents recurring patterns and standards used in the project.
                 self.error = error
         ```
     *   **Implementation:** [`SQLExecInfo`](src/util/db/execute.py)
+*   **[2025-07-18] Centralized Data Loading:**
+    *   **Guideline:** Use a dedicated utility module to handle the loading and preprocessing of data from external sources (e.g., CSV files). This centralizes the data loading logic and ensures consistency.
+    *   **When to use:** When loading data from external files that require specific parsing and preprocessing.
+    *   **Implementation:** [`description_csv.py`](src/util/db/description_csv.py)
+
+*   **[2025-07-18] Data Transfer Object (DTO) for Database Schema:**
+    *   **Guideline:** Use a dedicated class (e.g., a dataclass or a simple class) to encapsulate the database schema information, including tables, columns, and their descriptions.
+    *   **When to use:** When passing structured database schema information between different components of the application.
+    *   **Implementation:** [`DatabaseDescriptor`](src/util/db/database_descriptor.py)

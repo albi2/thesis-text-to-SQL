@@ -1,5 +1,6 @@
 from typing import Optional, Any, List
-from util.db.execute import SQLExecInfo # Import locally to avoid circular dependency
+from util.db.execute import SQLExecInfo
+from util.db.database_descriptor import DatabaseDescriptor
 
 from .generic_context import GenericContext
 from executor.task_model import Task
@@ -30,10 +31,14 @@ class PipelineContext(GenericContext):
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
         self.db_schema_per_keyword = {}  # Dictionary to store schema information per keyword
         self.selected_schema: dict = None
+        self.selected_schemas: List[dict] = []
         self.hint: Optional[str] = task.evidence
         self.generated_sql_queries: List[SQLExecInfo] = []
         self.selected_sql_query: Optional[SQLExecInfo] = None
+        self.non_executable_sql_queries: List[SQLExecInfo] = []
         self.evaluation_result: Optional[Any] = None
+        self.descriptions_database: Optional[DatabaseDescriptor] = None
+        self.entities_db_descriptor: Optional[DatabaseDescriptor] = None
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint
@@ -58,7 +63,10 @@ class PipelineContext(GenericContext):
         return {
             "user_query": self.user_query,
             "db_schema_per_keyword": self.db_schema_per_keyword,
-            "selected_schema": self.selected_schema,
+            "selected_schemas": [selected_schema for selected_schema in self.selected_schemas],
             "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries],
-            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None
+            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None,
+            "descriptions_database": self.descriptions_database.to_dict() if self.descriptions_database else None,
+            "entities_db_descriptor": self.entities_db_descriptor.to_dict() if self.entities_db_descriptor else None,
+            "non_executable_sql_queries": [query.to_dict() for query in self.non_executable_sql_queries]
         }

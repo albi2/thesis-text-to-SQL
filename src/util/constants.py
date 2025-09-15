@@ -29,6 +29,7 @@ class DatabaseConstants:
 
     # SQL-Lite Path
     SQLITE_PATH = "sqlite:////root/data/dev_databases"
+    COLUMN_DESCRIPTIONS="/root/thesis/dataset/dev/databases"
 
 class HuggingFaceModelConstants:
     """
@@ -68,3 +69,11 @@ class PreprocessingConstants:
     COLUMN_COLLECTION_NAME: str = "database_columns"
     DEFAULT_CHROMA_HOST: str = "localhost"
     DEFAULT_CHROMA_PORT: int = 8000
+
+class LSHConstants:
+    """
+    Constants for Local-Sensitivity Hashing.
+    """
+    DEFAULT_NUM_PERM: int = 128
+    DEFAULT_N_GRAM_SIZE: int = 3
+    DEFAULT_THRESHOLD: float = 0.5
