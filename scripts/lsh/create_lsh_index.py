@@ -27,6 +27,7 @@ def main():
         
         for table_name, columns in unique_values.items():
             for column_name, values in columns.items():
+                print(f"Initial unique values for table {table_name} , column {column_name}: {values[:5]}")
                 for i, value in enumerate(values):
                     minhash = LSHUtil.create_minhash(value, num_perm=LSHConstants.DEFAULT_NUM_PERM, n_gram_size=LSHConstants.DEFAULT_N_GRAM_SIZE)
                     key = f"{table_name}_{column_name}_{i}"
@@ -39,8 +40,8 @@ def main():
                     }
         
         # Save LSH index and MinHash mappings
-        lsh_path = f"/root/thesis/dataset/lsh/{db_id}_lsh.pkl"
-        minhashes_path = f"/root/thesis/dataset/lsh/{db_id}_minhashes.pkl"
+        lsh_path = f"/root/data/lsh/{db_id}_lsh.pkl"
+        minhashes_path = f"/root/data/lsh/{db_id}_minhashes.pkl"
         
         os.makedirs(os.path.dirname(lsh_path), exist_ok=True)
         

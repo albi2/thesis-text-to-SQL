@@ -144,7 +144,7 @@ class InformationRetriever:
             top_candidates = self.semantic_similarity_util.get_top_n_similar(
                 keyword,
                 all_candidates,
-                top_n=10
+                top_n=3
             )
 
             # Create a new DatabaseDescriptor with the relevant entities

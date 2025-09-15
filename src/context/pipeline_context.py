@@ -62,11 +62,11 @@ class PipelineContext(GenericContext):
     def to_dict(self):
         return {
             "user_query": self.user_query,
+            "descriptions_database": self.descriptions_database.to_dict() if self.descriptions_database else None,
+            "entities_db_descriptor": self.entities_db_descriptor.to_dict() if self.entities_db_descriptor else None,
             "db_schema_per_keyword": self.db_schema_per_keyword,
             "selected_schemas": [selected_schema for selected_schema in self.selected_schemas],
             "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries],
-            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None,
-            "descriptions_database": self.descriptions_database.to_dict() if self.descriptions_database else None,
-            "entities_db_descriptor": self.entities_db_descriptor.to_dict() if self.entities_db_descriptor else None,
-            "non_executable_sql_queries": [query.to_dict() for query in self.non_executable_sql_queries]
+            "non_executable_sql_queries": [query.to_dict() for query in self.non_executable_sql_queries],
+            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None
         }

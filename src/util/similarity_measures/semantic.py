@@ -33,8 +33,8 @@ class SemanticSimilarityUtil:
         if not query or not candidates:
             return np.array([])
 
-        query_embedding = self.embedding_facade.get_embedding(query)
-        candidate_embeddings = self.embedding_facade.get_embeddings(candidates)
+        query_embedding = self.embedding_facade.encode_single(query)
+        candidate_embeddings = self.embedding_facade.encode(candidates)
 
         similarity_matrix = cosine_similarity([query_embedding], candidate_embeddings)
         

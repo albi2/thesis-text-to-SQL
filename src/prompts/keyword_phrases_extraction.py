@@ -51,18 +51,18 @@ hint.
 - Phrases: Short phrases or named entities that represent specific concepts,
 locations, organizations, or other significant details.
 Ensure to maintain the original phrasing or terminology used in the question
-and hint. 
+and hint.
 
+Examples:
 {FEWSHOT_EXAMPLES}
 
 Task:
-Given the following question and hint, identify and exract all relevant keywords,
-phrases, and named entities.
+Given the following question and hint, identify and exract all relevant keywords and phrases.
 
 Question: {QUESTION}
 
 Hint: {HINT}
 
-Please provide your findings as a JSON map similar to the examples, capturing the essence of both
+Please provide your findings as a JSON map exactly like the examples, capturing the essence of both
 the question and hint through the identified terms and phrases.
 Only output the JSON, no explanations needed."""
