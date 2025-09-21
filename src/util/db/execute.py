@@ -2,10 +2,10 @@ from sqlalchemy.engine import Engine, CursorResult
 from sqlalchemy import text
 from typing import List, Any, Dict, Union
 import asyncio
+import hashlib
+import json
 import logging
 from enum import Enum
-from pydantic import BaseModel, PrivateAttr
-from common.config.config_helper import ConfigurationHelper
 from ..constants import DatabaseConstants
 
 logging.basicConfig(level=logging.INFO)
@@ -130,14 +130,14 @@ async def execute_sql_queries_async(queries: List[str], db_path: str, engine: En
     tasks = [execute_sql_query_async(query, db_path, engine, timeout) for query in queries]
     return await asyncio.gather(*tasks)
 
-def compare_sqls_outcomes(predicted_sql: str, ground_sql: str, db_path: str, engine: Engine) -> int:
+def compare_sqls_outcomes(sql_1: str, sql_2: str, db_path: str, engine: Engine) -> int:
     """
     Compares the outcomes of two SQL queries to check for equivalence.
     
     Args:
         db_path (str): The path to the database file.
-        predicted_sql (str): The predicted SQL query.
-        ground_truth_sql (str): The ground truth SQL query.
+        sql_1 (str): The first SQL query.
+        sql_2 (str): The second SQL query.
         
     Returns:
         int: 1 if the outcomes are equivalent, 0 otherwise.
@@ -146,16 +146,43 @@ def compare_sqls_outcomes(predicted_sql: str, ground_sql: str, db_path: str, eng
         Exception: If an error occurs during SQL execution.
     """
     try:
-        predicted_res = _sync_execute_sql(predicted_sql, engine, db_path=db_path)
-        ground_truth_res = _sync_execute_sql(ground_sql, engine, db_path=db_path)
+        result_1 = _sync_execute_sql(sql_1, engine, db_path=db_path)
+        result_2 = _sync_execute_sql(sql_2, engine, db_path=db_path)
 
-        # Convert each dict to a frozenset of key-value pairs
-        pred_set = {frozenset(d.items()) for d in predicted_res}
-        ground_set = {frozenset(d.items()) for d in ground_truth_res}
+        if len(result_1) != len(result_2):
+            return 0
+        
+        if len(result_1) == 0:
+            return 1
 
-        return int(pred_set == ground_set)
+        if len(result_1[0]) != len(result_2[0]):
+            return 0
+
+        def sort_and_hash(result):
+            if not result:
+                return ""
+            
+            # Sort columns by name
+            sorted_columns = sorted(result[0].keys())
+            
+            # Create a list of tuples (rows) with sorted values
+            sorted_rows = []
+            for row in result:
+                sorted_row = tuple(row[col] for col in sorted_columns)
+                sorted_rows.append(sorted_row)
+            
+            # Sort rows based on the values in each column
+            sorted_rows.sort()
+            
+            # Hash the sorted result
+            return hashlib.md5(json.dumps(sorted_rows, sort_keys=True).encode()).hexdigest()
+
+        hash_1 = sort_and_hash(result_1)
+        hash_2 = sort_and_hash(result_2)
+
+        return int(hash_1 == hash_2)
     except Exception as e:
         logging.critical(f"Error comparing SQL outcomes: {e}")
-        raise e
+        return 0
     
     

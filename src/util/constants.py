@@ -77,3 +77,24 @@ class LSHConstants:
     DEFAULT_NUM_PERM: int = 128
     DEFAULT_N_GRAM_SIZE: int = 3
     DEFAULT_THRESHOLD: float = 0.5
+
+
+class Text2SQLModelKeys:
+    """
+    Constants for Text-to-SQL model keys.
+    """
+    XIYAN = "xiyan"
+    OMNI = "omni"
+    DEFOG = "defog"
+
+    TEXT2SQL_MODEL_CONFIGS = {
+        XIYAN: {
+            "priority": 1
+        },
+        OMNI: {
+            "priority": 2
+        },
+        DEFOG: {
+            "priority": 3
+        }
+    }

@@ -4,6 +4,7 @@ from sqlalchemy.engine import Engine
 from llama_index.core import SQLDatabase
 from util.utils import examples_to_str
 from components.schema.m_schema import MSchemaGenerator
+from components.schema.ddl_schema import DDLSchemaGenerator
 
 
 '''
@@ -16,42 +17,53 @@ class SchemaEngine(SQLDatabase):
                  ignore_tables: Optional[List[str]] = None, include_tables: Optional[List[str]] = None,
                  sample_rows_in_table_info: int = 3, indexes_in_table_info: bool = False,
                  custom_table_info: Optional[dict] = None, view_support: bool = False, max_string_length: int = 300,
-                 mschema: Optional[MSchemaGenerator] = None, db_name: Optional[str] = ''):
-        super().__init__(engine, schema, metadata, ignore_tables, include_tables, sample_rows_in_table_info,
-                         indexes_in_table_info, custom_table_info, view_support, max_string_length)
-        self._db_name = db_name
-        # Dictionary to store table names and their corresponding schema
-        self._tables_schemas: Dict[str, str] = {}
+                 mschema: Optional[MSchemaGenerator] = None, ddl_schema: Optional[DDLSchemaGenerator] = None, db_name: Optional[str] = ''):
+       super().__init__(engine, schema, metadata, ignore_tables, include_tables, sample_rows_in_table_info,
+                        indexes_in_table_info, custom_table_info, view_support, max_string_length)
+       self._db_name = db_name
+       # Dictionary to store table names and their corresponding schema
+       self._tables_schemas: Dict[str, str] = {}
 
-        if schema:
-            # If a schema is specified, filter tables by that schema and store that value for every table.
-            self._usable_tables = [
-                table_name for table_name in self._usable_tables
-                if self._inspector.has_table(table_name, schema)
-            ]
-            for table_name in self._usable_tables:
-                self._tables_schemas[table_name] = schema
-        else:
-            all_tables = []
-            # Iterate through all available schemas
-            for s in self.get_schema_names():
-                tables = self._inspector.get_table_names(schema=s)
-                all_tables.extend(tables)
-                for table in tables:
-                    self._tables_schemas[table] = s
-            self._usable_tables = all_tables
+       if schema:
+           # If a schema is specified, filter tables by that schema and store that value for every table.
+           self._usable_tables = [
+               table_name for table_name in self._usable_tables
+               if self._inspector.has_table(table_name, schema)
+           ]
+           for table_name in self._usable_tables:
+               self._tables_schemas[table_name] = schema
+       else:
+           all_tables = []
+           # Iterate through all available schemas
+           for s in self.get_schema_names():
+               tables = self._inspector.get_table_names(schema=s)
+               all_tables.extend(tables)
+               for table in tables:
+                   self._tables_schemas[table] = s
+           self._usable_tables = all_tables
 
-        self._dialect = engine.dialect.name
-        if mschema is not None:
-            self._mschema = mschema
-        else:
-            self._mschema = MSchemaGenerator(db_id=db_name, schema=schema)
-            self.init_mschema()
+       self._dialect = engine.dialect.name
+       if mschema is not None:
+           self._mschema = mschema
+       else:
+           self._mschema = MSchemaGenerator(db_id=db_name, schema=schema)
+           self.init_mschema()
+       
+       if ddl_schema is not None:
+           self._ddl_schema = ddl_schema
+       else:
+           self._ddl_schema = DDLSchemaGenerator(db_id=db_name, schema=schema, dialect=self._dialect)
+           self.init_ddl_schema()
 
     @property
     def mschema(self) -> MSchemaGenerator:
         """Return M-Schema"""
         return self._mschema
+
+    @property
+    def ddl_schema(self) -> DDLSchemaGenerator:
+        """Return DDL-Schema"""
+        return self._ddl_schema
 
     def get_pk_constraint(self, table_name: str) -> Dict:
         return self._inspector.get_pk_constraint(table_name, self._tables_schemas[table_name] )['constrained_columns']
@@ -184,4 +196,36 @@ class SchemaEngine(SQLDatabase):
                     table_name, field_name, field_type=field_type, primary_key=primary_key,
                     nullable=field['nullable'], default=default, autoincrement=autoincrement,
                     comment=field_comment, examples=examples
+                )
+    
+    def init_ddl_schema(self):
+        for table_name in self._usable_tables:
+            table_comment = self.get_table_comment(table_name)
+            table_comment = '' if table_comment is None else table_comment.strip()
+
+            self._ddl_schema.add_table(table_name, fields={}, comment=table_comment)
+            pks = self.get_pk_constraint(table_name)
+
+            fks = self.get_foreign_keys(table_name)
+            for fk in fks:
+                referred_schema = fk['referred_schema']
+                for c, r in zip(fk['constrained_columns'], fk['referred_columns']):
+                    self._ddl_schema.add_foreign_key(table_name, c, referred_schema, fk['referred_table'], r)
+
+            fields = self._inspector.get_columns(table_name, schema=self._tables_schemas[table_name])
+            for field in fields:
+                field_type = f"{field['type']!s}"
+                field_name = field['name']
+                primary_key = field_name in pks
+                field_comment = field.get("comment", None)
+                field_comment = "" if field_comment is None else field_comment.strip()
+                autoincrement = field.get('autoincrement', False)
+                default = field.get('default', None)
+                if default is not None:
+                    default = f'{default}'
+
+                self._ddl_schema.add_field(
+                    table_name, field_name, field_type=field_type, primary_key=primary_key,
+                    nullable=field['nullable'], default=default, autoincrement=autoincrement,
+                    comment=field_comment
                 )

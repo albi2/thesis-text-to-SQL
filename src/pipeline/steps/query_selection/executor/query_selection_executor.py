@@ -3,7 +3,8 @@ from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.query_selection import PROMPT
-from util.db.execute import SQLExecInfo
+from util.db.execute import SQLExecInfo, compare_sqls_outcomes
+from util.constants import DatabaseConstants, Text2SQLModelKeys
 
 
 class QuerySelectionExecutor:
@@ -11,31 +12,36 @@ class QuerySelectionExecutor:
         self.reasoning_model_facade = ReasoningModelFacade()
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
+        clusters = self._cluster_equivalent_queries(pipeline_context)
+        
+        total_queries = len(pipeline_context.generated_sql_queries)
+        majority_threshold = total_queries / 2
+        
+        selected_queries = []
+        majority_cluster = next((cluster for cluster in clusters if len(cluster) > majority_threshold), None)
+
+        if majority_cluster:
+            selected_queries = majority_cluster
+        else:
+            model_priority = {
+                model: config["priority"]
+                for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
+            }
+            for cluster in clusters:
+                best_query = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
+                selected_queries.append(best_query)
+
         queries_with_results = ""
-        for i, info in enumerate(pipeline_context.generated_sql_queries):
-            queries_with_results += f"{i}: {info.sql}\n"
-            queries_with_results += f"  Execution Status: {info.status.value}\n"
-            if info.result is not None:
-                queries_with_results += f"  Query Output: {str(info.result)}\n"
+        for i, info in enumerate(selected_queries):
+            queries_with_results += f"{i}: {info.sql_exec_info.sql}\n"
+            queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
+            if info.sql_exec_info.result is not None:
+                queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
 
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             raise ValueError("SchemaEngine not found in pipeline context.")
 
-
-        selected_tables = [table_name.split('.')[1] for table_name in pipeline_context.selected_schema.keys() if '.' in table_name ]
-        selected_columns = []
-        for table, columns in pipeline_context.selected_schema.items():
-            for col in columns:
-                if table != "chain_of_thought_reasoning": # Exclude reasoning from columns
-                    if '.' in table:
-                        selected_columns.append(f"{table.split('.')[1]}.{col}")
-                    else:
-                        selected_columns.append(f"{table}.{col}")
-
-        pipeline_context.schema_engine.mschema.set_database_descriptor(pipeline_context.descriptions_database)
         mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
-            selected_tables=selected_tables,
-            selected_columns=selected_columns,
             show_type_detail=True
         )
 
@@ -52,11 +58,41 @@ class QuerySelectionExecutor:
             match = re.search(r"query_index:\s*(\d+)", model_response)
             if match:
                 query_index = int(match.group(1))
-                return pipeline_context.generated_sql_queries[query_index]
+                return selected_queries[query_index]
         except (ValueError, IndexError) as e:
             print(f"Could not parse query index from model response: {e}")
-            # Fallback to selecting the first query if parsing fails
-            return pipeline_context.generated_sql_queries[0]
+            if selected_queries:
+                return selected_queries[0]
         
-        # Fallback if no match is found
-        return pipeline_context.generated_sql_queries[0]
+        if selected_queries:
+            return selected_queries[0]
+        
+        return None
+
+    def _cluster_equivalent_queries(self, pipeline_context: PipelineContext) -> List[List[SQLExecInfo]]:
+        queries = pipeline_context.generated_sql_queries
+        clusters = []
+        visited = [False] * len(queries)
+
+        for i in range(len(queries)):
+            if visited[i]:
+                continue
+            
+            current_cluster = [queries[i]]
+            visited[i] = True
+            
+            for j in range(i + 1, len(queries)):
+                if not visited[j]:
+                    are_equivalent = compare_sqls_outcomes(
+                        sql_1=queries[i].sql_exec_info.sql,
+                        sql_2=queries[j].sql_exec_info.sql,
+                        db_path=DatabaseConstants.DB_PATH,
+                        engine=pipeline_context.db_engine
+                    )
+                    if are_equivalent:
+                        current_cluster.append(queries[j])
+                        visited[j] = True
+            
+            clusters.append(current_cluster)
+            
+        return clusters

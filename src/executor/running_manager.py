@@ -95,6 +95,7 @@ class RunningManager:
         print("ZZZZZ - Created schema engine")
         
         self.statistics_manager.add_result(context.evaluation_result)
+        self.save_context(task, context)
         print(f"Finished pipeline for question_id: {task.question_id}")
 
     def run_evaluation(self):
@@ -127,3 +128,16 @@ class RunningManager:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.statistics_manager.save_results(f"{self.RESULT_ROOT_PATH}/evaluation_results_{timestamp}.json")
+
+    def save_context(self, task: Task, context: PipelineContext):
+        """
+        Saves the pipeline context to a JSON file.
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_path = f"{self.RESULT_ROOT_PATH}/context_{task.db_id}_{task.question_id}_{timestamp}.json"
+            with open(file_path, "w") as f:
+                json.dump(context.to_full_dict(), f, indent=4)
+            print(f"Saved context to {file_path}")
+        except Exception as e:
+            print(f"Error saving context: {e}")

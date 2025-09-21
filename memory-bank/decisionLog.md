@@ -12,7 +12,10 @@ This file records architectural and implementation decisions using a list format
 *   **[2025-07-03] SQL Query Parsing from Model Output:** Decided to implement parsing logic in the `SQLGenerationExecutor` to extract the final SQL query from the model's response, which is expected to be enclosed in `<FINAL_ANSWER>` tags.
 *   **[2025-07-04] Query Selection Pipeline Step:** Decided to implement a new pipeline step, `QuerySelectionStep`, with a dedicated `QuerySelectionExecutor`, to select the best SQL query from a list of candidates using a reasoning model.
 *   **[2025-07-18] CSV-based Schema Descriptions:** Decided to use CSV files to store detailed database schema descriptions, including column descriptions and value descriptions. This decouples the schema enrichment from the database itself and allows for more detailed and consistent schema information.
+*   **[2025-07-18] LSH for Candidate Retrieval:** Decided to use Local-Sensitivity Hashing (LSH) to efficiently retrieve a set of candidate values from the database that are similar to the keywords and phrases extracted from the user query. This will be followed by a semantic similarity search on the candidates to find the most relevant ones.
+*   **[2025-07-18] Multiple Schema Generation for Query Diversity:** Decided to generate multiple schema representations in the `SchemaFilterStep` to create a diverse set of SQL queries. This will increase the chances of generating the correct query.
 *
+*   **[2025-07-18] SQL Query Data Class:** Decided to create a new data class, `SQLQuery`, to encapsulate the generated SQL query, its execution result, the schema representation type, and the model key.
 
 ## Decision
 

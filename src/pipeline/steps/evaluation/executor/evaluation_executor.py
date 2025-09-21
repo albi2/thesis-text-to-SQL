@@ -22,9 +22,19 @@ class EvaluationExecutor:
                 execution_status=None
             )
 
+        if not selected_query.sql_exec_info:
+            return EvaluationResult(
+                question=pipeline_context.task.question,
+                evidence=pipeline_context.task.evidence,
+                generated_sql=None,
+                gold_sql=gold_query,
+                comparison_status=0,
+                execution_status=None
+            )
+
         comparison_status = compare_sqls_outcomes(
-            predicted_sql=selected_query.sql,
-            ground_sql=gold_query,
+            sql_1=selected_query.sql_exec_info.sql,
+            sql_2=gold_query,
             db_path=DatabaseConstants.DB_PATH,
             engine=pipeline_context.db_engine
         )
@@ -32,8 +42,8 @@ class EvaluationExecutor:
         return EvaluationResult(
             question=pipeline_context.task.question,
             evidence=pipeline_context.task.evidence,
-            generated_sql=selected_query.sql,
+            generated_sql=selected_query.sql_exec_info.sql,
             gold_sql=gold_query,
             comparison_status=comparison_status,
-            execution_status=selected_query.status
+            execution_status=selected_query.sql_exec_info.status
         )

@@ -84,7 +84,10 @@ class InformationRetriever:
             response_text = self.reasoning_model.query(formatted_prompt)
             print(f"LLM Unparsed Response for keyword extraction: {response_text}")
             # Expecting the LLM to output a JSON string representing a dictionary.
-            # TODO: Actually extract the json from ```json ``` or ``` ``` or just try to find any JSON dictionary
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0]
             parsed_response = json.loads(response_text.strip())
 
             if isinstance(parsed_response, dict):
