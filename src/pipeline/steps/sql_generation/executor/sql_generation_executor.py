@@ -8,6 +8,7 @@ from prompts.sql_generation import PROMPT, DEFOG_PROMPT, OMNI_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo, SQLExecStatus
 from util.constants import DatabaseConstants, HuggingFaceModelConstants, Text2SQLModelKeys
 from pipeline.steps.models.sql_query import SQLQuery
+from pipeline.steps.models.schema_representation import SchemaRepresentation, SchemaFormat, SchemaType
 
 class SQLGenerationExecutor:
 
@@ -17,7 +18,7 @@ class SQLGenerationExecutor:
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLQuery]:
-        sql_queries = []
+        sql_queries: list[SQLQuery] = []
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             return []
 
@@ -25,31 +26,31 @@ class SQLGenerationExecutor:
         selected_schema = pipeline_context.selected_schema
         if not selected_schema:
             return []
-        selected_tables = [table_name.split('.')[1] for table_name in selected_schema.keys() if '.' in table_name]
+        selected_tables = [table_name.split('.')[1] if '.' in table_name else table_name for table_name in selected_schema.keys()]
         selected_columns = [f"{table.split('.')[1]}.{col}" if '.' in table else f"{table}.{col}" for table, columns in selected_schema.items() if table != "chain_of_thought_reasoning" for col in columns]
 
         # 2. Generate schema representations
-        schema_representations = []
-        ddl_schema_representations = []
+        schema_representations: list[SchemaRepresentation] = []
+        ddl_schema_representations: list[SchemaRepresentation] = []
 
         if len(pipeline_context.schema_engine.get_table_names()) <= 15:
-            schema_representations.append(pipeline_context.schema_engine.mschema.to_mschema())
-            ddl_schema_representations.append(pipeline_context.schema_engine.ddl_schema.to_ddl())
+            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
+            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
 
         schema_representations.extend([
-            pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables),
-            pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns)
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL)),
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns, format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
         ])
         ddl_schema_representations.extend([
-            pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables),
-            pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables, selected_columns=selected_columns)
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, format=SchemaFormat.DDL, type=SchemaType.FULL)),
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns, format=SchemaFormat.DDL, type=SchemaType.FULL))
         ])
 
         # 3. Generate SQL queries for each schema representation
-        for i, (mschema_string, ddl_schema_string) in enumerate(zip(schema_representations, ddl_schema_representations)):
-            full_prompt = PROMPT.format(DATABASE_SCHEMA=mschema_string, QUESTION=pipeline_context.user_query, HINT=getattr(pipeline_context, 'hint', ''))
-            defog_prompt = DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema_string, QUESTION=pipeline_context.user_query)
-            omni_prompt = OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema_string, QUESTION=pipeline_context.user_query)
+        for i, (mschema, ddl_schema) in enumerate(zip(schema_representations, ddl_schema_representations)):
+            full_prompt = PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=getattr(pipeline_context, 'hint', ''))
+            defog_prompt = DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query)
+            omni_prompt = OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query)
 
             model_responses = {
                 Text2SQLModelKeys.XIYAN: self.text2sql_model_facade.query(full_prompt),
@@ -66,9 +67,11 @@ class SQLGenerationExecutor:
                         query = model_response.split(";")[0].split("```")[0].strip() + ";"
                     else:
                         query = model_response
+                    schema_rep = ddl_schema if model_key in [Text2SQLModelKeys.OMNI, Text2SQLModelKeys.DEFOG] else mschema
+                    
                     sql_queries.append(SQLQuery(
                         sql_exec_info=SQLExecInfo(query=query),
-                        schema_representation=pipeline_context.selected_schemas[i],
+                        schema_representation=schema_rep,
                         model_key=model_key
                     ))
                 except Exception as e:
