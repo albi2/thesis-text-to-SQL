@@ -15,9 +15,6 @@ class SQLGenerationStep(PipelineStep[PipelineContext, SQLGenerationStepOutput]):
 
     def handle_execution(self, context: PipelineContext, previous_step_output: Optional[Any] = None) -> Optional[SQLGenerationStepOutput]:
         print("------------------ SQL GENERATION STEP ---------------------- \n")
-        if not context.selected_schemas:
-            print(f"SQL Generation did not run due to missing selected schemas")
-            return None
 
         generated_queries = self.executor.execute(
             pipeline_context=context
