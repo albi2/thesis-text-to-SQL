@@ -1,5 +1,5 @@
+import gzip
 import json
-import multiprocessing
 from typing import List
 from datetime import datetime
 
@@ -95,8 +95,8 @@ class RunningManager:
         print("ZZZZZ - Created schema engine")
         
         self.statistics_manager.add_result(context.evaluation_result)
-        self.save_context(task, context)
         print(f"Finished pipeline for question_id: {task.question_id}")
+        return context.to_dict()
 
     def run_evaluation(self):
         """
@@ -123,21 +123,13 @@ class RunningManager:
 
         in_processing_tasks = self.tasks[:7]
 
-        for task in in_processing_tasks:
-            self.run_pipeline_for_task(task)
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.statistics_manager.save_results(f"{self.RESULT_ROOT_PATH}/evaluation_results_{timestamp}.json")
+        context_file_path = f"{self.RESULT_ROOT_PATH}/contexts_{timestamp}.jsonl.gz"
 
-    def save_context(self, task: Task, context: PipelineContext):
-        """
-        Saves the pipeline context to a JSON file.
-        """
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_path = f"{self.RESULT_ROOT_PATH}/context_{task.db_id}_{task.question_id}_{timestamp}.json"
-            with open(file_path, "w") as f:
-                json.dump(context.to_full_dict(), f, indent=4)
-            print(f"Saved context to {file_path}")
-        except Exception as e:
-            print(f"Error saving context: {e}")
+        with gzip.open(context_file_path, "wt", encoding="utf-8") as context_file:
+            for task in in_processing_tasks:
+                context_dict = self.run_pipeline_for_task(task)
+                if context_dict:
+                    context_file.write(json.dumps(context_dict) + "\n")
+
+        self.statistics_manager.save_results(f"{self.RESULT_ROOT_PATH}/evaluation_results_{timestamp}.json")
