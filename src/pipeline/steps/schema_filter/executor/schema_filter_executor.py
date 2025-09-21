@@ -12,8 +12,8 @@ class SchemaFilterExecutor:
 
     def execute(self, pipeline_context: PipelineContext) -> dict:
         # 1. Get unique table and column names from context
-        unique_table_names = set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context)
-        unique_column_names = set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context)
+        unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+        unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
 
         if pipeline_context.entities_db_descriptor and pipeline_context.entities_db_descriptor.tables:
             for table_name, table in pipeline_context.entities_db_descriptor.tables.items():
@@ -24,8 +24,6 @@ class SchemaFilterExecutor:
                     if full_column_name not in unique_column_names:
                         unique_column_names.append(full_column_name)
 
-        unique_table_names = list(unique_table_names)
-        unique_column_names = list(unique_column_names)
         # 2. Generate a single schema representation with all retrieved tables and columns
         schema_representation = pipeline_context.schema_engine.mschema.to_mschema(
             selected_tables=unique_table_names,

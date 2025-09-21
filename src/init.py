@@ -8,7 +8,7 @@ def main():
     """
     # load_comments()
 
-    dataset_path = "/root/thesis/dataset/dev/bird_subset.json"
+    dataset_path = "/root/data/thesis/dataset/dev/bird_subset.json"
     manager = RunningManager(dataset_path)
     manager.load_tasks()
     manager.run_evaluation()

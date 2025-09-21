@@ -19,7 +19,7 @@ image = (modal.Image
         .add_local_python_source("init", "util", "prompts", "pipeline", "infrastructure", "executor", "context", "components", "common")
         .add_local_dir(
             local_path=".",
-            remote_path="/root/thesis",
+            remote_path="/root/data/thesis",
             ignore=["venv/*", "src/*"])
     )
         
