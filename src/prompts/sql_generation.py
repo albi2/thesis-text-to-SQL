@@ -1095,6 +1095,9 @@ Generate a SQL query to answer [QUESTION]{QUESTION}[/QUESTION]
 Database Engine:
 SQLite
 
+Hint:
+{HINT}
+
 ### Instructions
 - If you cannot answer the question with the available database schema, return 'I do not know'
 - The resulting SQL must be wrapped in ```<generated-sql>```

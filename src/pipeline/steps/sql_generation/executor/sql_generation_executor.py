@@ -34,6 +34,7 @@ class SQLGenerationExecutor:
             schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
             ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
 
+<<<<<<< Updated upstream
 
 
         if selected_schema:
@@ -49,12 +50,22 @@ class SQLGenerationExecutor:
                 SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns, format=SchemaFormat.DDL, type=SchemaType.FULL))
             ])
         
+=======
+        schema_representations.extend([
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL)
+        ])
+        ddl_schema_representations.extend([
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.DDL, type=SchemaType.FULL),
+            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.DDL, type=SchemaType.FULL)
+        ])
+>>>>>>> Stashed changes
 
         # 3. Generate SQL queries for each schema representation
         for i, (mschema, ddl_schema) in enumerate(zip(schema_representations, ddl_schema_representations)):
             full_prompt = PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=getattr(pipeline_context, 'hint', ''))
-            defog_prompt = DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query)
-            omni_prompt = OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query)
+            defog_prompt = DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=getattr(pipeline_context, 'hint', ''))
+            omni_prompt = OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=getattr(pipeline_context, 'hint', ''))
 
             model_responses = {
                 Text2SQLModelKeys.XIYAN: self.text2sql_model_facade.query(full_prompt),
@@ -74,7 +85,7 @@ class SQLGenerationExecutor:
                     schema_rep = ddl_schema if model_key in [Text2SQLModelKeys.OMNI, Text2SQLModelKeys.DEFOG] else mschema
                     
                     sql_queries.append(SQLQuery(
-                        sql_exec_info=SQLExecInfo(query=query),
+                        sql_exec_info=SQLExecInfo(sql=query),
                         schema_representation=schema_rep,
                         model_key=model_key
                     ))
@@ -87,7 +98,7 @@ class SQLGenerationExecutor:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        raw_queries = [sql_query.sql_exec_info.query for sql_query in sql_queries]
+        raw_queries = [sql_query.sql_exec_info.sql for sql_query in sql_queries]
         
         executable_sql_infos = loop.run_until_complete(
             execute_sql_queries_async(raw_queries, DatabaseConstants.DB_PATH, pipeline_context.db_engine)

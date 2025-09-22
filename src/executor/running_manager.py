@@ -96,7 +96,7 @@ class RunningManager:
         
         self.statistics_manager.add_result(context.evaluation_result)
         print(f"Finished pipeline for question_id: {task.question_id}")
-        return context.to_dict()
+        return context.to_full_dict()
 
     def run_evaluation(self):
         """
@@ -124,12 +124,20 @@ class RunningManager:
         in_processing_tasks = self.tasks[:2]
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        context_file_path = f"{self.RESULT_ROOT_PATH}/contexts_{timestamp}.jsonl.gz"
+        context_file_path = f"{self.RESULT_ROOT_PATH}/contexts_{timestamp}.json"
 
-        with gzip.open(context_file_path, "wt", encoding="utf-8") as context_file:
+        with open(context_file_path, "w", encoding="utf-8") as f:
+            f.write("[\n")  # start JSON array
+
+            first = True
             for task in in_processing_tasks:
                 context_dict = self.run_pipeline_for_task(task)
                 if context_dict:
-                    context_file.write(json.dumps(context_dict) + "\n")
+                    if not first:
+                        f.write(",\n")  # separate objects with a comma
+                    f.write(json.dumps(context_dict, ensure_ascii=False, indent=2))
+                    first = False
+
+            f.write("\n]")  # end JSON array
 
         self.statistics_manager.save_results(f"{self.RESULT_ROOT_PATH}/evaluation_results_{timestamp}.json")

@@ -20,7 +20,7 @@ class SQLExecInfo:
     status: SQLExecStatus = None
     result: List[Any] = []
 
-    def __init__(self, sql: str, status: str, result: List[Any] = []):
+    def __init__(self, sql: str, status: str = None, result: List[Any] = []):
         self.sql = sql
         self.status = status
         self.result = result

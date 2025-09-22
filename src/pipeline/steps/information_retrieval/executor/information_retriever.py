@@ -193,7 +193,7 @@ class InformationRetriever:
                 retrieved_contexts[keyword] = []
                 continue
             try:
-                question_and_keyword = str(task.question + " " + keyword)
+                question_and_keyword = keyword
                 collection_name = f"{PreprocessingConstants.COLUMN_COLLECTION_NAME}_{task.db_id}"
                 query_results = self.chroma_client.query_collection(
                     collection_name=collection_name,

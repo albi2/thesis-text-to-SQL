@@ -70,8 +70,8 @@ class PipelineContext(GenericContext):
             "db_schema_per_keyword": self.db_schema_per_keyword,
             "selected_schema": self.selected_schema,
             "selected_schemas": [selected_schema.schema for selected_schema in self.selected_schemas],
-            "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries],
-            "non_executable_sql_queries": [query.to_dict() for query in self.non_executable_sql_queries],
+            "generated_sql_queries": [gen_sql.to_full_dict() for gen_sql in self.generated_sql_queries],
+            "non_executable_sql_queries": [query.to_full_dict() for query in self.non_executable_sql_queries],
             "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None
         }
 
