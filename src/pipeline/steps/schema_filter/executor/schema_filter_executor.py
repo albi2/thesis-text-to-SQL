@@ -4,11 +4,12 @@ import re
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from prompts.column_selection import PROMPT, FEWSHOT_EXAMPLES
 from context.pipeline_context import PipelineContext
-
+from components.models.api_model_facade import ApiModelFacade
 
 class SchemaFilterExecutor:
     def __init__(self):
-        self.reasoning_model_facade = ReasoningModelFacade()
+        # self.reasoning_model_facade = ReasoningModelFacade()
+        self.api_model = ApiModelFacade()
 
     def execute(self, pipeline_context: PipelineContext) -> dict:
         # 1. Get unique table and column names from context
@@ -38,7 +39,8 @@ class SchemaFilterExecutor:
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
         )
 
-        model_response = self.reasoning_model_facade.query(full_prompt)
+        query_chain = self.api_model.get_chain(user_prompt=full_prompt)
+        model_response = query_chain.invoke()
         print(f"FILTERING RESPONSE:", model_response)
 
         try:

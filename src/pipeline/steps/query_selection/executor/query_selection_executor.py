@@ -5,11 +5,12 @@ from context.pipeline_context import PipelineContext
 from prompts.query_selection import PROMPT
 from util.db.execute import SQLExecInfo, compare_sqls_outcomes
 from util.constants import DatabaseConstants, Text2SQLModelKeys
-
+from components.models.api_model_facade import ApiModelFacade
 
 class QuerySelectionExecutor:
     def __init__(self):
-        self.reasoning_model_facade = ReasoningModelFacade()
+        # self.reasoning_model_facade = ReasoningModelFacade()
+        self.api_model = ApiModelFacade()
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
         clusters = self._cluster_equivalent_queries(pipeline_context)
@@ -52,7 +53,8 @@ class QuerySelectionExecutor:
             QUERIES=queries_with_results
         )
 
-        model_response = self.reasoning_model_facade.query(full_prompt)
+        query_chain = self.api_model.get_chain(user_prompt=full_prompt)
+        model_response = query_chain.invoke()
 
         try:
             match = re.search(r"query_index:\s*(\d+)", model_response)

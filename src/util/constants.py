@@ -98,3 +98,7 @@ class Text2SQLModelKeys:
             "priority": 3
         }
     }
+
+class ApiModelConstants:
+    DEFAULT_GENERATIVE_MODEL = "gemini-2.0-flash-lite"
+    DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"

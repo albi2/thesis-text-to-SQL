@@ -15,7 +15,7 @@ from util.db.database_descriptor import DatabaseDescriptor, TableDescriptor, Col
 from executor.task_model import Task
 from util.similarity_measures.lsh import LSHUtil
 from util.similarity_measures.semantic import SemanticSimilarityUtil
-
+from components.models.api_model_facade import ApiModelFacade
 class InformationRetriever:
     """
     Agent responsible for extracting keywords and phrases from user queries
@@ -30,7 +30,8 @@ class InformationRetriever:
             reasoning_model_name (str, optional): The name or path of the reasoning model to use.
                 If None, the default reasoning model will be used.
         """
-        self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
+        # self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
+        self.api_model = ApiModelFacade()
 
         # Initialize ConfigurationHelper to load ChromaDB settings
         self.config_helper = ConfigurationHelper()
@@ -81,7 +82,8 @@ class InformationRetriever:
 
         try:
             # Use the 'query' method from ReasoningModelFacade
-            response_text = self.reasoning_model.query(formatted_prompt)
+            query_chain = self.api_model.get_chain(user_prompt=format)
+            response_text = query_chain.invoke()
             print(f"LLM Unparsed Response for keyword extraction: {response_text}")
             # Expecting the LLM to output a JSON string representing a dictionary.
             if "```json" in response_text:
