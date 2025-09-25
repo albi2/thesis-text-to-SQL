@@ -82,8 +82,8 @@ class InformationRetriever:
 
         try:
             # Use the 'query' method from ReasoningModelFacade
-            query_chain = self.api_model.get_chain(user_prompt=format)
-            response_text = query_chain.invoke()
+            query_chain = self.api_model.get_chain()
+            response_text = query_chain.invoke({"user_prompt": formatted_prompt})
             print(f"LLM Unparsed Response for keyword extraction: {response_text}")
             # Expecting the LLM to output a JSON string representing a dictionary.
             if "```json" in response_text:

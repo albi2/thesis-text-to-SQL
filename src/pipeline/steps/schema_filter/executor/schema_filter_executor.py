@@ -39,8 +39,9 @@ class SchemaFilterExecutor:
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
         )
 
-        query_chain = self.api_model.get_chain(user_prompt=full_prompt)
-        model_response = query_chain.invoke()
+        query_chain = self.api_model.get_chain()
+        model_response = query_chain.invoke({"user_prompt": full_prompt})
+
         print(f"FILTERING RESPONSE:", model_response)
 
         try:

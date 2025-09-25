@@ -40,18 +40,13 @@ class ApiModelFacade:
         params["google_api_key"] = self.api_key
         return constructor(**params)
 
-    def get_chain(self, user_prompt: str = None) -> Runnable:
-        """
-        Creates and returns a LangChain runnable (chain) for the model.
-        """
+    def get_chain(self) -> Runnable:
         if self.model_type != "generative":
             raise TypeError("Chains can only be created for generative models.")
 
-        messages = []
-        if user_prompt:
-            messages.append(("human", user_prompt))
-        
-        prompt_template = ChatPromptTemplate.from_messages(messages)
+        prompt_template = ChatPromptTemplate.from_messages(
+            [("human", "{user_prompt}")]
+        )
         return prompt_template | self.llm | StrOutputParser()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
