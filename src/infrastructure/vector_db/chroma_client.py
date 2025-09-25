@@ -75,7 +75,7 @@ class ChromaClient:
             port (int): The port of the ChromaDB server.
         """
         # self.client = chromadb.HttpClient(host=host, port=port, settings=Settings(anonymized_telemetry=False))
-        self.client = chromadb.PersistentClient(path="/root/data/chroma")
+        self.client = chromadb.PersistentClient(path="/var/tmp/ge62nok/chroma")
         self.embedding_facade = embedding_facade
         logger.info(f"ChromaClient initialized with host='{host}', port={port}, facade='{type(embedding_facade).__name__}'")
 

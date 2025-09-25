@@ -28,8 +28,8 @@ class DatabaseConstants:
     DB_PATH = "public"
 
     # SQL-Lite Path
-    SQLITE_PATH = "sqlite:////root/data/dev_databases"
-    COLUMN_DESCRIPTIONS="/root/data/thesis/dataset/dev/databases"
+    SQLITE_PATH = "sqlite:////var/tmp/ge62nok/dev_databases"
+    COLUMN_DESCRIPTIONS="/var/tmp/ge62nok/thesis/dataset/dev/databases"
 
 class HuggingFaceModelConstants:
     """
@@ -38,17 +38,17 @@ class HuggingFaceModelConstants:
     TEXT2SQL_GENERATION_TASK = "text2sql-generation"
     REASONING_TEXT_GENERATION_TASK = "reasoning-text-generation"
 
-    DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
+    DEFAULT_TEXT2SQL_MODEL = "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
     DEFAULT_REASONING_MODEL = "Qwen/Qwen3-8B"
     DEFAULT_EMBEDDING_MODEL: str = "Qwen/Qwen3-Embedding-4B"
     OMNI_TEXT2SQL_MODEL_REPO = "seeklhy/OmniSQL-7B"
     DEFOG_TEXT2SQL_MODEL_REPO = "defog/sqlcoder-7b-2"
 
-    DEFAULT_TEXT2SQL_MODEL_PATH = "/root/data/models/XGenerationLab/XiYanSQL-QwenCoder-3B-2504"
-    DEFAULT_REASONING_MODEL_PATH = "/root/data/models/Qwen3-8B"
-    DEFAULT_EMBEDDING_MODEL_PATH = "/root/data/models/Qwen3-Embedding-4B"
-    OMNI_TEXT2SQL_MODEL_PATH = "/root/data/models/seeklhy/OmniSQL-7B"
-    DEFOG_TEXT2SQL_MODEL_PATH = "/root/data/models/defog/sqlcoder-7b-2"
+    DEFAULT_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
+    DEFAULT_REASONING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen3-8B"
+    DEFAULT_EMBEDDING_MODEL_PATH = "/var/tmp/ge62nok/models/Qwen3-Embedding-4B"
+    OMNI_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/seeklhy/OmniSQL-7B"
+    DEFOG_TEXT2SQL_MODEL_PATH = "/var/tmp/ge62nok/models/defog/sqlcoder-7b-2"
 
     DEFAULT_MODEL_GENERATION_PARAMS = {
         "max_new_tokens": 512,

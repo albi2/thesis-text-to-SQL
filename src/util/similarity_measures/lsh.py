@@ -49,7 +49,7 @@ class LSHUtil:
         Returns:
             A MinHashLSH object.
         """
-        lsh_path = f"/root/data/lsh/{db_id}_lsh.pkl"
+        lsh_path = f"/var/tmp/ge62nok/lsh/{db_id}_lsh.pkl"
         with open(lsh_path, "rb") as f:
             return pickle.load(f)
 
@@ -64,7 +64,7 @@ class LSHUtil:
         Returns:
             A dictionary containing the MinHash mappings.
         """
-        minhashes_path = f"/root/data/lsh/{db_id}_minhashes.pkl"
+        minhashes_path = f"/var/tmp/ge62nok/lsh/{db_id}_minhashes.pkl"
         with open(minhashes_path, "rb") as f:
             return pickle.load(f)
 

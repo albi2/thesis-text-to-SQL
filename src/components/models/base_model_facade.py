@@ -12,8 +12,8 @@ import gc
 from huggingface_hub import snapshot_download
 # Set the environment variable
 # Choose HF_HOME or HF_HUB_CACHE based on your preference
-os.environ['HF_HUB_CACHE'] = "/workspace/data"
-os.environ['HF_HOME'] = "/workspace/data"
+os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
+os.environ['HF_HOME'] = "/var/tmp/ge62nok"
 os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 class BaseHuggingFaceFacade(ABC):
@@ -34,7 +34,7 @@ class BaseHuggingFaceFacade(ABC):
             self.default_generation_params.update(default_params_override)
 
         # Download the model files in the constructor
-        # self._download_model_files()
+        self._download_model_files()
 
     def _download_model_files(self):
         """Downloads model files from Hugging Face Hub."""
@@ -102,7 +102,7 @@ class BaseHuggingFaceFacade(ABC):
 
             print(f"Loading model '{self.model_repo}' with torch_dtype=torch.bfloat16 and device_map='{self.device_map_config or 'cpu'}'...")
             self._model = AutoModelForCausalLM.from_pretrained(
-                self.model_repo,
+                self.model_name,
                 torch_dtype=torch.bfloat16,
                 device_map=self.device_map_config
             )

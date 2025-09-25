@@ -15,6 +15,9 @@ from common.config.config_helper import ConfigurationHelper
 from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from util.constants import PreprocessingConstants, DatabaseConstants
 from util.db.description_csv import load_database_descriptor
+import pysqlite3
+import sys
+sys.modules["sqlite3"] = pysqlite3
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

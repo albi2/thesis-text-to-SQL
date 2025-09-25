@@ -2,7 +2,7 @@ import yaml
 import os
 
 class ConfigurationHelper:
-    def __init__(self, config_dir="/root/data/thesis/config"):
+    def __init__(self, config_dir="/var/tmp/ge62nok/thesis/config"):
         """
         Initializes the ConfigurationHelper.
 

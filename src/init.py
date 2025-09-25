@@ -1,6 +1,9 @@
 
 from executor.running_manager import RunningManager
 from infrastructure.vector_db.load_comment_collection import load_comments
+import pysqlite3
+import sys
+sys.modules["sqlite3"] = pysqlite3
 
 def main():
     """
@@ -8,7 +11,7 @@ def main():
     """
     # load_comments()
 
-    dataset_path = "/root/data/thesis/dataset/dev/bird_subset.json"
+    dataset_path = "/var/tmp/ge62nok/thesis/dataset/dev/bird_subset.json"
     manager = RunningManager(dataset_path)
     manager.load_tasks()
     manager.run_evaluation()

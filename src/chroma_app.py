@@ -16,7 +16,7 @@ chroma_image = modal.Image.debian_slim(python_version="3.12").pip_install([
     image=chroma_image,
     cpu=2,
     memory=4096,
-    volumes={"/root/data": chroma_volume},
+    volumes={"/var/tmp/ge62nok": chroma_volume},
     keep_warm=1,   # Keep container alive
     timeout=0      # Run indefinitely
 )
@@ -27,7 +27,7 @@ def chroma_server():
     import os
     
     # Ensure the Chroma DB is stored in the volume
-    os.makedirs("/root/data/chroma", exist_ok=True)
+    os.makedirs("/var/tmp/ge62nok/chroma", exist_ok=True)
     
     print("Starting dedicated Chroma server...")
     
@@ -35,7 +35,7 @@ def chroma_server():
     subprocess.run([
         "chroma", "run", 
         "--host", "0.0.0.0",
-        "--path", "/root/data/chroma",
+        "--path", "/var/tmp/ge62nok/chroma",
         "--port", "8080"
     ], check=True)
 

@@ -5,6 +5,9 @@ from datasketch import MinHashLSH
 from util.db.db_values import get_all_db_ids, get_unique_values_for_db
 from util.similarity_measures.lsh import LSHUtil
 from util.constants import LSHConstants
+import pysqlite3
+import sys
+sys.modules["sqlite3"] = pysqlite3
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -40,8 +43,8 @@ def main():
                     }
         
         # Save LSH index and MinHash mappings
-        lsh_path = f"/root/data/lsh/{db_id}_lsh.pkl"
-        minhashes_path = f"/root/data/lsh/{db_id}_minhashes.pkl"
+        lsh_path = f"/var/tmp/ge62nok/lsh/{db_id}_lsh.pkl"
+        minhashes_path = f"/var/tmp/ge62nok/lsh/{db_id}_minhashes.pkl"
         
         os.makedirs(os.path.dirname(lsh_path), exist_ok=True)
         

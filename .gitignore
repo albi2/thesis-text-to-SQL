@@ -5,3 +5,5 @@ install_rooflow.sh
 **/__pycache__/
 data
 dataset/chroma/
+/Python-3.11.9/
+init.log

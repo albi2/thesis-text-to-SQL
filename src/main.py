@@ -19,14 +19,14 @@ image = (modal.Image
         .add_local_python_source("init", "util", "prompts", "pipeline", "infrastructure", "executor", "context", "components", "common")
         .add_local_dir(
             local_path=".",
-            remote_path="/root/data/thesis",
+            remote_path="/var/tmp/ge62nok/thesis",
             ignore=["venv/*", "src/*"])
     )
         
 @app.function(
     image=image,
     gpu="l4",  # Each model gets its own A100 
-    volumes={"/root/data": volume},
+    volumes={"/var/tmp/ge62nok": volume},
     memory=(100*1024, 150*1024), # 100GB RAM per model
     cpu=(12, 16),        
     timeout=7200,                   # 2 hours
@@ -43,7 +43,7 @@ def run_evaluation():
     has_cuda = torch.cuda.is_available()
     print(f"It is {has_cuda} that torch can access CUDA")
 
-    base_path = "/root/data/dev_databases"
+    base_path = "/var/tmp/ge62nok/dev_databases"
     
     for root, dirs, files in os.walk(base_path):
         print("Directory:", root)
@@ -64,7 +64,7 @@ def run_evaluation():
 # @app.function(
 #     image=image,
 #     gpu="l4",  # Each model gets its own A100 
-#     volumes={"/root/data": volume},
+#     volumes={"/var/tmp/ge62nok": volume},
 #     memory=(100*1024, 150*1024),
 #     cpu=(8, 16),        # 100GB RAM per model
 #     timeout=7200,                   # 2 hours

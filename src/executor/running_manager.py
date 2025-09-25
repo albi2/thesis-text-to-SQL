@@ -16,7 +16,7 @@ from executor.statistics_manager import StatisticsManager
 from pipeline.steps.evaluation.evaluation_step import EvaluationStep
 from infrastructure.database.database_manager import DatabaseManager
 class RunningManager:
-    RESULT_ROOT_PATH = "/root/data/results"
+    RESULT_ROOT_PATH = "/var/tmp/ge62nok/results"
 
     """
     Manages the process of loading tasks and running the evaluation pipeline for each.
@@ -121,7 +121,7 @@ class RunningManager:
         #     self.statistics_manager.add_result(result)
 
 
-        in_processing_tasks = self.tasks[:2]
+        in_processing_tasks = self.tasks
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         context_file_path = f"{self.RESULT_ROOT_PATH}/contexts_{timestamp}.json"
