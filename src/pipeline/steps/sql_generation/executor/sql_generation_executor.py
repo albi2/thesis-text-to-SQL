@@ -30,18 +30,22 @@ class SQLGenerationExecutor:
         schema_representations: list[SchemaRepresentation] = []
         ddl_schema_representations: list[SchemaRepresentation] = []
 
-        if len(pipeline_context.schema_engine.get_table_names()) <= 15:
-            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
-            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
+        # if len(pipeline_context.schema_engine.get_table_names()) <= 15:
+        #     schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
+        #     ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
 
-        schema_representations.extend([
-            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
-            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL)
-        ])
-        ddl_schema_representations.extend([
-            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.DDL, type=SchemaType.FULL),
-            SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.DDL, type=SchemaType.FULL)
-        ])
+        if selected_schema:
+            selected_tables = [table_name.split('.')[1] if '.' in table_name else table_name for table_name in selected_schema.keys()]
+            selected_columns = [f"{table.split('.')[1]}.{col}" if '.' in table else f"{table}.{col}" for table, columns in selected_schema.items() if table != "chain_of_thought_reasoning" for col in columns]
+        
+            # schema_representations.extend([
+            #     SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
+            #     SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL)
+            # ])
+            ddl_schema_representations.extend([
+                SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.DDL, type=SchemaType.FULL),
+                SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.DDL, type=SchemaType.FULL)
+            ])
 
         # 3. Generate SQL queries for each schema representation
         for i, (mschema, ddl_schema) in enumerate(zip(schema_representations, ddl_schema_representations)):

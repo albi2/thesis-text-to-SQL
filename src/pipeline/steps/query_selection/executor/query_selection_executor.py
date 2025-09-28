@@ -15,22 +15,32 @@ class QuerySelectionExecutor:
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
         clusters = self._cluster_equivalent_queries(pipeline_context)
         
-        total_queries = len(pipeline_context.generated_sql_queries)
-        majority_threshold = total_queries / 2
+        # total_queries = len(pipeline_context.generated_sql_queries)
+        # majority_threshold = total_queries / 2
+        
+        # selected_queries = []
+        # majority_cluster = next((cluster for cluster in clusters if len(cluster) > majority_threshold), None)
+
+        # if majority_cluster:
+        #     selected_queries = majority_cluster
+        # else:
+        #     model_priority = {
+        #         model: config["priority"]
+        #         for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
+        #     }
+        #     for cluster in clusters:
+        #         best_query = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
+        #         selected_queries.append(best_query)
+        
+        model_priority = {
+            model: config["priority"]
+            for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
+        }
         
         selected_queries = []
-        majority_cluster = next((cluster for cluster in clusters if len(cluster) > majority_threshold), None)
-
-        if majority_cluster:
-            selected_queries = majority_cluster
-        else:
-            model_priority = {
-                model: config["priority"]
-                for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
-            }
-            for cluster in clusters:
-                best_query = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
-                selected_queries.append(best_query)
+        for cluster in clusters:
+            best_query_in_cluster = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
+            selected_queries.append(best_query_in_cluster)
 
         queries_with_results = ""
         for i, info in enumerate(selected_queries):

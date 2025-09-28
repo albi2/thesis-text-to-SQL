@@ -128,7 +128,7 @@ class RunningManager:
 
         with open(context_file_path, "w", encoding="utf-8") as f:
             f.write("[\n")  # start JSON array
-
+ 
             first = True
             for task in in_processing_tasks:
                 context_dict = self.run_pipeline_for_task(task)

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Consistent cache directory
-os.environ['HF_HUB_CACHE'] = "/var/tmp/ge62nok"
-os.environ['HF_HOME'] = "/var/tmp/ge62nok"
+os.environ['HF_HUB_CACHE'] = "/media/storage/ge62nok"
+os.environ['HF_HOME'] = "/media/storage/ge62nok"
 
 def last_token_pool(last_hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """

@@ -149,7 +149,7 @@ class InformationRetriever:
             top_candidates = self.semantic_similarity_util.get_top_n_similar(
                 keyword,
                 all_candidates,
-                top_n=3
+                top_n=10
             )
 
             # Create a new DatabaseDescriptor with the relevant entities
@@ -170,7 +170,7 @@ class InformationRetriever:
         return entities_db_descriptor
 
 
-    def retrieve_context(self, keywords: List[str], task: Task, k: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+    def retrieve_context(self, keywords: List[str], task: Task, k: int = 10) -> Dict[str, List[Dict[str, Any]]]:
         """
         Retrieves the top-k most relevant column descriptions (or names)
         from the ChromaDB collection based on semantic similarity to the input keywords.
