@@ -38,12 +38,12 @@ class SQLGenerationExecutor:
             selected_tables = [table_name.split('.')[1] if '.' in table_name else table_name for table_name in selected_schema.keys()]
             selected_columns = [f"{table.split('.')[1]}.{col}" if '.' in table else f"{table}.{col}" for table, columns in selected_schema.items() if table != "chain_of_thought_reasoning" for col in columns]
         
-            # schema_representations.extend([
-            #     SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
-            #     SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL)
-            # ])
+            schema_representations.extend([
+                # SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
+                SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL)
+            ])
             ddl_schema_representations.extend([
-                SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.DDL, type=SchemaType.FULL),
+                # SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables), format=SchemaFormat.DDL, type=SchemaType.FULL),
                 SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns), format=SchemaFormat.DDL, type=SchemaType.FULL)
             ])
 

@@ -169,7 +169,6 @@ class InformationRetriever:
                     
         return entities_db_descriptor
 
-
     def retrieve_context(self, keywords: List[str], task: Task, k: int = 10) -> Dict[str, List[Dict[str, Any]]]:
         """
         Retrieves the top-k most relevant column descriptions (or names)
