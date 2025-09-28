@@ -19,16 +19,19 @@ class SchemaRepresentation:
     schema: str
     format: SchemaFormat
     type: SchemaType
+    execution_plan: str = None
 
     def to_dict(self):
         return {
             "format": str(self.format),
-            "type": str(self.type)
+            "type": str(self.type),
+            "execution_plan": self.execution_plan
         }
 
     def to_full_dict(self):
         return {
             "schema": self.schema,
             "format": str(self.format),
-            "type": str(self.type)
+            "type": str(self.type),
+            "execution_plan": self.execution_plan
         }

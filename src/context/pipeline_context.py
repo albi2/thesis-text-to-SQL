@@ -33,7 +33,7 @@ class PipelineContext(GenericContext):
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
         self.db_schema_per_keyword = {}  # Dictionary to store schema information per keyword
         self.selected_schema: dict = None
-        self.selected_schemas: List[SchemaRepresentation] = []
+        self.selected_schemas: List[dict] = []
         self.hint: Optional[str] = task.evidence
         self.generated_sql_queries: List[SQLQuery] = []
         self.selected_sql_query: Optional[SQLQuery] = None

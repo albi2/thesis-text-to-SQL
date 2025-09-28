@@ -19,17 +19,20 @@ class SQLExecInfo:
     sql: str = ''
     status: SQLExecStatus = None
     result: List[Any] = []
+    error_message: str = None
 
-    def __init__(self, sql: str, status: str = None, result: List[Any] = []):
+    def __init__(self, sql: str, status: str = None, result: List[Any] = [], error_message: str = None):
         self.sql = sql
         self.status = status
         self.result = result
+        self.error_message = error_message
 
     def to_dict(self):
         return {
             "sql": self.sql,
             "status": self.status.value if self.status is not None else None,
-            "result": str(self.result) if self.result is not None else None
+            "result": str(self.result) if self.result is not None else None,
+            "error_message": self.error_message
         }
     
     # @property
@@ -72,10 +75,10 @@ async def execute_sql_query_async(query: str, db_path: str, engine: Engine, time
         
     except asyncio.TimeoutError:
         logging.info(f"SQL query execution timed out after {timeout} seconds: {query}")
-        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX)
+        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX, error_message="Query execution timed out.")
     except Exception as e:
         logging.info(f"SQL query execution failed: {query}. Error: {e}")
-        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX)
+        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX, error_message=str(e))
     
 
 

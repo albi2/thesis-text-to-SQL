@@ -1,7 +1,7 @@
 
 
 ORIGINAL_PROMPT = """
-You are an experienced PostgreSQL expert.
+You are an experienced SQLite expert.
 Now you need to generate a SQL query given the database information, a question and some additional information.
 The database structure is defined by the following table schemas.
 Note that the "Example Values" are actual values from the column. Some column might contain the values that are directly related to the question. Use it to help you justify which columns to use.
@@ -48,7 +48,7 @@ Database admin instructions (violating any of the following will result is punis
 14. **Only utilize columns from schema**
     - Do not use columns that are not on the provided schema.
 
-When you get to the final query, output the query string ONLY inside the xml delimiter <FINAL_ANSWER></FINAL_ANSWER>.
+When you get to the final query, output the query string ONLY inside the xml delimiter ```sql```.
 
 Here are some examples
 
@@ -120,9 +120,9 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT COUNT(T1.id_restaurant) FROM generalinfo AS T1 INNER JOIN location AS T2 ON T1.id_restaurant = T2.id_restaurant WHERE T1.food_type = 'thai' AND T1.city = 'albany' AND T2.street_name = 'san pablo ave'
-</FINAL_ANSWER> 
+``` 
 
 ===========
 Example 1
@@ -197,14 +197,14 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT "T1"."gender"
   FROM "client" AS "T1"
   INNER JOIN "district" AS "T2"
   ON "T1"."district_id" = "T2"."district_id"
   ORDER BY "T2"."A11" ASC, "T1"."birth_date" DESC NULLS LAST
   LIMIT 1
-</FINAL_ANSWER>
+```
 
 ===========
 Example 2 (dividing into two parallel sub-questions)
@@ -278,9 +278,9 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT COUNT(T3.id) FROM games_city AS T1 INNER JOIN city AS T2 ON T1.city_id = T2.id INNER JOIN games AS T3 ON T1.games_id = T3.id WHERE T2.city_name = 'London' AND T3.games_year BETWEEN 1900 AND 1992
-</FINAL_ANSWER> 
+``` 
 
 ===========
 
@@ -337,12 +337,12 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 * We can directly incorporate the condition for online programs into the main query. 
 
 **Final Optimized SQL Query:**
-<FINAL_ANSWER>
+```sql
 SELECT "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" FROM "student_programs" 
   WHERE LOWER("School Category") LIKE '%online%' OR LOWER("Program Type") LIKE '%online%'
   AND "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" IS NOT NULL 
   ORDER BY "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" ASC NULLS LAST LIMIT 3;
-</FINAL_ANSWER>
+```
 
 =============
 
@@ -388,9 +388,9 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT COUNT(*) FROM employees WHERE salary > 100000;
-</FINAL_ANSWER>
+```
 
 ====== Example 5 =======
 **************************
@@ -465,9 +465,9 @@ flights from refers to ORIGIN; San Diego International airport refers to Descrip
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT COUNT(FL_DATE) FROM Airlines WHERE FL_DATE LIKE '2018/8%' AND ORIGIN = ( SELECT T2.ORIGIN FROM Airports AS T1 INNER JOIN Airlines AS T2 ON T1.Code = T2.ORIGIN WHERE T1.Description = 'San Diego, CA: San Diego International' ) AND DEST = ( SELECT T4.DEST FROM Airports AS T3 INNER JOIN Airlines AS T4 ON T3.Code = T4.DEST WHERE T3.Description = 'Los Angeles, CA: Los Angeles International' )
-</FINAL_ANSWER> 
+``` 
 
 ===== Example 5 ========
 【DB_ID】 eatery_inspection
@@ -556,9 +556,9 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT DISTINCT T4.name FROM ( SELECT T3.name, T3.years, row_number() OVER (PARTITION BY T3.name ORDER BY T3.years) AS rowNumber FROM ( SELECT DISTINCT name, STRFTIME('%Y', "date") AS years FROM inspections AS T1 INNER JOIN businesses AS T2 ON T1.business_id = T2.business_id WHERE T1.score = 100 ) AS T3 ) AS T4 GROUP BY T4.name, date(T4.years || '-01-01', '-' || (T4.rowNumber - 1) || ' years') HAVING COUNT(T4.years) = 4
-</FINAL_ANSWER>
+```
 ===========
 
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
@@ -575,8 +575,12 @@ Evidence:
 {HINT}
 
 **************************
-【Answer】
-Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
+Output Format:
+In your answer, please enclose the generated SQL query in a code block:
+```sql
+-- Your SQL 
+```
+
 """
 
 
@@ -628,7 +632,7 @@ Database admin instructions (violating any of the following will result is punis
 15. **Always put column names between quotation marks"
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
     
-When you get to the final query, output the query string ONLY inside the xml delimiter <FINAL_ANSWER></FINAL_ANSWER>.
+When you get to the final query, output the query string ONLY inside the xml delimiter ```sql```.
 
 Here are some examples
 
@@ -705,14 +709,14 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT T1."gender"
   FROM client AS T1
   INNER JOIN district AS T2
   ON T1."district_id" = T2."district_id"
   ORDER BY T2."A11" ASC, T1."birth_date" DESC NULLS LAST
   LIMIT 1
-</FINAL_ANSWER>
+```
 
 ===========
 Example 2 (dividing into two parallel sub-questions)
@@ -786,9 +790,9 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 **Final Optimized SQL Query:**
 
-<FINAL_ANSWER>
+```sql
 SELECT COUNT(T3."id") FROM games_city AS T1 INNER JOIN city AS T2 ON T1."city_id" = T2."id" INNER JOIN games AS T3 ON T1."games_id" = T3."id" WHERE T2."city_name" = 'London' AND T3."games_year" BETWEEN 1900 AND 1992
-</FINAL_ANSWER> 
+``` 
 
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************

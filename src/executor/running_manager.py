@@ -11,6 +11,7 @@ from pipeline.steps.print_output.print_output_step import PrintOutputStep
 from pipeline.steps.schema_filter.schema_filter_step import SchemaFilterStep
 from pipeline.steps.sql_generation.sql_generation_step import SQLGenerationStep
 from pipeline.steps.query_selection.query_selection_step import QuerySelectionStep
+from pipeline.steps.query_refinement.query_refinement_step import QueryRefinementStep
 from executor.task_model import Task
 from executor.statistics_manager import StatisticsManager
 from pipeline.steps.evaluation.evaluation_step import EvaluationStep
@@ -81,14 +82,12 @@ class RunningManager:
 
         pipeline = Pipeline[PipelineContext].Builder() \
             .add_step(InformationRetrievalStep()) \
-            .add_step(PrintOutputStep()) \
             .add_step(SchemaFilterStep()) \
-            .add_step(PrintOutputStep()) \
             .add_step(SQLGenerationStep()) \
-            .add_step(PrintOutputStep()) \
             .add_step(QuerySelectionStep()) \
-            .add_step(PrintOutputStep()) \
+            .add_step(QueryRefinementStep()) \
             .add_step(EvaluationStep()) \
+            .add_step(PrintOutputStep()) \
             .build()
 
         pipeline.run(context)

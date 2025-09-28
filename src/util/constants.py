@@ -86,8 +86,12 @@ class Text2SQLModelKeys:
     XIYAN = "xiyan"
     OMNI = "omni"
     DEFOG = "defog"
+    GEMINI = "gemini"
 
     TEXT2SQL_MODEL_CONFIGS = {
+        GEMINI: {
+            "priority": 0
+        },
         XIYAN: {
             "priority": 1
         },

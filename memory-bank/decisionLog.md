@@ -122,3 +122,12 @@ This file records architectural and implementation decisions using a list format
     *   Created `QuerySelectionStep` in [`src/pipeline/steps/query_selection/query_selection_step.py`](src/pipeline/steps/query_selection/query_selection_step.py) and `QuerySelectionExecutor` in [`src/pipeline/steps/query_selection/executor/query_selection_executor.py`](src/pipeline/steps/query_selection/executor/query_selection_executor.py).
     *   The executor uses the `ReasoningModelFacade` to select the best query based on a prompt from [`src/prompts/query_selection.py`](src/prompts/query_selection.py).
     *   The selected `SQLExecInfo` object is stored in the `selected_sql_query` attribute of the `PipelineContext`.
+*   **[2025-09-28] Query Selection and Refinement:**
+    *   **Decision:** Implemented two major changes to the query processing logic:
+        1.  **Query Selection Refinement:** The query selection logic was updated to select one query from each cluster of equivalent queries based on model priority.
+        2.  **Query Refinement Step:** A new pipeline step, `QueryRefinerStep`, was introduced to correct incorrect SQL queries using the original model and the execution error.
+    *   **Rationale:** To improve the accuracy and robustness of the query generation process by preventing skewed results from incorrect models and by automatically correcting syntactically incorrect queries.
+    *   **Implementation Details:**
+        *   Modified the `QuerySelectionExecutor` to select one query from each cluster based on model priority.
+        *   Created the `QueryRefinerStep` and its `QueryRefinementExecutor`.
+        *   Added an `error_message` field to the `SQLExecInfo` class to support the refinement process.
