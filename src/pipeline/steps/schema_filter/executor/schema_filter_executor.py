@@ -56,11 +56,11 @@ class SchemaFilterExecutor:
         model_responses = []
 
         query_chain = self.api_model_default.get_chain()
-        mschema_model_response = query_chain.invoke({"user_prompt": full_mschema_prompt})
+        mschema_model_response = self.api_model_default.invoke_chain(query_chain, {"user_prompt": full_mschema_prompt})
         model_responses.append(mschema_model_response)
 
         ddl_query_chain = self.api_model_gemini_25_lite.get_chain()
-        ddl_model_response = ddl_query_chain.invoke({"user_prompt": full_ddl_schema_prompt})
+        ddl_model_response = self.api_model_gemini_25_lite.invoke_chain(ddl_query_chain, {"user_prompt": full_ddl_schema_prompt})
         model_responses.append(ddl_model_response)
 
 

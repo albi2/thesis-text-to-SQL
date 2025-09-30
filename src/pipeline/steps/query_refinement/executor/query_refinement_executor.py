@@ -37,7 +37,7 @@ class QueryRefinementExecutor:
             model_response = None
             if model_key == Text2SQLModelKeys.GEMINI:
                 query_chain = self.api_model_gemini.get_chain()
-                model_response = query_chain.invoke({"user_prompt": full_prompt})
+                model_response = self.api_model.invoke_chain(query_chain, {"user_prompt": full_prompt})
             elif model_key == Text2SQLModelKeys.XIYAN:
                 model_response = self.text2sql_model_facade.query(full_prompt)
             elif model_key == Text2SQLModelKeys.OMNI:

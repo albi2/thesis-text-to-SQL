@@ -92,7 +92,7 @@ class SQLGenerationExecutor:
                 
                 full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
                 query_chain = self.api_model_gemini.get_chain()
-                model_response = query_chain.invoke({"user_prompt": full_prompt})
+                model_response = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt})
 
                 print('SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
                 if "```sql" in model_response:

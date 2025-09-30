@@ -64,7 +64,7 @@ class QuerySelectionExecutor:
         )
 
         query_chain = self.api_model.get_chain()
-        model_response = query_chain.invoke({"user_prompt": full_prompt})
+        model_response = self.api_model.invoke_chain(query_chain, {"user_prompt": full_prompt})
 
         try:
             match = re.search(r"query_index:\s*(\d+)", model_response)

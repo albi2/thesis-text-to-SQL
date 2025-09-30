@@ -1,9 +1,11 @@
 import os
+import time
 from langchain_core.runnables import Runnable
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from components.config.model_configurations import get_model_configurations
 from util.constants import ApiModelConstants
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 class ApiModelFacade:
     """
@@ -49,6 +51,14 @@ class ApiModelFacade:
         )
         return prompt_template | self.llm | StrOutputParser()
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    def invoke_chain(self, chain: Runnable, prompt: dict) -> str:
+        """
+        Invokes a chain with retry logic.
+        """
+        return chain.invoke(prompt)
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """
         Generates embeddings for a list of documents.
@@ -57,6 +67,7 @@ class ApiModelFacade:
             raise TypeError("Embedding can only be performed with embedding models.")
         return self.llm.embed_documents(texts)
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def embed_query(self, text: str) -> list[float]:
         """
         Generates an embedding for a single query.
