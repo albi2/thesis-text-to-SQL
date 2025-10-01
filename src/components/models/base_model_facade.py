@@ -69,7 +69,7 @@ class BaseHuggingFaceFacade(ABC):
             self._load_model_and_tokenizer()
         return self._tokenizer
 
-    def _load_model_and_tokenizer(self):
+    def load_model_and_tokenizer(self):
         """Loads the model and tokenizer on demand."""
         if self._model is not None and self._tokenizer is not None:
             return
@@ -192,7 +192,7 @@ class BaseHuggingFaceFacade(ABC):
         """
         try:
             # Explicitly load model and tokenizer
-            self._load_model_and_tokenizer()
+            # self.load_model_and_tokenizer()
             for i in range(torch.cuda.device_count()):
                 print(f"GPU {i} allocated: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
                 print(f"GPU {i} reserved: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
@@ -259,6 +259,6 @@ class BaseHuggingFaceFacade(ABC):
         except Exception as e:
             print(f"Error during model query for '{self.model_repo}': {e}")
             return f"Error generating response: {e}"
-        finally:
-            # Explicitly unload model and tokenizer
-            self.unload_model()
+        # finally:
+        #     # Explicitly unload model and tokenizer
+        #     self.unload_model()

@@ -52,30 +52,37 @@ class SchemaFilterExecutor:
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
         )
 
-        # 4. Gather model responses
-        model_responses = []
+        # 4. Define model configurations
+        model_configs = {
+            "default": {
+                "facade": self.api_model_default,
+                "prompt": full_mschema_prompt
+            },
+            "gemini-2.5-flash-lite": {
+                "facade": self.api_model_gemini_25_lite,
+                "prompt": full_ddl_schema_prompt
+            }
+        }
 
-        query_chain = self.api_model_default.get_chain()
-        mschema_model_response = self.api_model_default.invoke_chain(query_chain, {"user_prompt": full_mschema_prompt})
-        model_responses.append(mschema_model_response)
-
-        ddl_query_chain = self.api_model_gemini_25_lite.get_chain()
-        ddl_model_response = self.api_model_gemini_25_lite.invoke_chain(ddl_query_chain, {"user_prompt": full_ddl_schema_prompt})
-        model_responses.append(ddl_model_response)
-
-
-        # 4. Gather model responses
+        # 5. Gather model responses and parse schemas
         schemas = []
-        try:
-            for model_response in model_responses:
-                print(f"SCHEMA FILTERING RESPONSE:", model_response)
+        for model_name, config in model_configs.items():
+            try:
+                facade = config["facade"]
+                prompt = config["prompt"]
+                
+                query_chain = facade.get_chain()
+                model_response = facade.invoke_chain(query_chain, {"user_prompt": prompt})
+                
+                print(f"SCHEMA FILTERING RESPONSE ({model_name}):", model_response)
+                
                 if "```json" in model_response:
                     model_response = model_response.split("```json")[1].split("```")[0]
+                
                 resulting_schema = json.loads(re.sub(r"^\s+", "", model_response))
                 schemas.append(resulting_schema)
-        except Exception as e:
-            print(f"Could not parse JSON during schema filtering: {e}")
-            pipeline_context.selected_schemas = []
+            except Exception as e:
+                print(f"Could not get or parse response from {model_name}: {e}")
 
         pipeline_context.selected_schemas = schemas
         return pipeline_context.selected_schemas

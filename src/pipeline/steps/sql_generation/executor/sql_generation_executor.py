@@ -111,10 +111,15 @@ class SQLGenerationExecutor:
 
     def _generate_sql_for_small_models(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         sql_queries: list[SQLQuery] = []
-        shortened_schema_reps = schema_representations[:3]
-        shortened_ddl_schema_reps = ddl_schema_representations[:3]
-        for i, (mschema, ddl_schema) in enumerate(zip(shortened_schema_reps, shortened_ddl_schema_reps)):
-            if mschema.type == SchemaType.FULL or mschema.type == SchemaType.FILTERED_TABLES:
+        
+        model_prompts = {
+            Text2SQLModelKeys.XIYAN: [],
+            Text2SQLModelKeys.DEFOG: [],
+            Text2SQLModelKeys.OMNI: []
+        }
+
+        for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
+            if mschema.type not in [SchemaType.FILTERED_TABLES_AND_COLUMNS]:
                 continue
 
             hint = getattr(pipeline_context, 'hint', '')
@@ -122,34 +127,61 @@ class SQLGenerationExecutor:
             if execution_plan:
                 hint = f"{hint}\n{execution_plan}"
 
-            full_prompt = PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
-            defog_prompt = DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
-            omni_prompt = OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
+            model_prompts[Text2SQLModelKeys.XIYAN].append({
+                "prompt": PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
+                "schema_rep": mschema
+            })
+            model_prompts[Text2SQLModelKeys.DEFOG].append({
+                "prompt": DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
+                "schema_rep": ddl_schema
+            })
+            model_prompts[Text2SQLModelKeys.OMNI].append({
+                "prompt": OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
+                "schema_rep": ddl_schema
+            })
 
-            model_responses = {
-                Text2SQLModelKeys.XIYAN: self.text2sql_model_facade.query(full_prompt),
-                Text2SQLModelKeys.DEFOG: self.defog_text2sql_model_facade.query(prompt=defog_prompt, system_prompt=None, max_new_tokens=1024),
-                Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade.query(prompt=omni_prompt, system_prompt=None, max_new_tokens=1024)
-            }
+        model_facades = {
+            Text2SQLModelKeys.XIYAN: self.text2sql_model_facade,
+            Text2SQLModelKeys.DEFOG: self.defog_text2sql_model_facade,
+            Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade
+        }
 
-            for model_key, model_response in model_responses.items():
-                try:
-                    print('SQL GENERATION MODEL RESPONSE', model_response)
-                    if "```sql" in model_response:
-                        query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
-                    elif "```" in model_response:
-                        query = model_response.split(";")[0].split("```")[0].strip() + ";"
-                    else:
-                        query = model_response
-                    schema_rep = ddl_schema if model_key in [Text2SQLModelKeys.OMNI, Text2SQLModelKeys.DEFOG] else mschema
+        for model_key, prompts_with_schemas in model_prompts.items():
+            if not prompts_with_schemas:
+                continue
+
+            model_facade = model_facades[model_key]
+            try:
+                model_facade.load_model_and_tokenizer()
+
+                for item in prompts_with_schemas:
+                    prompt = item["prompt"]
+                    schema_rep = item["schema_rep"]
                     
-                    sql_queries.append(SQLQuery(
-                        sql_exec_info=SQLExecInfo(sql=query),
-                        schema_representation=schema_rep,
-                        model_key=model_key
-                    ))
-                except Exception as e:
-                    print(f"Could not parse response: {e}")
+                    try:
+                        model_response = model_facade.query(prompt, should_manage_model_mem=False)
+                        print(f'SQL GENERATION MODEL RESPONSE ({model_key})', model_response)
+                        
+                        if "```sql" in model_response:
+                            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
+                        elif "```" in model_response:
+                            query = model_response.split(";")[0].split("```")[0].strip() + ";"
+                        else:
+                            query = model_response
+                        
+                        sql_queries.append(SQLQuery(
+                            sql_exec_info=SQLExecInfo(sql=query),
+                            schema_representation=schema_rep,
+                            model_key=model_key
+                        ))
+                    except Exception as e:
+                        print(f"Could not parse response from {model_key}: {e}")
+            
+            except Exception as e:
+                print(f"Failed to process model {model_key}: {e}")
+            finally:
+                model_facade.unload_model()
+
         return sql_queries
 
     def _execute_queries_async(self, pipeline_context: PipelineContext, sql_queries: List[SQLQuery]):
