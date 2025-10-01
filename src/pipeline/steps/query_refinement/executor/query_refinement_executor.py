@@ -22,43 +22,62 @@ class QueryRefinementExecutor:
 
         refined_sql_queries = []
         original_sql_queries = []
-
-        for sql_query in pipeline_context.non_executable_sql_queries:
-            model_key = sql_query.model_key
-            schema_representation = sql_query.schema_representation
-            
-            full_prompt = PROMPT.format(
-                DATABASE_SCHEMA=schema_representation.schema,
-                QUESTION=pipeline_context.user_query,
-                SQL_QUERY=sql_query.sql_exec_info.sql,
-                ERROR_MESSAGE=sql_query.sql_exec_info.error_message
-            )
-
-            model_response = None
-            if model_key == Text2SQLModelKeys.GEMINI:
-                query_chain = self.api_model_gemini.get_chain()
-                model_response = self.api_model.invoke_chain(query_chain, {"user_prompt": full_prompt})
-            elif model_key == Text2SQLModelKeys.XIYAN:
-                model_response = self.text2sql_model_facade.query(full_prompt)
-            elif model_key == Text2SQLModelKeys.OMNI:
-                model_response = self.omni_text2sql_model_facade.query(prompt=full_prompt, system_prompt=None, max_new_tokens=1024)
-            elif model_key == Text2SQLModelKeys.DEFOG:
-                model_response = self.defog_text2sql_model_facade.query(prompt=full_prompt, system_prompt=None, max_new_tokens=1024)
-
-            if model_response:
-                try:
-                    if "```sql" in model_response:
-                        query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
-                    elif "```" in model_response:
-                        query = model_response.split(";")[0].split("```")[0].strip() + ";"
-                    else:
-                        query = model_response
-                    
-                    refined_sql_queries.append(query)
-                    original_sql_queries.append(sql_query)
-                except Exception as e:
-                    print(f"Could not parse refined response: {e}")
         
+        queries_by_model = {}
+        for sql_query in pipeline_context.non_executable_sql_queries:
+            if sql_query.model_key not in queries_by_model:
+                queries_by_model[sql_query.model_key] = []
+            queries_by_model[sql_query.model_key].append(sql_query)
+
+        model_facades = {
+            Text2SQLModelKeys.XIYAN: self.text2sql_model_facade,
+            Text2SQLModelKeys.DEFOG: self.defog_text2sql_model_facade,
+            Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade,
+            Text2SQLModelKeys.GEMINI: self.api_model_gemini
+        }
+
+        for model_key, queries in queries_by_model.items():
+            model_facade = model_facades.get(model_key)
+            if not model_facade:
+                continue
+
+            try:
+                if isinstance(model_facade, Text2SQLModelFacade):
+                    model_facade.load_model_and_tokenizer()
+
+                for sql_query in queries:
+                    full_prompt = PROMPT.format(
+                        DATABASE_SCHEMA=sql_query.schema_representation.schema,
+                        QUESTION=pipeline_context.user_query,
+                        SQL_QUERY=sql_query.sql_exec_info.sql,
+                        ERROR_MESSAGE=sql_query.sql_exec_info.error_message
+                    )
+                    
+                    try:
+                        if isinstance(model_facade, ApiModelFacade):
+                            query_chain = model_facade.get_chain()
+                            model_response = model_facade.invoke_chain(query_chain, {"user_prompt": full_prompt})
+                        else:
+                            model_response = model_facade.query(full_prompt)
+                        
+                        if "```sql" in model_response:
+                            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
+                        elif "```" in model_response:
+                            query = model_response.split(";")[0].split("```")[0].strip() + ";"
+                        else:
+                            query = model_response
+                        
+                        refined_sql_queries.append(query)
+                        original_sql_queries.append(sql_query)
+                    except Exception as e:
+                        print(f"Could not parse refined response from {model_key}: {e}")
+
+            except Exception as e:
+                print(f"Failed to process model {model_key}: {e}")
+            finally:
+                if isinstance(model_facade, Text2SQLModelFacade):
+                    model_facade.unload_model()
+
         if refined_sql_queries:
             try:
                 loop = asyncio.get_event_loop()

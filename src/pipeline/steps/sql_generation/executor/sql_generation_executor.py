@@ -40,8 +40,9 @@ class SQLGenerationExecutor:
         ddl_schema_representations: list[SchemaRepresentation] = []
         selected_schemas = pipeline_context.selected_schemas
 
-        schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
-        ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
+        if len(pipeline_context.schema_engine.get_table_names()) <= 7:
+            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
+            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
 
         if selected_schemas:
             for selected_schema in selected_schemas:
