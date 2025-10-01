@@ -11,7 +11,7 @@ class ApiModelFacade:
     """
     Facade for creating and managing API-based models using LangChain.
     """
-    def __init__(self, model_name: str = None, model_type: str = "generative", api_key: str = None):
+    def __init__(self, model_name: str = None, model_type: str = "generative", api_key: str = None, temperature: float = None):
         if model_name is None:
             if model_type == "generative":
                 model_name = ApiModelConstants.DEFAULT_GENERATIVE_MODEL
@@ -21,6 +21,7 @@ class ApiModelFacade:
         self.model_name = model_name
         self.model_type = model_type
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.temperature = temperature
         
         if not self.api_key:
             raise ValueError(f"API key for {self.model_name} is not provided or set in environment variables.")
@@ -40,6 +41,8 @@ class ApiModelFacade:
         constructor = self._config["constructor"]
         params = self._config["params"].copy()
         params["google_api_key"] = self.api_key
+        if self.temperature is not None:
+            params["temperature"] = self.temperature
         return constructor(**params)
 
     def get_chain(self) -> Runnable:

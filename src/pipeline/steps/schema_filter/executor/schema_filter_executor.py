@@ -9,8 +9,8 @@ from components.models.api_model_facade import ApiModelFacade
 class SchemaFilterExecutor:
     def __init__(self):
         # self.reasoning_model_facade = ReasoningModelFacade()
-        self.api_model_default = ApiModelFacade()
-        self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite")
+        self.api_model_default = ApiModelFacade(temperature=0.7)
+        self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.7)
 
     def execute(self, pipeline_context: PipelineContext) -> List[dict]:
         # 1. Get unique table and column names from context
