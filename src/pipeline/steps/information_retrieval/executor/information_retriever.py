@@ -31,7 +31,7 @@ class InformationRetriever:
                 If None, the default reasoning model will be used.
         """
         # self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
-        self.api_model = ApiModelFacade()
+        self.api_model = ApiModelFacade(temperature=0.8)
 
         # Initialize ConfigurationHelper to load ChromaDB settings
         self.config_helper = ConfigurationHelper()
@@ -132,7 +132,7 @@ class InformationRetriever:
         
         entities_db_descriptor = DatabaseDescriptor(db_id=db_id)
         
-        for keyword in keywords + phrases:
+        for keyword in phrases:
             similar_values = LSHUtil.query_lsh(lsh, minhashes, keyword)
             
             all_candidates = []

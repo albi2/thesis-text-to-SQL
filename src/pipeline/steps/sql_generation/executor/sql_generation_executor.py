@@ -17,7 +17,7 @@ class SQLGenerationExecutor:
         self.text2sql_model_facade = Text2SQLModelFacade()
         self.omni_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
-        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash")
+        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash", temperature=0.2)
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLQuery]:
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
@@ -26,7 +26,7 @@ class SQLGenerationExecutor:
         schema_representations, ddl_schema_representations = self._generate_schema_representations(pipeline_context)
         
         sql_queries = self._generate_sql_for_gemini(pipeline_context, schema_representations)
-        sql_queries.extend(self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations))
+        # sql_queries.extend(self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations))
         
         self._execute_queries_async(pipeline_context, sql_queries)
 
@@ -119,7 +119,10 @@ class SQLGenerationExecutor:
             Text2SQLModelKeys.OMNI: []
         }
 
-        for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
+        shortened_schema_rep = schema_representations[:3]
+        shortened_ddl_schema_representations = ddl_schema_representations[:3]
+
+        for mschema, ddl_schema in zip(shortened_schema_rep, shortened_ddl_schema_representations):
             if mschema.type not in [SchemaType.FILTERED_TABLES_AND_COLUMNS]:
                 continue
 
@@ -160,7 +163,7 @@ class SQLGenerationExecutor:
                     schema_rep = item["schema_rep"]
                     
                     try:
-                        model_response = model_facade.query(prompt, should_manage_model_mem=False)
+                        model_response = model_facade.query(prompt)
                         print(f'SQL GENERATION MODEL RESPONSE ({model_key})', model_response)
                         
                         if "```sql" in model_response:

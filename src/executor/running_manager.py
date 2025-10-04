@@ -120,7 +120,7 @@ class RunningManager:
         #     self.statistics_manager.add_result(result)
 
 
-        in_processing_tasks = self.tasks[:1]
+        in_processing_tasks = self.tasks
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         context_file_path = f"{self.RESULT_ROOT_PATH}/contexts_{timestamp}.json"

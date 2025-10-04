@@ -1,6 +1,14 @@
 import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
+# Consistent cache directory
+base_cache = "/media/storage/ge62nok"
+
+os.environ["HF_HOME"] = base_cache
+os.environ["HF_HUB_CACHE"] = os.path.join(base_cache, "hub")
+os.environ["TRANSFORMERS_CACHE"] = os.path.join(base_cache, "transformers")
+os.environ["HF_DATASETS_CACHE"] = os.path.join(base_cache, "datasets")
+os.environ["HF_MODULES_CACHE"] = os.path.join(base_cache, "modules")
 
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -17,9 +25,7 @@ from torch import Tensor
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Consistent cache directory
-os.environ['HF_HUB_CACHE'] = "/media/storage/ge62nok"
-os.environ['HF_HOME'] = "/media/storage/ge62nok"
+
 
 def last_token_pool(last_hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """
@@ -115,6 +121,7 @@ class HuggingFaceEmbeddingFacade(BaseEmbeddingModelFacade):
             snapshot_download(
                 repo_id=default_model_repo_id,
                 local_dir=effective_model_name,
+                token=False
                 # consider adding allow_patterns or ignore_patterns if needed
             )
             logger.info(f"Successfully downloaded/verified {default_model_repo_id} to {effective_model_name}.")

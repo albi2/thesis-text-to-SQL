@@ -1,6 +1,14 @@
 import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:128'
 os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
+base_cache = "/media/storage/ge62nok"
+
+os.environ["HF_HOME"] = base_cache
+os.environ["HF_HUB_CACHE"] = os.path.join(base_cache, "hub")
+os.environ["TRANSFORMERS_CACHE"] = os.path.join(base_cache, "transformers")
+os.environ["HF_DATASETS_CACHE"] = os.path.join(base_cache, "datasets")
+os.environ["HF_MODULES_CACHE"] = os.path.join(base_cache, "modules")
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -12,9 +20,7 @@ import gc
 from huggingface_hub import snapshot_download
 # Set the environment variable
 # Choose HF_HOME or HF_HUB_CACHE based on your preference
-os.environ['HF_HUB_CACHE'] = "/media/storage/ge62nok"
-os.environ['HF_HOME'] = "/media/storage/ge62nok"
-os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
+
 
 class BaseHuggingFaceFacade(ABC):
     """
@@ -48,7 +54,7 @@ class BaseHuggingFaceFacade(ABC):
         try:
             print(f"Ensuring model '{repo_id}' is downloaded to '{local_path}'...")
             os.makedirs(local_path, exist_ok=True)
-            snapshot_download(repo_id=repo_id, local_dir=local_path)
+            snapshot_download(repo_id=repo_id, local_dir=local_path, token=False)
             print(f"Download/verification complete for '{repo_id}'.")
         except Exception as e:
             print(f"Error during download for '{repo_id}': {e}")

@@ -17,7 +17,7 @@ def get_all_db_ids() -> List[str]:
 
 def get_unique_values_for_db(db_id: str) -> Dict[str, Dict[str, List[str]]]:
     """
-    Gets all unique values for a given database.
+    Gets all unique values for a given database with less restrictive filtering.
 
     Args:
         db_id: The ID of the database.
@@ -25,48 +25,77 @@ def get_unique_values_for_db(db_id: str) -> Dict[str, Dict[str, List[str]]]:
     Returns:
         A dictionary containing the unique values for each table and column.
     """
+    # --- Configurable Thresholds (Tune these values to adjust restrictiveness) ---
+    # Exclude columns with more than this many unique values (high cardinality).
+    MAX_DISTINCT_VALUES = 5000
+    # Exclude columns where the total size of text data exceeds this limit (in bytes).
+    MAX_TOTAL_LENGTH = 10_000_000  # 10 MB
+    # Exclude columns where the average value length is very high (e.g., descriptions, blobs).
+    MAX_AVERAGE_LENGTH = 200
+    # Exclude columns that are very unlikely to be useful categorical features.
+    EXCLUDED_KEYWORDS = ["id", "_id", "url", "email", "web", "phone", "date", "address", "time"]
+
     db_manager = DatabaseManager()
     engine = db_manager.create_engine(db_id)
     
     unique_values = {}
     inspector = inspect(engine)
-    table_names = inspector.get_table_names()
     
-    for table_name in table_names:
-        if table_name == "sqlite_sequence":
-            continue
+    # Use a single connection for all operations for a massive performance boost
+    with engine.connect() as connection:
+        table_names = inspector.get_table_names()
         
-        unique_values[table_name] = {}
-        columns = inspector.get_columns(table_name)
-        primary_keys = [key for key in inspector.get_pk_constraint(table_name)['constrained_columns']]
-
-        for column in columns:
-            column_name = column['name']
+        for table_name in table_names:
+            if table_name == "sqlite_sequence":
+                continue
             
-            if column_name in primary_keys:
-                continue
+            unique_values[table_name] = {}
+            columns = inspector.get_columns(table_name)
+            primary_keys = [key for key in inspector.get_pk_constraint(table_name)['constrained_columns']]
 
-            if "TEXT" not in str(column['type']):
-                continue
+            for column in columns:
+                column_name = column['name']
+                column_name_lower = column_name.lower()
 
-            if any(keyword in column_name.lower() for keyword in ["_id", " id", "url", "email", "web", "time", "phone", "date", "address"]) or column_name.lower().endswith("Id"):
-                continue
+                # --- A series of clear "guard clauses" to skip columns ---
 
-            with engine.connect() as connection:
+                # 1. Skip primary keys
+                if column_name in primary_keys:
+                    continue
+
+                # 2. Skip non-text columns
+                if "TEXT" not in str(column['type']):
+                    continue
+
+                # 3. Skip columns based on keywords and common ID patterns
+                if any(keyword in column_name_lower for keyword in EXCLUDED_KEYWORDS) or \
+                   "id" in column_name_lower or column_name_lower.endswith("id"):
+                    continue
+
                 try:
-                    result = connection.execute(text(f'SELECT SUM(LENGTH("{column_name}")), COUNT(DISTINCT "{column_name}") FROM "{table_name}" WHERE "{column_name}" IS NOT NULL')).fetchone()
+                    # 4. Perform data-based checks to exclude very large columns
+                    query = text(f'SELECT SUM(LENGTH("{column_name}")), COUNT(DISTINCT "{column_name}") FROM "{table_name}" WHERE "{column_name}" IS NOT NULL')
+                    result = connection.execute(query).fetchone()
                     sum_of_lengths, count_distinct = result[0], result[1]
 
-                    if sum_of_lengths is None or count_distinct == 0:
+                    if sum_of_lengths is None or not count_distinct:
+                        continue
+                    
+                    # Skip if total data size is too large
+                    if sum_of_lengths > MAX_TOTAL_LENGTH:
                         continue
 
                     average_length = sum_of_lengths / count_distinct
-                    
-                    if ("name" in column_name.lower() and sum_of_lengths < 5000000) or (sum_of_lengths < 2000000 and average_length < 25) or count_distinct < 100:
-                        values_result = connection.execute(text(f'SELECT DISTINCT "{column_name}" FROM "{table_name}" WHERE "{column_name}" IS NOT NULL'))
-                        unique_values[table_name][column_name] = [str(row[0]) for row in values_result]
+                    # Skip if values are consistently very long (e.g., descriptions)
+                    if average_length > MAX_AVERAGE_LENGTH:
+                        continue
+
+                    # --- If a column passes all checks, fetch its unique values ---
+                    values_query = text(f'SELECT DISTINCT "{column_name}" FROM "{table_name}" WHERE "{column_name}" IS NOT NULL')
+                    values_result = connection.execute(values_query)
+                    unique_values[table_name][column_name] = [str(row[0]) for row in values_result]
+
                 except Exception as e:
                     logging.error(f"Error processing column {column_name} in table {table_name}: {e}")
-
-    db_manager.close_connections(engine)
+    
     return unique_values

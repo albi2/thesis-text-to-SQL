@@ -10,7 +10,7 @@ from util.db.execute import execute_sql_queries_async, SQLExecStatus
 
 class QueryRefinementExecutor:
     def __init__(self):
-        self.api_model_gemini = ApiModelFacade(model_name="gemini-1.5-flash", temperature=0)
+        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.0-flash", temperature=0.3)
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLQuery]:
         if not hasattr(pipeline_context, 'non_executable_sql_queries') or not pipeline_context.non_executable_sql_queries:
