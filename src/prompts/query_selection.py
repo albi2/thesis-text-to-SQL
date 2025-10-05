@@ -8,59 +8,39 @@ Your task is to evaluate multiple SQL queries and select the one that best answe
 3. Select the best query: Choose the query that most accurately answers the question, while considering database structure, table relationships,
  and query efficiency.
 ## Requirements 
-- Respond with the most relevant SQL query, and nothing else. 
-- Ensure the selected query is valid for the given database schema and directly
-addresses the question. 
+- Respond with the most relevant SQL query and a reasoning for your choice.
+- Ensure the selected query is valid for the given database schema and directly addresses the question.
 
-You are given a question, a database schema, multiple SQL queries, and their execution results. 
-Your task is to select the SQL query that best answers the question based on the query and its result.
+You are given a question, a database schema, evaluation criteria, multiple SQL queries, their execution results, and the number of times each query was generated (votes).
+Your task is to select the SQL query that best answers the question based on the provided criteria, the query, its result, and the number of votes it received.
 
-## Instructions 
-1. Understand the Question: Determine what the user is asking and identify the specific information that needs to be retrieved. 
-2. Evaluate Each Query and Response Pair: For each provided SQL query and its result, determine: - Query Accuracy: Does the query correctly represent the user's intent? - Result Relevance: Does the result contain the data needed to answer the question completely and correctly? - Efficiency: Is the query optimized, avoiding unnecessary complexity?
-3. The queries will be provided in the format:
+## Instructions
+1.  Understand the Question and Criteria: Determine what the user is asking and review the provided evaluation criteria.
+2.  Evaluate Each Query and Response Pair: For each provided SQL query and its result, evaluate it against the criteria:
+    -   Query Accuracy: Does the query correctly represent the user's intent and meet all criteria?
+    -   Votes: Consider the number of votes as a possible but not always accurate indicator of the query's correctness.
+3.  The queries will be provided in the format:
     0: Query 1
-       Query output: <<json>>
+        Query output: <<json>>
+        Votes: <number_of_votes>
     1: Query 2
-       Query output: <<json>>
+        Query output: <<json>>
+        Votes: <number_of_votes>
     ...
-   Answer with the format: ```query_index: <index>```, where `<index>` is the index of the query that best answers the question.
+    Answer with the format: ```query_index: <index> reasoning: <reasoning>```, where `<index>` is the index of the query that best answers the question and `<reasoning>` is a brief explanation of why you chose that query, referencing the evaluation criteria.
 
 ## Database Schema Database:
 {DATABASE_SCHEMA}
 
-## Question 
+## Question
 {QUESTION}
 
-## Hint 
+## Hint
 {HINT}
 
-## SQL Queries and Execution Results 
+## Evaluation Criteria
+{CRITERIA}
+
+## SQL Queries and Execution Results
 {QUERIES}
 """
-
-
-QUERY_SELECTION_PROMPT = """ You are given a question, a database schema, and multiple SQL queries. Your task
-is to select the SQL query that is most relevant and best answers the question.
-## Instructions 1. Analyze the Question: Understand what the user is asking and identify the
-information that needs to be extracted from the database. 2. Evaluate SQL Queries: For each provided SQL query, determine its relevance
-based on: - Accuracy: Does the query correctly match the question's intent? - Completeness: Does the query retrieve all the necessary information without omitting important details?
-- Efficiency: Is the query optimized for the task, avoiding unnecessary joins or conditions?
-3. Select the Most Relevant Query: Choose the query that is the best match for the question.
-## Database Schema Database "{database_name}": {database_schema}
-## Question The question is: {question}
-## Hint {hint}
-## SQL Queries {queries}
-## Output Requirement Reply the query Index in the format of "Index: ".
-## Output """
-
-query_with_response_selection_prompt = """ You are given a question, a database schema, multiple SQL queries, and their
-execution results. Your task is to select the SQL query that best answers the question based on the query and its result.
-## Instructions 1. Understand the Question: Determine what the user is asking and identify the
-specific information that needs to be retrieved. 2. Evaluate Each Query and Response Pair: For each provided SQL query and its
-result, determine: - Query Accuracy: Does the query correctly represent the user's intent? - Result Relevance: Does the result contain the data needed to answer the question completely and correctly? - Efficiency: Is the query optimized, avoiding unnecessary complexity?
-## Database Schema Database "{database_name}": {database_schema}
-## Question {question}
-## Hint {hint}
-## SQL Queries and Execution Results {queries}
-## Output Requirement Only reply the query Index in the format of "Index: ". """

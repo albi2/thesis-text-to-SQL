@@ -2,7 +2,8 @@ import re
 from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
-from prompts.query_selection import PROMPT
+from prompts.query_selection import PROMPT as QUERY_SELECTION_PROMPT
+from prompts.criteria_generation import PROMPT as CRITERIA_GENERATION_PROMPT
 from util.db.execute import SQLExecInfo, compare_sqls_outcomes
 from util.constants import DatabaseConstants, Text2SQLModelKeys
 from components.models.api_model_facade import ApiModelFacade
@@ -13,24 +14,25 @@ class QuerySelectionExecutor:
         self.api_model = ApiModelFacade()
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
-        clusters = self._cluster_equivalent_queries(pipeline_context)
+        criteria_prompt = CRITERIA_GENERATION_PROMPT.format(
+            QUESTION=pipeline_context.user_query,
+            HINT=getattr(pipeline_context, 'hint', '')
+        )
         
-        # total_queries = len(pipeline_context.generated_sql_queries)
-        # majority_threshold = total_queries / 2
+        query_chain = self.api_model.get_chain()
+        criteria_response = self.api_model.invoke_chain(query_chain, {"user_prompt": criteria_prompt})
         
-        # selected_queries = []
-        # majority_cluster = next((cluster for cluster in clusters if len(cluster) > majority_threshold), None)
+        try:
+            match = re.search(r"<CRITERIA>(.*)</CRITERIA>", criteria_response, re.DOTALL)
+            if match:
+                pipeline_context.query_evaluation_criteria = match.group(1).strip()
+            else:
+                pipeline_context.query_evaluation_criteria = criteria_response
+        except Exception as e:
+            print(f"Could not parse criteria from model response: {e}")
+            pipeline_context.query_evaluation_criteria = criteria_response
 
-        # if majority_cluster:
-        #     selected_queries = majority_cluster
-        # else:
-        #     model_priority = {
-        #         model: config["priority"]
-        #         for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
-        #     }
-        #     for cluster in clusters:
-        #         best_query = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
-        #         selected_queries.append(best_query)
+        clusters = self._cluster_equivalent_queries(pipeline_context)
         
         model_priority = {
             model: config["priority"]
@@ -44,10 +46,12 @@ class QuerySelectionExecutor:
 
         queries_with_results = ""
         for i, info in enumerate(selected_queries):
+            cluster_size = len([q for q in pipeline_context.generated_sql_queries if compare_sqls_outcomes(q.sql_exec_info.sql, info.sql_exec_info.sql, DatabaseConstants.DB_PATH, pipeline_context.db_engine)])
             queries_with_results += f"{i}: {info.sql_exec_info.sql}\n"
             queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
             if info.sql_exec_info.result is not None:
                 queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
+            queries_with_results += f"  Votes: {cluster_size}\n"
 
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             raise ValueError("SchemaEngine not found in pipeline context.")
@@ -56,23 +60,25 @@ class QuerySelectionExecutor:
             show_type_detail=True
         )
 
-        full_prompt = PROMPT.format(
+        full_prompt = QUERY_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_string,
             QUESTION=pipeline_context.user_query,
             HINT=getattr(pipeline_context, 'hint', ''),
+            CRITERIA=pipeline_context.query_evaluation_criteria,
             QUERIES=queries_with_results
         )
 
-        query_chain = self.api_model.get_chain()
         model_response = self.api_model.invoke_chain(query_chain, {"user_prompt": full_prompt})
 
         try:
-            match = re.search(r"query_index:\s*(\d+)", model_response)
+            match = re.search(r"query_index:\s*(\d+)\s*reasoning:\s*(.*)", model_response)
             if match:
                 query_index = int(match.group(1))
+                reasoning = match.group(2)
+                pipeline_context.query_selection_reasoning = reasoning
                 return selected_queries[query_index]
         except (ValueError, IndexError) as e:
-            print(f"Could not parse query index from model response: {e}")
+            print(f"Could not parse query index or reasoning from model response: {e}")
             if selected_queries:
                 return selected_queries[0]
         

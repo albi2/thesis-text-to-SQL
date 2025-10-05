@@ -5,11 +5,9 @@ from pipeline.pipeline_step_output import PipelineStepOutput
 from pipeline.steps.query_selection.executor.query_selection_executor import QuerySelectionExecutor
 from util.db.execute import SQLExecInfo
 
-
 class QuerySelectionStepOutput(PipelineStepOutput):
     def __init__(self, selected_query: SQLExecInfo):
         self.selected_query = selected_query
-
 
 class QuerySelectionStep(PipelineStep[PipelineContext, QuerySelectionStepOutput]):
     def __init__(self):
