@@ -85,9 +85,9 @@ class SQLGenerationExecutor:
         for mschema in schema_representations:
             try:
                 hint = getattr(pipeline_context, 'hint', '')
-                execution_plan = getattr(mschema, 'execution_plan', '')
-                if execution_plan:
-                    hint = f"{hint}\n{execution_plan}"
+                # execution_plan = getattr(mschema, 'execution_plan', '')
+                # if execution_plan:
+                #     hint = f"{hint}\n{execution_plan}"
                 
                 full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
                 query_chain = self.api_model_gemini.get_chain()

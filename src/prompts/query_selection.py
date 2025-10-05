@@ -1,6 +1,7 @@
 PROMPT = """ 
 You are an expert in analyzing SQL queries and determining their relevance to agiven question. 
 Your task is to evaluate multiple SQL queries and select the one that best answers the question based on the provided database schema and context.
+
 ## Responsibilities
 1. Analyze the given question: Understand the intent of the question and its expected output. 
 2. Evaluate each SQL query: Consider the correctness, relevance, and completeness of each query in relation to the question. 
@@ -52,6 +53,7 @@ based on: - Accuracy: Does the query correctly match the question's intent? - Co
 ## SQL Queries {queries}
 ## Output Requirement Reply the query Index in the format of "Index: ".
 ## Output """
+
 query_with_response_selection_prompt = """ You are given a question, a database schema, multiple SQL queries, and their
 execution results. Your task is to select the SQL query that best answers the question based on the query and its result.
 ## Instructions 1. Understand the Question: Determine what the user is asking and identify the
