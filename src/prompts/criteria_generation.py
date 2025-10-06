@@ -447,5 +447,5 @@ Focus on:
 6. **Completeness**: All question parts addressed
 7. **Correctness**: Logical consistency and proper interpretation
 
-Keep criteria focused on requirements, not implementation details. Avoid specifying exact syntax or naming conventions.
+Keep criteria focused on requirements, not implementation details. Avoid specifying exact syntax or table / column names. Otherwise therew will be severe consequences.
 """
