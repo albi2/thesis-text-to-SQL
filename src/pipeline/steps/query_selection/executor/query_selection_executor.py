@@ -14,24 +14,6 @@ class QuerySelectionExecutor:
         self.api_model = ApiModelFacade()
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
-        criteria_prompt = CRITERIA_GENERATION_PROMPT.format(
-            QUESTION=pipeline_context.user_query,
-            HINT=getattr(pipeline_context, 'hint', '')
-        )
-        
-        query_chain = self.api_model.get_chain()
-        criteria_response = self.api_model.invoke_chain(query_chain, {"user_prompt": criteria_prompt})
-        
-        try:
-            match = re.search(r"<CRITERIA>(.*)</CRITERIA>", criteria_response, re.DOTALL)
-            if match:
-                pipeline_context.query_evaluation_criteria = match.group(1).strip()
-            else:
-                pipeline_context.query_evaluation_criteria = criteria_response
-        except Exception as e:
-            print(f"Could not parse criteria from model response: {e}")
-            pipeline_context.query_evaluation_criteria = criteria_response
-
         clusters = self._cluster_equivalent_queries(pipeline_context)
         
         model_priority = {
@@ -67,18 +49,23 @@ class QuerySelectionExecutor:
             CRITERIA=pipeline_context.query_evaluation_criteria,
             QUERIES=queries_with_results
         )
-
+        
+        query_chain = self.api_model.get_chain()
         model_response = self.api_model.invoke_chain(query_chain, {"user_prompt": full_prompt})
 
         try:
-            match = re.search(r"query_index:\s*(\d+)\s*reasoning:\s*(.*)", model_response)
+            match = re.search(r"reasoning:\s*(.*?)\s*query_index:\s*(\d+)", model_response, re.DOTALL)
             if match:
-                query_index = int(match.group(1))
-                reasoning = match.group(2)
+                reasoning = match.group(1).strip()
+                query_index = int(match.group(2))
                 pipeline_context.query_selection_reasoning = reasoning
                 return selected_queries[query_index]
+            else:
+                pipeline_context.query_selection_reasoning = model_response
+                print("Could not parse query index from selection response: {}", model_response)
         except (ValueError, IndexError) as e:
             print(f"Could not parse query index or reasoning from model response: {e}")
+            pipeline_context.query_selection_reasoning = model_response
             if selected_queries:
                 return selected_queries[0]
         

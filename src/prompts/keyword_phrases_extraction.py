@@ -35,6 +35,7 @@ understanding the core components of the inquiry and the guidance provided.
 This process involves recognizing and isolating significant terms and phrases
 that could be instrumental in formulating searches or queries related to the
 posed question.
+
 Instructions:
 1. Read the Question Carefully: Understand the primary focus and specific
 details of the question. Look for any named entities (such as organizations,

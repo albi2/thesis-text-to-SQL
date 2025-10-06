@@ -29,9 +29,11 @@ def get_unique_values_for_db(db_id: str) -> Dict[str, Dict[str, List[str]]]:
     # Exclude columns with more than this many unique values (high cardinality).
     MAX_DISTINCT_VALUES = 5000
     # Exclude columns where the total size of text data exceeds this limit (in bytes).
-    MAX_TOTAL_LENGTH = 10_000_000  # 10 MB
+    MAX_TOTAL_NAME_LENGTH = 5_000_000  # 5 MB
+    MAX_TOTAL_LENGTH = 3_000_000  # 2 MB
+    MAX_DISTINCT_VALUES = 150
     # Exclude columns where the average value length is very high (e.g., descriptions, blobs).
-    MAX_AVERAGE_LENGTH = 200
+    MAX_AVERAGE_LENGTH = 50
     # Exclude columns that are very unlikely to be useful categorical features.
     EXCLUDED_KEYWORDS = ["id", "_id", "url", "email", "web", "phone", "date", "address", "time"]
 
@@ -74,26 +76,40 @@ def get_unique_values_for_db(db_id: str) -> Dict[str, Dict[str, List[str]]]:
 
                 try:
                     # 4. Perform data-based checks to exclude very large columns
-                    query = text(f'SELECT SUM(LENGTH("{column_name}")), COUNT(DISTINCT "{column_name}") FROM "{table_name}" WHERE "{column_name}" IS NOT NULL')
+                    query = text(f'''
+                        SELECT 
+                            SUM(LENGTH("{column_name}")), 
+                            COUNT(*)
+                        FROM (
+                            SELECT DISTINCT "{column_name}"
+                            FROM "{table_name}"
+                            WHERE "{column_name}" IS NOT NULL
+                        ) AS distinct_values
+                    ''')
                     result = connection.execute(query).fetchone()
                     sum_of_lengths, count_distinct = result[0], result[1]
 
                     if sum_of_lengths is None or not count_distinct:
                         continue
                     
-                    # Skip if total data size is too large
-                    if sum_of_lengths > MAX_TOTAL_LENGTH:
-                        continue
-
                     average_length = sum_of_lengths / count_distinct
-                    # Skip if values are consistently very long (e.g., descriptions)
-                    if average_length > MAX_AVERAGE_LENGTH:
-                        continue
 
-                    # --- If a column passes all checks, fetch its unique values ---
-                    values_query = text(f'SELECT DISTINCT "{column_name}" FROM "{table_name}" WHERE "{column_name}" IS NOT NULL')
-                    values_result = connection.execute(values_query)
-                    unique_values[table_name][column_name] = [str(row[0]) for row in values_result]
+                    # Skip columns that exceed limits
+                    skip_column = (
+                        ("name" in column_name_lower and sum_of_lengths < MAX_TOTAL_NAME_LENGTH)
+                        or (sum_of_lengths < MAX_TOTAL_LENGTH and average_length < MAX_AVERAGE_LENGTH)
+                        or count_distinct < MAX_DISTINCT_VALUES
+                    )
+
+                    if not skip_column:
+                        # Fetch unique non-null values for valid columns
+                        values_query = text(f'''
+                            SELECT DISTINCT "{column_name}"
+                            FROM "{table_name}"
+                            WHERE "{column_name}" IS NOT NULL
+                        ''')
+                        values_result = connection.execute(values_query)
+                        unique_values[table_name][column_name] = [str(row[0]) for row in values_result]
 
                 except Exception as e:
                     logging.error(f"Error processing column {column_name} in table {table_name}: {e}")

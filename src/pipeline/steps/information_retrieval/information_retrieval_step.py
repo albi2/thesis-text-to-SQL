@@ -22,6 +22,8 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
         context.schema_engine.mschema.set_database_descriptor(context.descriptions_database)
 
         keywords_and_phrases = self.information_retriever.extract_keywords(user_query=context.user_query)
+        context.keywords_and_phrases = keywords_and_phrases
+        
         keywords = keywords_and_phrases.get("keywords", [])
         phrases = keywords_and_phrases.get("phrases", [])
 

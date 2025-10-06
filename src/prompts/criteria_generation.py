@@ -11,9 +11,7 @@ You are an expert at analyzing database questions and creating evaluation criter
 
 ## Output Format
 
-Generate criteria in this structured format:
-
-```
+Your entire response must be enclosed in `<CRITERIA></CRITERIA>` tags. Generate criteria in this structured format:
 <CRITERIA>
 EVALUATION CRITERIA:
 
@@ -41,7 +39,7 @@ EVALUATION CRITERIA:
    - [Check for correct interpretation of superlatives]
    - [Validate comparison directions]
 </CRITERIA>
-```
+
 
 ---
 
@@ -52,8 +50,6 @@ EVALUATION CRITERIA:
 **Evidence**: Thai restaurant refers to food_type = 'thai'; San Pablo Ave Albany refers to street_name = 'san pablo ave' AND city = 'albany'
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return a COUNT (single numeric value)
    - Output represents the number of restaurants matching all criteria
@@ -90,8 +86,6 @@ EVALUATION CRITERIA:
 **Evidence**: Later birthdate refers to younger age; A11 refers to average salary
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return gender value (single text/character value)
    - Output is for ONE specific client (not multiple, not a count)
@@ -131,8 +125,6 @@ EVALUATION CRITERIA:
 **Evidence**: From 1900 to 1992 refers to games_year BETWEEN 1900 AND 1992; London refers to city_name = 'London'
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return a COUNT (single numeric value)
    - Output represents number of games matching all criteria
@@ -169,8 +161,6 @@ EVALUATION CRITERIA:
 **Evidence**: Participation rate = "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)"
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return calculated participation rates (division result)
    - Must return exactly THREE values (not more, not less)
@@ -214,8 +204,6 @@ EVALUATION CRITERIA:
 **Evidence**: flights from refers to ORIGIN; San Diego International airport refers to Description = 'San Diego, CA: San Diego International'; flights to refers to DEST; Los Angeles International airport refers to Description = 'Los Angeles, CA: Los Angeles International'; August 2018 refers to FL_DATE like '2018/8%'
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return a COUNT (single numeric value)
    - Output represents number of flights matching all criteria
@@ -258,8 +246,6 @@ EVALUATION CRITERIA:
 **Evidence**: establishment = business; met all required standards for 4 consecutive years means COUNT(year(date)) = 4 where score = 100
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return establishment/business NAMES (text values)
    - May return multiple names (all that qualify)
@@ -302,8 +288,6 @@ EVALUATION CRITERIA:
 **Evidence**: None
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return a COUNT (single numeric value)
    - Output represents number of employees matching criteria
@@ -337,8 +321,6 @@ EVALUATION CRITERIA:
 **Evidence**: California refers to state = 'CA'
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return average scores (calculated values)
    - Must return results for EACH restaurant type (multiple rows expected)
@@ -376,8 +358,6 @@ EVALUATION CRITERIA:
 **Evidence**: female refers to gender = 'F'; STEM programs refers to major IN ('Computer Science', 'Engineering', 'Mathematics', 'Physics')
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return a percentage value (calculated from ratio)
    - Single numeric value (may need to multiply by 100 for percentage)
@@ -419,8 +399,6 @@ EVALUATION CRITERIA:
 **Evidence**: oldest employee refers to MIN(birth_date); retire refers to retirement_date IS NOT NULL
 
 <CRITERIA>
-**EVALUATION CRITERIA:**
-
 1. **Output Requirements:**
    - Must return a YEAR value (4-digit number or extracted year)
    - Single value (one specific year)
@@ -450,16 +428,24 @@ EVALUATION CRITERIA:
 
 ---
 
+Now its your turn to analyze real question:
+
+【User Question】
+{QUESTION}
+
+【Evidence】
+{HINT}
+
 ## Guidelines for Criteria Generation
 
 Focus on:
-1. **Output format**: What type of result? (count, list, single value, calculated field)
-2. **All conditions**: Every filter mentioned in question or evidence
-3. **Logical operators**: AND vs OR, comparison operators (>, <, =, BETWEEN, LIKE)
-4. **Operations**: Aggregations, calculations, string/date operations
-5. **Superlatives**: Highest/lowest/oldest/newest and correct ordering direction
-6. **Completeness**: Verify every part of question is addressed
-7. **Correctness**: Check logical consistency and interpretation accuracy
+1. **Output format**: What type and how many results expected?
+2. **All conditions**: Every filter from question and evidence
+3. **Logical operators**: AND vs OR, comparison operators
+4. **Operations needed**: Aggregations, calculations, transformations
+5. **Superlatives interpretation**: Highest/lowest/oldest/newest ordering
+6. **Completeness**: All question parts addressed
+7. **Correctness**: Logical consistency and proper interpretation
 
-Do NOT reference specific table or column names unless they appear in the evidence/hints.
+Keep criteria focused on requirements, not implementation details. Avoid specifying exact syntax or naming conventions.
 """

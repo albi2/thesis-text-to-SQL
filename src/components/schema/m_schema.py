@@ -77,7 +77,7 @@ class MSchemaGenerator:
                 output.append(f"# Table: {table_name}")
 
         field_lines = []
-        # 处理表中的每一个字段
+        
         for field_name, field_info in table_info['fields'].items():
             if selected_columns is not None and field_name.lower() not in selected_columns:
                 continue
@@ -90,17 +90,20 @@ class MSchemaGenerator:
                 if table_descriptor:
                     column_definition = table_descriptor.columns.get(field_name)
                     if column_definition:
-                        comment = f"{column_definition.column_name}: {column_definition.column_description}-{column_definition.value_description}"
+                        comment = f"{column_definition.column_name} = {column_definition.value_description}"
+                        if column_definition.column_description:
+                            comment += f": {column_definition.column_description}"
+                        if column_definition.value_description:
+                            comment += f" Value Explanation: {column_definition.value_description}"
+                            
             
             if comment:
                 field_line += f", {comment.strip()}"
 
-            ## 打上主键标识
             is_primary_key = field_info.get('primary_key', False)
             if is_primary_key:
                 field_line += f", Primary Key"
 
-            # 如果有示例，添加上
             if len(field_info.get('examples', [])) > 0 and example_num > 0:
                 examples = field_info['examples']
                 examples = [s for s in examples if s is not None]

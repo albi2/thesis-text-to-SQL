@@ -2,7 +2,8 @@ import json
 from typing import List
 import re
 from components.models.reasoning_model_facade import ReasoningModelFacade
-from prompts.column_selection import PROMPT, FEWSHOT_EXAMPLES
+from prompts.schema_filtering import PROMPT as COLUMN_SELECTION_PROMPT
+from prompts.schema_filtering_with_criteria import PROMPT as SCHEMA_FILTERING_WITH_CRITERIA_PROMPT
 from context.pipeline_context import PipelineContext
 from components.models.api_model_facade import ApiModelFacade
 
@@ -38,18 +39,18 @@ class SchemaFilterExecutor:
         )
 
         # 3. Call LLM to filter the schema
-        full_mschema_prompt = PROMPT.format(
+        full_mschema_prompt = COLUMN_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_representation,
             QUESTION=pipeline_context.user_query,
             HINT=pipeline_context.task.evidence,
-            FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
+            FEWSHOT_EXAMPLES="",
         )
 
-        full_ddl_schema_prompt = PROMPT.format(
+        full_ddl_schema_prompt = SCHEMA_FILTERING_WITH_CRITERIA_PROMPT.format(
             DATABASE_SCHEMA=ddl_schema_representation,
             QUESTION=pipeline_context.user_query,
             HINT=pipeline_context.task.evidence,
-            FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
+            CRITERIA=pipeline_context.query_evaluation_criteria,
         )
 
         # 4. Define model configurations

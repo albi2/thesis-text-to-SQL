@@ -15,7 +15,11 @@ from util.db.database_descriptor import DatabaseDescriptor, TableDescriptor, Col
 from executor.task_model import Task
 from util.similarity_measures.lsh import LSHUtil
 from util.similarity_measures.semantic import SemanticSimilarityUtil
+from util.similarity_measures.edit import EditDistanceUtil
 from components.models.api_model_facade import ApiModelFacade
+from util.similarity_measures.bm25 import BM25Util
+from components.models.reranker_facade import Reranker
+
 class InformationRetriever:
     """
     Agent responsible for extracting keywords and phrases from user queries
@@ -53,6 +57,8 @@ class InformationRetriever:
         # Store collection name
         self.column_collection_name = PreprocessingConstants.COLUMN_COLLECTION_NAME
         self.semantic_similarity_util = SemanticSimilarityUtil()
+        self.bm25_retrievers = {}
+        self.reranker = Reranker()
 
 
     def extract_keywords(self, user_query: str, hint: str = "") -> Dict[str, List[str]]:
@@ -145,10 +151,17 @@ class InformationRetriever:
                             "column_name": column_name
                         })
 
-            # Get top-n most similar candidates using semantic similarity
-            top_candidates = self.semantic_similarity_util.get_top_n_similar(
+            # Get top-n most similar candidates using edit distance
+            edit_distance_candidates = EditDistanceUtil.get_top_n_similar(
                 keyword,
                 all_candidates,
+                top_n=50
+            )
+
+            # Rerank using semantic similarity
+            top_candidates = self.semantic_similarity_util.get_top_n_similar(
+                keyword,
+                edit_distance_candidates,
                 top_n=10
             )
 
@@ -189,35 +202,59 @@ class InformationRetriever:
 
         retrieved_contexts: Dict[str, List[Dict[str, Any]]] = {}
 
+        # Load BM25 retriever if not already loaded
+        if task.db_id not in self.bm25_retrievers:
+            self.bm25_retrievers[task.db_id] = BM25Util.load_bm25_retriever(task.db_id)
+        
+        bm25_retriever = self.bm25_retrievers[task.db_id]
+
         for keyword in keywords:
             if not keyword.strip(): # Skip empty or whitespace-only keywords
                 retrieved_contexts[keyword] = []
                 continue
             try:
-                question_and_keyword = keyword
+                # Retrieve from ChromaDB
                 collection_name = f"{PreprocessingConstants.COLUMN_COLLECTION_NAME}_{task.db_id}"
                 query_results = self.chroma_client.query_collection(
                     collection_name=collection_name,
-                    query_texts=[question_and_keyword],
-                    n_results=k
+                    query_texts=[keyword],
+                    n_results=k * 2 # Retrieve more to rerank
                 )
 
-                keyword_contexts: List[Dict[str, Any]] = []
+                chroma_contexts: List[Dict[str, Any]] = []
                 if query_results and query_results.get("documents") and query_results.get("metadatas"):
                     docs_for_keyword = query_results["documents"][0] if query_results["documents"] else []
                     metadatas_for_keyword = query_results["metadatas"][0] if query_results["metadatas"] else []
 
                     for doc_text, metadata in zip(docs_for_keyword, metadatas_for_keyword):
                         if metadata and 'column_name' in metadata and 'table_name' in metadata:
-                            keyword_contexts.append({
+                            chroma_contexts.append({
                                 "column_name": metadata['column_name'],
                                 "table_name": metadata['table_name'],
                                 "description": doc_text
                             })
-                        else:
-                            print(f"Missing metadata for potential column with description {doc_text} for keyword '{keyword}'")
-                
-                retrieved_contexts[keyword] = keyword_contexts
+
+                # Rerank using BM25
+                if chroma_contexts:
+                    bm25_results = bm25_retriever.get_relevant_documents(keyword)
+                    
+                    # Combine and rerank
+                    combined_results = chroma_contexts
+                    chroma_keys = set((item['table_name'], item['column_name']) for item in chroma_contexts)
+
+                    for doc in bm25_results:
+                        key = (doc.metadata['table_name'], doc.metadata['column_name'])
+                        if key not in chroma_keys:
+                            combined_results.append({
+                                "column_name": doc.metadata['column_name'],
+                                "table_name": doc.metadata['table_name'],
+                                "description": doc.page_content
+                            })
+                    
+                    # Rerank with ColBERT
+                    retrieved_contexts[keyword] = self.reranker.rerank(keyword, combined_results)[:k]
+                else:
+                    retrieved_contexts[keyword] = []
 
             except Exception as e:
                 print(f"Error retrieving context for keyword '{keyword}': {str(e)}")

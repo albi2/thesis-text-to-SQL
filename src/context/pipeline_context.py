@@ -30,6 +30,7 @@ class PipelineContext(GenericContext):
         # Add pipeline-specific context attributes here
         self.task = task
         self.user_query = task.question
+        self.keywords_and_phrases: dict = None
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
         self.db_schema_per_keyword = {}  # Dictionary to store schema information per keyword
         self.selected_schema: dict = None
@@ -67,6 +68,7 @@ class PipelineContext(GenericContext):
     def to_full_dict(self):
         return {
             "user_query": self.user_query,
+            "keywords_and_phrases": self.keywords_and_phrases,
             "descriptions_database": self.descriptions_database.to_dict() if self.descriptions_database else None,
             "entities_db_descriptor": self.entities_db_descriptor.to_dict() if self.entities_db_descriptor else None,
             "db_schema_per_keyword": self.db_schema_per_keyword,

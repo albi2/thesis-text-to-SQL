@@ -6,6 +6,7 @@ from datetime import datetime
 from components.schema.schema_engine_factory import SchemaEngineFactory
 from context.pipeline_context import PipelineContext
 from pipeline.pipeline import Pipeline
+from pipeline.steps.criteria_generation.criteria_generation_step import CriteriaGenerationStep
 from pipeline.steps.information_retrieval.information_retrieval_step import InformationRetrievalStep
 from pipeline.steps.print_output.print_output_step import PrintOutputStep
 from pipeline.steps.schema_filter.schema_filter_step import SchemaFilterStep
@@ -82,6 +83,7 @@ class RunningManager:
 
         pipeline = Pipeline[PipelineContext].Builder() \
             .add_step(InformationRetrievalStep()) \
+            .add_step(CriteriaGenerationStep()) \
             .add_step(SchemaFilterStep()) \
             .add_step(SQLGenerationStep()) \
             .add_step(QuerySelectionStep()) \
