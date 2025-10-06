@@ -98,9 +98,6 @@ Response:
   "user_reviews": ["app_id", "Sentiment"]
 }
 ```
-"""
-
-EXTRA_FEWSHOTS = """
 Example 4:
 
 【DB_ID】<db_name>
