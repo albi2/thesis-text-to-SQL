@@ -294,7 +294,7 @@ The hint and criteria aim to direct your focus towards the specific elements of 
 Relevant Entities:
 {RELEVANT_ENTITIES}
 
-The "Relevant Entities" section provides additional context, showing which specific values (entities) were found in the database that are highly relevant to the phrases in your question. This is a strong indicator that the corresponding tables and columns are necessary for your query.
+The "Relevant Entities" section shows database values that match phrases in your question. Use this to identify the necessary tables and columns. If a value appears in multiple columns, prefer the one with the broader meaning unless the question's context is more specific.
 
 Task:
 Based on the database schema, question, hint and criteria provided, your task is to identify all and only the columns that are essential for crafting a SQL query to answer the question.

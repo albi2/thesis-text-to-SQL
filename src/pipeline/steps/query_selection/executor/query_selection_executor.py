@@ -1,4 +1,5 @@
 import re
+import json
 from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
@@ -12,6 +13,32 @@ class QuerySelectionExecutor:
     def __init__(self):
         # self.reasoning_model_facade = ReasoningModelFacade()
         self.api_model = ApiModelFacade()
+
+    def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
+        """
+        Formats the relevant entities by limiting them to 3 per phrase and removing similarity scores.
+        """
+        limited_entities = {}
+        if relevant_entities:
+            # Group entities by phrase first
+            entities_by_phrase = {}
+            for table, columns in relevant_entities.items():
+                for column, entities in columns.items():
+                    for entity in entities:
+                        phrase = entity["phrase"]
+                        if phrase not in entities_by_phrase:
+                            entities_by_phrase[phrase] = []
+                        entities_by_phrase[phrase].append({
+                            "table": table,
+                            "column": column,
+                            "value": entity["value"]
+                        })
+
+            # Limit to 3 entities per phrase
+            for phrase, entities in entities_by_phrase.items():
+                limited_entities[phrase] = entities[:3]
+        
+        return json.dumps(limited_entities, indent=4)
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
         clusters = self._cluster_equivalent_queries(pipeline_context)
@@ -42,12 +69,14 @@ class QuerySelectionExecutor:
             show_type_detail=True
         )
 
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         full_prompt = QUERY_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_string,
             QUESTION=pipeline_context.user_query,
             HINT=getattr(pipeline_context, 'hint', ''),
             CRITERIA=pipeline_context.query_evaluation_criteria,
-            QUERIES=queries_with_results
+            QUERIES=queries_with_results,
+            RELEVANT_ENTITIES=relevant_entities_str
         )
         
         query_chain = self.api_model.get_chain()

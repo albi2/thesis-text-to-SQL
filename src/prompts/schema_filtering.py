@@ -180,6 +180,11 @@ Hint:
 
 The hint aims to direct your focus towards the specific elements of the database schema that are crucial for answering the question effectively.
 
+Relevant Entities:
+{RELEVANT_ENTITIES}
+
+The "Relevant Entities" section shows database values that match phrases in your question. Use this to identify the necessary tables and columns. If a value appears in multiple columns, prefer the one with the broader meaning unless the question's context is more specific.
+
 Task:
 Based on the database schema, question, and hint provided, your task is to identify all and only the columns that are essential for crafting a SQL query to answer the question.
 For each of the selected columns, explain why exactly it is necessary for answering the question. Your reasoning should be concise and clear, demonstrating a logical connection between the columns and the question asked.

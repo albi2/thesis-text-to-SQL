@@ -60,6 +60,7 @@ Where:
 - Keep reasoning concise, factual, and objective.
 - Do not reproduce queries or JSON results.
 - Follow the output format strictly.
+- The "Relevant Entities" section shows database values that match phrases in your question. Use this to identify the necessary tables and columns. If a value appears in multiple columns, prefer the one with the broader meaning unless the question's context is more specific.
 
 ### Database Schema 
 {DATABASE_SCHEMA} 
@@ -73,6 +74,9 @@ Where:
 ### Evaluation Criteria 
 {CRITERIA} 
 
-### SQL Queries and Execution Results 
-{QUERIES} 
+### Relevant Entities
+{RELEVANT_ENTITIES}
+
+### SQL Queries and Execution Results
+{QUERIES}
 """
