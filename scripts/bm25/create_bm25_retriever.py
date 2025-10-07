@@ -25,13 +25,35 @@ def main():
         documents = []
         for table_name, table_descriptor in database_descriptor.tables.items():
             for column_name, column_definition in table_descriptor.columns.items():
-                document_text = f"{column_definition.column_description}".strip()
-                if document_text:
+                # Add column name as a document
+                documents.append(Document(
+                    page_content=column_definition.column_name,
+                    metadata={
+                        "table_name": table_name,
+                        "column_name": column_name,
+                        "type": "column_name"
+                    }
+                ))
+
+                # Add column description as a document if it exists
+                if column_definition.column_description:
                     documents.append(Document(
-                        page_content=document_text,
+                        page_content=column_definition.column_description,
                         metadata={
                             "table_name": table_name,
-                            "column_name": column_name
+                            "column_name": column_name,
+                            "type": "column_description"
+                        }
+                    ))
+
+                # Add value description as a document if it exists
+                if column_definition.value_description:
+                    documents.append(Document(
+                        page_content=column_definition.value_description,
+                        metadata={
+                            "table_name": table_name,
+                            "column_name": column_name,
+                            "type": "value_description"
                         }
                     ))
         

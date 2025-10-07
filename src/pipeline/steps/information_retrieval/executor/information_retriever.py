@@ -9,7 +9,7 @@ from common.config.config_helper import ConfigurationHelper
 from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
-from util.constants import PreprocessingConstants, DatabaseConstants
+from util.constants import PreprocessingConstants
 from util.db.database_descriptor import DatabaseDescriptor, TableDescriptor, ColumnDefinition
 from executor.task_model import Task
 from util.similarity_measures.lsh import LSHUtil
@@ -230,7 +230,8 @@ class InformationRetriever:
                             chroma_contexts.append({
                                 "column_name": metadata['column_name'],
                                 "table_name": metadata['table_name'],
-                                "description": doc_text
+                                "description": doc_text,
+                                "type": metadata.get('type')
                             })
 
                 # Rerank using BM25
@@ -247,16 +248,21 @@ class InformationRetriever:
                             combined_results.append({
                                 "column_name": doc.metadata['column_name'],
                                 "table_name": doc.metadata['table_name'],
-                                "description": doc.page_content
+                                "description": doc.page_content,
+                                "type": doc.metadata['type']
                             })
                     
-                    # Deduplicate before reranking
-                    seen_descriptions = set()
-                    deduplicated_results = []
+                    # Deduplicate before reranking, prioritizing by type
+                    priority = {"column_description": 1, "column_name": 2, "value_description": 3}
+                    seen_columns = {}
                     for item in combined_results:
-                        if item['description'] not in seen_descriptions:
-                            deduplicated_results.append(item)
-                            seen_descriptions.add(item['description'])
+                        key = (item['table_name'].lower(), item['column_name'].lower())
+                        item_priority = priority.get(item.get('type'), 4)
+
+                        if key not in seen_columns or item_priority < seen_columns[key]['priority']:
+                            seen_columns[key] = {'item': item, 'priority': item_priority}
+                    
+                    deduplicated_results = [value['item'] for value in seen_columns.values()]
 
                     # Rerank with ColBERT
                     retrieved_contexts[keyword] = self.reranker.rerank(keyword, deduplicated_results, k)
