@@ -40,7 +40,12 @@ Where:
 ---
 
 ### Provided Inputs
-- Database Schema: {DATABASE_SCHEMA}
+- Database Schema: 
+{DATABASE_SCHEMA}
+
+- Filtered Schemas: 
+{FILTERED_SCHEMAS}
+
 - Question: {QUESTION}
 - Hint (if any): {HINT}
 - Evaluation Criteria: {CRITERIA}
@@ -61,12 +66,16 @@ Where:
 - Do not reproduce queries or JSON results.
 - Follow the output format strictly.
 - The "Relevant Entities" section shows database values that match phrases in your question. Use this to identify the necessary tables and columns. If a value appears in multiple columns, prefer the one with the broader meaning unless the question's context is more specific.
+- If the queries are too different in terms of the fields they use, the filtered schemas can serve as guidance. However, they are not an absolute ruling out mechanism.
 
-### Database Schema 
-{DATABASE_SCHEMA} 
+### Database Schema
+{DATABASE_SCHEMA}
 
-### Question 
-{QUESTION} 
+### Filtered Schemas
+{FILTERED_SCHEMAS}
+
+### Question
+{QUESTION}
 
 ### Hint 
 {HINT} 

@@ -15,29 +15,27 @@ class SchemaFilterExecutor:
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         """
-        Formats the relevant entities by limiting them to 3 per phrase and removing similarity scores.
+        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
         """
-        limited_entities = {}
-        if relevant_entities:
-            # Group entities by phrase first
-            entities_by_phrase = {}
-            for table, columns in relevant_entities.items():
-                for column, entities in columns.items():
-                    for entity in entities:
-                        phrase = entity["phrase"]
-                        if phrase not in entities_by_phrase:
-                            entities_by_phrase[phrase] = []
-                        entities_by_phrase[phrase].append({
-                            "table": table,
-                            "column": column,
-                            "value": entity["value"]
-                        })
+        if not relevant_entities:
+            return ""
 
-            # Limit to 3 entities per phrase
-            for phrase, entities in entities_by_phrase.items():
-                limited_entities[phrase] = entities[:3]
+        entities_by_phrase = {}
+        for table, columns in relevant_entities.items():
+            for column, entities in columns.items():
+                for entity in entities:
+                    phrase = entity["phrase"]
+                    if phrase not in entities_by_phrase:
+                        entities_by_phrase[phrase] = []
+                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
+
+        output_str = ""
+        for phrase, entities in entities_by_phrase.items():
+            output_str += f"'{phrase}':\n"
+            output_str += "\n".join(entities[:3])
+            output_str += "\n\n"
         
-        return json.dumps(limited_entities, indent=4)
+        return output_str
 
     def execute(self, pipeline_context: PipelineContext) -> List[dict]:
         # 1. Get unique table and column names from context
