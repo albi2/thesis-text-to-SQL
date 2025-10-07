@@ -29,7 +29,7 @@ charset-normalizer==3.4.3
 chromadb==1.0.20
 click==8.2.1
 cloudpathlib==0.22.0
-colbert-ir==0.2.14
+colbert-ai==0.2.19
 colorama==0.4.6
 coloredlogs==15.0.1
 comm==0.2.2
