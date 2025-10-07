@@ -18,11 +18,11 @@ class SchemaFilterExecutor:
         unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
         unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
 
-        if pipeline_context.entities_db_descriptor and pipeline_context.entities_db_descriptor.tables:
-            for table_name, table in pipeline_context.entities_db_descriptor.tables.items():
+        if pipeline_context.relevant_entities:
+            for table_name, columns in pipeline_context.relevant_entities.items():
                 if table_name not in unique_table_names:
                     unique_table_names.append(table_name)
-                for column_name in table.columns:
+                for column_name in columns.keys():
                     full_column_name = f"{table_name}.{column_name}"
                     if full_column_name not in unique_column_names:
                         unique_column_names.append(full_column_name)
@@ -46,12 +46,14 @@ class SchemaFilterExecutor:
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
         )
 
+        relevant_entities_str = json.dumps(pipeline_context.relevant_entities, indent=4)
         full_ddl_schema_prompt = SCHEMA_FILTERING_WITH_CRITERIA_PROMPT.format(
             DATABASE_SCHEMA=ddl_schema_representation,
             QUESTION=pipeline_context.user_query,
             HINT=pipeline_context.task.evidence,
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES_WITH_CRITERIA,
             CRITERIA=pipeline_context.query_evaluation_criteria,
+            RELEVANT_ENTITIES=relevant_entities_str,
         )
 
         # 4. Define model configurations

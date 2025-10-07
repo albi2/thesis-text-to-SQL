@@ -120,25 +120,25 @@ class InformationRetriever:
             print(f"Error extracting the keywords: {str(e)}" )
         return {"keywords": keywords_list, "phrases": phrases_list}
 
-    def retrieve_entities(self, db_id: str, keywords: List[str], phrases: List[str]) -> DatabaseDescriptor:
+    def retrieve_entities(self, db_id: str, phrases: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """
-        Retrieves relevant entities (tables and columns) based on keywords and phrases.
+        Retrieves relevant entities based on phrases, calculates similarity scores, and filters them.
 
         Args:
             db_id: The ID of the database.
-            keywords: A list of keywords extracted from the user query.
-            phrases: A list of phrases (potential data values) from the user query.
+            phrases: A list of phrases from the user query to find matching entities for.
 
         Returns:
-            A DatabaseDescriptor object containing the relevant tables and columns.
+            A nested dictionary mapping each table to its columns, then to a list of matched entities
+            with their values, original phrase, and similarity scores.
         """
         lsh = LSHUtil.load_lsh_index(db_id)
         minhashes = LSHUtil.load_minhashes(db_id)
         
-        entities_db_descriptor = DatabaseDescriptor(db_id=db_id)
-        
-        for keyword in phrases:
-            similar_values = LSHUtil.query_lsh(lsh, minhashes, keyword)
+        final_results = {}
+
+        for phrase in phrases:
+            similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase)
             
             all_candidates = []
             for table_name, columns in similar_values.items():
@@ -147,39 +147,56 @@ class InformationRetriever:
                         all_candidates.append({
                             "value": value,
                             "table_name": table_name,
-                            "column_name": column_name
+                            "column_name": column_name,
+                            "phrase": phrase
                         })
 
-            # Get top-n most similar candidates using edit distance
-            edit_distance_candidates = EditDistanceUtil.get_top_n_similar(
-                keyword,
-                all_candidates,
-                top_n=50
-            )
+            if not all_candidates:
+                continue
 
-            # Rerank using semantic similarity
-            top_candidates = self.semantic_similarity_util.get_top_n_similar(
-                keyword,
-                edit_distance_candidates,
-                top_n=10
-            )
+            # 1. Pre-filter with absolute thresholds
+            edit_filtered_candidates = EditDistanceUtil.get_similar_by_threshold(phrase, all_candidates, threshold=0.3)
+            
+            if not edit_filtered_candidates:
+                continue
 
-            # Create a new DatabaseDescriptor with the relevant entities
-            for candidate in top_candidates:
-                table_name = candidate["table_name"]
-                column_name = candidate["column_name"]
+            semantic_filtered_candidates = self.semantic_similarity_util.get_similar_by_threshold(phrase, edit_filtered_candidates, threshold=0.6)
+
+            if not semantic_filtered_candidates:
+                continue
+
+            # 2. Filter based on max similarity thresholds
+            max_edit_similarity = max(c['distance'] for c in semantic_filtered_candidates)
+            final_edit_filtered = [
+                c for c in semantic_filtered_candidates if c['distance'] >= 0.9 * max_edit_similarity
+            ]
+
+            if not final_edit_filtered:
+                continue
                 
-                if table_name not in entities_db_descriptor.tables:
-                    entities_db_descriptor.tables[table_name] = TableDescriptor(table_name=table_name)
+            max_embedding_similarity = max(c['embedding_similarity'] for c in final_edit_filtered)
+            filtered_candidates = [
+                c for c in final_edit_filtered if c['embedding_similarity'] >= 0.9 * max_embedding_similarity
+            ]
+            
+            # 3. Structure the results
+            for candidate in filtered_candidates:
+                table = candidate['table_name']
+                column = candidate['column_name']
                 
-                if column_name not in entities_db_descriptor.tables[table_name].columns:
-                    # We don't have the full column definition here, so we create a partial one
-                    entities_db_descriptor.tables[table_name].columns[column_name] = ColumnDefinition(
-                        original_column_name=column_name,
-                        column_name=column_name
-                    )
-                    
-        return entities_db_descriptor
+                if table not in final_results:
+                    final_results[table] = {}
+                if column not in final_results[table]:
+                    final_results[table][column] = []
+                
+                final_results[table][column].append({
+                    "value": candidate["value"],
+                    "phrase": candidate["phrase"],
+                    "edit_similarity": candidate["distance"],
+                    "embedding_similarity": candidate["embedding_similarity"]
+                })
+
+        return final_results
 
     def retrieve_context(self, keywords: List[str], task: Task, k: int = 10) -> Dict[str, List[Dict[str, Any]]]:
         """

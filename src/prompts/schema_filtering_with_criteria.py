@@ -291,6 +291,11 @@ Criteria:
 
 The hint and criteria aim to direct your focus towards the specific elements of the database schema that are crucial for answering the question effectively.
 
+Relevant Entities:
+{RELEVANT_ENTITIES}
+
+The "Relevant Entities" section provides additional context, showing which specific values (entities) were found in the database that are highly relevant to the phrases in your question. This is a strong indicator that the corresponding tables and columns are necessary for your query.
+
 Task:
 Based on the database schema, question, hint and criteria provided, your task is to identify all and only the columns that are essential for crafting a SQL query to answer the question.
 For each of the selected columns, explain why exactly it is necessary for answering the question. Your reasoning should be concise and clear, demonstrating a logical connection between the columns and the question asked.

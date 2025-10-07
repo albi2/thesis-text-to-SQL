@@ -31,9 +31,8 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
             print(f"Information retriever failed to extract keywords or phrases!")
             return InformationRetrievalStepOutput(retrieved_context={})
         
-        context.entities_db_descriptor = self.information_retriever.retrieve_entities(
+        context.relevant_entities = self.information_retriever.retrieve_entities(
             db_id=context.task.db_id,
-            keywords=keywords,
             phrases=phrases
         )
 

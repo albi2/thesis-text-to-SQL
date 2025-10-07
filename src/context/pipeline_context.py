@@ -43,7 +43,7 @@ class PipelineContext(GenericContext):
         self.non_executable_sql_queries: List[SQLQuery] = []
         self.evaluation_result: Optional[Any] = None
         self.descriptions_database: Optional[DatabaseDescriptor] = None
-        self.entities_db_descriptor: Optional[DatabaseDescriptor] = None
+        self.relevant_entities: dict = {}
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint
@@ -70,7 +70,7 @@ class PipelineContext(GenericContext):
             "user_query": self.user_query,
             "keywords_and_phrases": self.keywords_and_phrases,
             "descriptions_database": self.descriptions_database.to_dict() if self.descriptions_database else None,
-            "entities_db_descriptor": self.entities_db_descriptor.to_dict() if self.entities_db_descriptor else None,
+            "relevant_entities": self.relevant_entities,
             "db_schema_per_keyword": self.db_schema_per_keyword,
             "selected_schema": self.selected_schema,
             "selected_schemas": [selected_schema for selected_schema in self.selected_schemas],

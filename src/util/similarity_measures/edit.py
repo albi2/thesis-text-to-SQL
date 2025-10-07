@@ -40,7 +40,7 @@ class EditDistanceUtil:
     @staticmethod
     def get_top_n_similar(query: str, candidates: list, top_n: int = 10) -> list:
         """
-        Gets the top N most similar candidates to a query using edit distance.
+        Calculates the edit distance for all candidates and returns the top N.
 
         Args:
             query (str): The query string.
@@ -48,7 +48,7 @@ class EditDistanceUtil:
             top_n (int): The number of top candidates to return.
 
         Returns:
-            list: A list of the top N most similar candidates.
+            list: A sorted list of the top N candidates with an added 'distance' key.
         """
         if not candidates:
             return []
@@ -59,3 +59,31 @@ class EditDistanceUtil:
         candidates.sort(key=lambda x: x['distance'])
 
         return candidates[:top_n]
+
+    @staticmethod
+    def get_similar_by_threshold(query: str, candidates: list, threshold: float = 0.3) -> list:
+        """
+        Gets candidates with a normalized edit similarity above a certain threshold.
+
+        Args:
+            query (str): The query string.
+            candidates (list): A list of candidate dictionaries. Each dictionary must have a "value" key.
+            threshold (float): The minimum similarity threshold.
+
+        Returns:
+            list: A list of candidates with their 'edit_similarity' score, exceeding the threshold.
+        """
+        if not candidates:
+            return []
+
+        results = []
+        for candidate in candidates:
+            distance = Levenshtein.distance(query, candidate['value'])
+            max_len = max(len(query), len(candidate['value']))
+            similarity = 1 - (distance / max_len) if max_len > 0 else 0
+            if similarity >= threshold:
+                candidate['distance'] = similarity
+                results.append(candidate)
+        
+        results.sort(key=lambda x: x['distance'], reverse=True)
+        return results
