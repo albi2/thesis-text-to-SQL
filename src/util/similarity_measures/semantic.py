@@ -65,31 +65,32 @@ class SemanticSimilarityUtil:
         
         if top_n:
             return candidates[:top_n]
-    
-        def get_similar_by_threshold(self, query: str, candidates: list[dict], threshold: float = 0.6) -> list[dict]:
-            """
-            Gets candidates with a semantic similarity score above a certain threshold.
-    
-            Args:
-                query (str): The query text.
-                candidates (list[dict]): A list of candidate dictionaries, each must have a "value" key.
-                threshold (float): The minimum similarity threshold.
-    
-            Returns:
-                list[dict]: A list of candidates with their 'embedding_similarity' score, exceeding the threshold.
-            """
-            if not query or not candidates:
-                return []
-    
-            candidate_values = [c['value'] for c in candidates]
-            similarity_scores = self.calculate_cosine_similarity(query, candidate_values)
-            
-            results = []
-            for i, candidate in enumerate(candidates):
-                if similarity_scores[i] >= threshold:
-                    candidate['embedding_similarity'] = similarity_scores[i]
-                    results.append(candidate)
-            
-            results.sort(key=lambda x: x['embedding_similarity'], reverse=True)
-            return results
+
         return candidates
+    
+    def get_similar_by_threshold(self, query: str, candidates: list[dict], threshold: float = 0.6) -> list[dict]:
+        """
+        Gets candidates with a semantic similarity score above a certain threshold.
+
+        Args:
+            query (str): The query text.
+            candidates (list[dict]): A list of candidate dictionaries, each must have a "value" key.
+            threshold (float): The minimum similarity threshold.
+
+        Returns:
+            list[dict]: A list of candidates with their 'embedding_similarity' score, exceeding the threshold.
+        """
+        if not query or not candidates:
+            return []
+
+        candidate_values = [c['value'] for c in candidates]
+        similarity_scores = self.calculate_cosine_similarity(query, candidate_values)
+        
+        results = []
+        for i, candidate in enumerate(candidates):
+            if similarity_scores[i] >= threshold:
+                candidate['embedding_similarity'] = similarity_scores[i]
+                results.append(candidate)
+        
+        results.sort(key=lambda x: x['embedding_similarity'], reverse=True)
+        return results
