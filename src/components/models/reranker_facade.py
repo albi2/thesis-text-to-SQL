@@ -6,7 +6,7 @@ class Reranker:
     def __init__(self):
         self.reranker = Rerank()
 
-    def rerank(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def rerank(self, query: str, documents: List[Dict[str, Any]], k: int) -> List[Dict[str, Any]]:
         """
         Reranks a list of documents based on a query.
 
@@ -22,4 +22,4 @@ class Reranker:
         with Run().context(RunConfig(nranks=1, experiment="rerank")):
             reranked_indices = self.reranker.rerank(query, doc_texts)
         
-        return [documents[i] for i in reranked_indices]
+        return [documents[i] for i in reranked_indices][:k]

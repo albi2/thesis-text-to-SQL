@@ -1,5 +1,5 @@
 import pickle
-from langchain.retrievers import BM25Retriever
+from langchain_community.retrievers import BM25Retriever
 
 class BM25Util:
     @staticmethod

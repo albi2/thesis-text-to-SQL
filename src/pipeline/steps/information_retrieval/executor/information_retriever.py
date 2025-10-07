@@ -7,7 +7,6 @@ from typing import Dict, List, Any
 
 from common.config.config_helper import ConfigurationHelper
 from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
-from components.models.reasoning_model_facade import ReasoningModelFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
 from util.constants import PreprocessingConstants, DatabaseConstants
@@ -218,7 +217,7 @@ class InformationRetriever:
                 query_results = self.chroma_client.query_collection(
                     collection_name=collection_name,
                     query_texts=[keyword],
-                    n_results=k * 2 # Retrieve more to rerank
+                    n_results=k * 2# Retrieve more to rerank
                 )
 
                 chroma_contexts: List[Dict[str, Any]] = []
@@ -251,8 +250,16 @@ class InformationRetriever:
                                 "description": doc.page_content
                             })
                     
+                    # Deduplicate before reranking
+                    seen_descriptions = set()
+                    deduplicated_results = []
+                    for item in combined_results:
+                        if item['description'] not in seen_descriptions:
+                            deduplicated_results.append(item)
+                            seen_descriptions.add(item['description'])
+
                     # Rerank with ColBERT
-                    retrieved_contexts[keyword] = self.reranker.rerank(keyword, combined_results)[:k]
+                    retrieved_contexts[keyword] = self.reranker.rerank(keyword, deduplicated_results, k)
                 else:
                     retrieved_contexts[keyword] = []
 

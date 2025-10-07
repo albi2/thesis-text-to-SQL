@@ -12,6 +12,7 @@ You are an expert at analyzing database questions and creating evaluation criter
 ## Output Format
 
 Your entire response must be enclosed in `<CRITERIA></CRITERIA>` tags. Generate criteria in this structured format:
+
 <CRITERIA>
 EVALUATION CRITERIA:
 

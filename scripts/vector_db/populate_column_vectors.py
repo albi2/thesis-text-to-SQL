@@ -62,15 +62,37 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
         documents_to_add, metadatas_to_add, ids_to_add = [], [], []
         for table_name, table_descriptor in database_descriptor.tables.items():
             for column_name, column_definition in table_descriptor.columns.items():
-                document_text = f"{column_definition.column_description} {column_definition.value_description}".strip()
-                if document_text:
-                    documents_to_add.append(document_text)
+                # Add column name as a document
+                documents_to_add.append(column_name)
+                metadatas_to_add.append({
+                    "table_name": table_name,
+                    "column_name": column_name,
+                    "column_type": column_definition.data_format,
+                    "type": "column_name"
+                })
+                ids_to_add.append(f"{db_name}_{table_name}_{column_name}_name")
+
+                # Add column description as a document if it exists
+                if column_definition.column_description:
+                    documents_to_add.append(column_definition.column_description)
                     metadatas_to_add.append({
                         "table_name": table_name,
                         "column_name": column_name,
-                        "column_type": column_definition.data_format
+                        "column_type": column_definition.data_format,
+                        "type": "column_description"
                     })
-                    ids_to_add.append(f"{db_name}_{table_name}_{column_name}")
+                    ids_to_add.append(f"{db_name}_{table_name}_{column_name}_description")
+
+                # Add value description as a document if it exists
+                if column_definition.value_description:
+                    documents_to_add.append(column_definition.value_description)
+                    metadatas_to_add.append({
+                        "table_name": table_name,
+                        "column_name": column_name,
+                        "column_type": column_definition.data_format,
+                        "type": "value_description"
+                    })
+                    ids_to_add.append(f"{db_name}_{table_name}_{column_name}_values")
 
         if documents_to_add:
             try:

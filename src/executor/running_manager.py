@@ -61,15 +61,9 @@ class RunningManager:
         if not database_engine:
             print(f"Failed to create database engine for db_id: {task.db_id}. Skipping task.")
             return
-        
-        print("ZZZZZ - Created db")
-
 
         schema_factory = SchemaEngineFactory()
         schema_engine = schema_factory.create_schema_engine(engine=database_engine, db_name=task.db_id)
-
-        print("ZZZZZ - Created schema engine")
-
 
         if not schema_engine:
             print(f"Failed to create SchemaEngine for db_id: {task.db_id}. Skipping task.")
@@ -93,7 +87,6 @@ class RunningManager:
             .build()
 
         pipeline.run(context)
-        print("ZZZZZ - Created schema engine")
         
         self.statistics_manager.add_result(context.evaluation_result)
         print(f"Finished pipeline for question_id: {task.question_id}")
@@ -122,7 +115,7 @@ class RunningManager:
         #     self.statistics_manager.add_result(result)
 
 
-        in_processing_tasks = self.tasks
+        in_processing_tasks = self.tasks[:2]
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         context_file_path = f"{self.RESULT_ROOT_PATH}/contexts_{timestamp}.json"

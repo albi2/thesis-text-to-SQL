@@ -1,10 +1,10 @@
 import os
 import pickle
 import logging
-from langchain.retrievers import BM25Retriever
+from langchain_community.retrievers import BM25Retriever
 from langchain.docstore.document import Document
-from util.db.db_values import get_all_db_ids
-from util.db.database_descriptor import DatabaseDescriptor
+from util.constants import DatabaseConstants
+from util.db.description_csv import load_database_descriptor
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,36 +15,37 @@ def main():
     """
     logging.info("Starting BM25 retriever creation for all databases.")
     
-    db_ids = get_all_db_ids()
+    db_names = [f.name for f in os.scandir(DatabaseConstants.COLUMN_DESCRIPTIONS) if f.is_dir()]
     
-    for db_id in db_ids:
-        logging.info(f"Processing database: {db_id}")
+    for db_name in db_names:
+        logging.info(f"Processing database: {db_name}")
         
-        db_descriptor = DatabaseDescriptor(db_id)
-        db_descriptor.get_schema_description()
+        database_descriptor = load_database_descriptor(db_name)
         
         documents = []
-        for table in db_descriptor.tables.values():
-            for column in table.columns.values():
-                documents.append(Document(
-                    page_content=column.description if column.description else column.column_name,
-                    metadata={
-                        "table_name": table.table_name,
-                        "column_name": column.column_name
-                    }
-                ))
+        for table_name, table_descriptor in database_descriptor.tables.items():
+            for column_name, column_definition in table_descriptor.columns.items():
+                document_text = f"{column_definition.column_description}".strip()
+                if document_text:
+                    documents.append(Document(
+                        page_content=document_text,
+                        metadata={
+                            "table_name": table_name,
+                            "column_name": column_name
+                        }
+                    ))
         
-        bm25_retriever = BM25Retriever.from_documents(documents)
+        bm25_retriever = BM25Retriever.from_documents(documents, k=20)
         
         # Save BM25 retriever
-        bm25_path = f"/var/tmp/ge62nok/bm25/{db_id}_bm25_retriever.pkl"
+        bm25_path = f"/var/tmp/ge62nok/bm25/{db_name}_bm25_retriever.pkl"
         
         os.makedirs(os.path.dirname(bm25_path), exist_ok=True)
         
         with open(bm25_path, "wb") as f:
             pickle.dump(bm25_retriever, f)
             
-        logging.info(f"BM25 retriever saved for database: {db_id}")
+        logging.info(f"BM25 retriever saved for database: {db_name}")
         
     logging.info("BM25 retriever creation finished.")
 

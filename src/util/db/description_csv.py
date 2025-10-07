@@ -49,11 +49,11 @@ def load_database_descriptions(db_id: str) -> Dict[str, Dict[str, Dict[str, str]
                 # Preprocess column_description
                 column_description = row.get('column_description', '')
                 if column_description:
-                    column_description = column_description.replace('\n', ' ').replace("commonsense evidence:", "").strip()
+                    column_description = column_description.replace('\n', ' ').replace("commonsense evidence:", "").replace('\xa0', '').strip()
                 # Preprocess value_description
                 value_description = row.get('value_description', '')
                 if value_description:
-                    value_description = value_description.replace('\n', ' ').replace("commonsense evidence:", "").strip()
+                    value_description = value_description.replace('\n', ' ').replace("commonsense evidence:", "").replace('\xa0', '').strip()
                     if value_description.lower().startswith("not useful"):
                         value_description = value_description[10:].strip()
                 processed_row = {
