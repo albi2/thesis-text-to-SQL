@@ -36,3 +36,26 @@ class EditDistanceUtil:
             return len(text1) if text1 else 0
             
         return Levenshtein.distance(text1, text2)
+
+    @staticmethod
+    def get_top_n_similar(query: str, candidates: list, top_n: int = 10) -> list:
+        """
+        Gets the top N most similar candidates to a query using edit distance.
+
+        Args:
+            query (str): The query string.
+            candidates (list): A list of candidate dictionaries. Each dictionary must have a "value" key.
+            top_n (int): The number of top candidates to return.
+
+        Returns:
+            list: A list of the top N most similar candidates.
+        """
+        if not candidates:
+            return []
+
+        for candidate in candidates:
+            candidate['distance'] = Levenshtein.distance(query, candidate['value'])
+
+        candidates.sort(key=lambda x: x['distance'])
+
+        return candidates[:top_n]
