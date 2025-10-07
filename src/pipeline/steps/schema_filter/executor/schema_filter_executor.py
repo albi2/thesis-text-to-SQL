@@ -13,6 +13,32 @@ class SchemaFilterExecutor:
         self.api_model_default = ApiModelFacade(temperature=0.5)
         self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.5)
 
+    def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
+        """
+        Formats the relevant entities by limiting them to 3 per phrase and removing similarity scores.
+        """
+        limited_entities = {}
+        if relevant_entities:
+            # Group entities by phrase first
+            entities_by_phrase = {}
+            for table, columns in relevant_entities.items():
+                for column, entities in columns.items():
+                    for entity in entities:
+                        phrase = entity["phrase"]
+                        if phrase not in entities_by_phrase:
+                            entities_by_phrase[phrase] = []
+                        entities_by_phrase[phrase].append({
+                            "table": table,
+                            "column": column,
+                            "value": entity["value"]
+                        })
+
+            # Limit to 3 entities per phrase
+            for phrase, entities in entities_by_phrase.items():
+                limited_entities[phrase] = entities[:3]
+        
+        return json.dumps(limited_entities, indent=4)
+
     def execute(self, pipeline_context: PipelineContext) -> List[dict]:
         # 1. Get unique table and column names from context
         unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
@@ -46,7 +72,7 @@ class SchemaFilterExecutor:
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
         )
 
-        relevant_entities_str = json.dumps(pipeline_context.relevant_entities, indent=4)
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         full_ddl_schema_prompt = SCHEMA_FILTERING_WITH_CRITERIA_PROMPT.format(
             DATABASE_SCHEMA=ddl_schema_representation,
             QUESTION=pipeline_context.user_query,
