@@ -5,6 +5,7 @@ import asyncio
 from components.models.text2sql_model_facade import Text2SQLModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT, DEFOG_PROMPT, OMNI_PROMPT, ORIGINAL_PROMPT
+from prompts.sql_generation_planning import PROMPT as SQL_GENERATION_PLANNING_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo, SQLExecStatus
 from util.constants import DatabaseConstants, HuggingFaceModelConstants, Text2SQLModelKeys
 from pipeline.steps.models.sql_query import SQLQuery
@@ -25,7 +26,7 @@ class SQLGenerationExecutor:
 
         schema_representations, ddl_schema_representations = self._generate_schema_representations(pipeline_context)
         
-        sql_queries = self._generate_sql_for_gemini(pipeline_context, schema_representations)
+        sql_queries = self._generate_sql_for_gemini(pipeline_context, schema_representations, ddl_schema_representations)
         # sql_queries.extend(self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations))
         
         self._execute_queries_async(pipeline_context, sql_queries)
@@ -80,30 +81,52 @@ class SQLGenerationExecutor:
 
         return schema_representations, ddl_schema_representations
 
-    def _generate_sql_for_gemini(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
+    def _generate_sql_for_gemini(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         sql_queries: list[SQLQuery] = []
-        for mschema in schema_representations:
+        for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
             try:
                 hint = getattr(pipeline_context, 'hint', '')
-                # execution_plan = getattr(mschema, 'execution_plan', '')
-                # if execution_plan:
-                #     hint = f"{hint}\n{execution_plan}"
                 
-                full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
+                # M-Schema call
+                full_prompt_mschema = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
                 query_chain = self.api_model_gemini.get_chain()
-                model_response = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt})
+                model_response_mschema = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt_mschema})
 
-                print('SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
-                if "```sql" in model_response:
-                    query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
-                elif "```" in model_response:
-                    query = model_response.split(";")[0].split("```")[0].strip() + ";"
+                print('SQL GENERATION MODEL RESPONSE (GEMINI M-SCHEMA)', model_response_mschema)
+                if "```sql" in model_response_mschema:
+                    query = re.sub(r"^\s+", "", model_response_mschema.split("```sql")[1].split("```")[0])
+                elif "```" in model_response_mschema:
+                    query = model_response_mschema.split(";")[0].split("```")[0].strip() + ";"
                 else:
-                    query = model_response
+                    query = model_response_mschema
                 
                 sql_queries.append(SQLQuery(
                     sql_exec_info=SQLExecInfo(sql=query),
                     schema_representation=mschema,
+                    model_key=Text2SQLModelKeys.GEMINI
+                ))
+
+                # DDL Schema call with planning prompt
+                relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+                full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
+                    DATABASE_SCHEMA=ddl_schema.schema,
+                    QUESTION=pipeline_context.user_query,
+                    HINT=hint,
+                    RELEVANT_ENTITIES=relevant_entities_str
+                )
+                model_response_ddl = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt_ddl})
+
+                print('SQL GENERATION MODEL RESPONSE (GEMINI DDL)', model_response_ddl)
+                if "```sql" in model_response_ddl:
+                    query = re.sub(r"^\s+", "", model_response_ddl.split("```sql")[1].split("```")[0])
+                elif "```" in model_response_ddl:
+                    query = model_response_ddl.split(";")[0].split("```")[0].strip() + ";"
+                else:
+                    query = model_response_ddl
+
+                sql_queries.append(SQLQuery(
+                    sql_exec_info=SQLExecInfo(sql=query),
+                    schema_representation=ddl_schema,
                     model_key=Text2SQLModelKeys.GEMINI
                 ))
             except Exception as e:
@@ -187,6 +210,30 @@ class SQLGenerationExecutor:
                 model_facade.unload_model()
 
         return sql_queries
+
+    def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
+        """
+        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
+        """
+        if not relevant_entities:
+            return ""
+
+        entities_by_phrase = {}
+        for table, columns in relevant_entities.items():
+            for column, entities in columns.items():
+                for entity in entities:
+                    phrase = entity["phrase"]
+                    if phrase not in entities_by_phrase:
+                        entities_by_phrase[phrase] = []
+                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
+
+        output_str = ""
+        for phrase, entities in entities_by_phrase.items():
+            output_str += f"'{phrase}':\n"
+            output_str += "\n".join(entities[:3])
+            output_str += "\n\n"
+        
+        return output_str
 
     def _execute_queries_async(self, pipeline_context: PipelineContext, sql_queries: List[SQLQuery]):
         try:

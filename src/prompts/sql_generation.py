@@ -8,17 +8,17 @@ Note that the "Example Values" are actual values from the column. Some column mi
 
 Given the table schema information description and the "Question". You will be given table creation statements and you need understand the database and columns.
 
-You will be using a way called "recursive divide-and-conquer approach to SQL query generation from natural language".
+You will be using a method called "recursive divide-and-conquer approach to SQL query generation from natural language".
 
 Here is a high level description of the steps.
 1. **Divide (Decompose Sub-question with Pseudo SQL):** The complex natural language question is recursively broken down into simpler sub-questions. Each sub-question targets a specific piece of information or logic required for the final SQL query. 
 2. **Conquer (Real SQL for sub-questions):**  For each sub-question (and the main question initially), a "pseudo-SQL" fragment is formulated. This pseudo-SQL represents the intended SQL logic but might have placeholders for answers to the decomposed sub-questions. 
 3. **Combine (Reassemble):** Once all sub-questions are resolved and their corresponding SQL fragments are generated, the process reverses. The SQL fragments are recursively combined by replacing the placeholders in the pseudo-SQL with the actual generated SQL from the lower levels.
-4. **Final Output:** This bottom-up assembly culminates in the complete and correct SQL query that answers the original complex question. 
+4. **Final Output:** This bottom-up assembly culminates in the complete and correct SQL query that answers the original complex question. Make sure all of the required information from the original query is retrieved.
 
 Database admin instructions (violating any of the following will result is punishble to death!):
 1. **SELECT Clause:** 
-    - Only select columns mentioned in the user's question. 
+    - Only select columns mentioned in the user's question. Absolutely make sure everything required by the user is selected.
     - Avoid unnecessary columns or values.
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
@@ -33,8 +33,7 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Refer to column statistics ("Value Statics") to determine if "DISTINCT" is necessary.
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -46,9 +45,11 @@ Database admin instructions (violating any of the following will result is punis
 13. **Date Processing:**
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
-    - Do not use columns that are not on the provided schema.
-
-When you get to the final query, output the query string ONLY inside the xml delimiter ```sql```.
+    - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
+15. **Always put column names between quotation marks"
+    - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+    
+When you get to the final query, output the query string ONLY inside the delimiter ```sql```.
 
 Here are some examples
 
@@ -566,6 +567,13 @@ Now is the real question, following the instruction and examples, generate the S
 【Table creation statements】
 {DATABASE_SCHEMA}
 
+Relevant Entities:
+{RELEVANT_ENTITIES}
+
+The “Relevant Entities” section lists database columns that match phrases from the question. It does not mean all of them are relevant to answering this question.
+You can refer to these as hints when choosing the correct columns in the query(the column MUST be in the database schema otherwise it HAS TO BE ignored.)
+If a value appears in multiple columns and you determined you only need one of those columns, you can pick the column with the broader meaning — unless the question clearly asks for something more specific.
+
 **************************
 【Question】
 Question: 
@@ -580,7 +588,6 @@ In your answer, please enclose the generated SQL query in a code block:
 ```sql
 -- Your SQL 
 ```
-
 """
 
 
@@ -600,7 +607,7 @@ If the query is too complex use a divide and conquer approach:
 
 Database admin instructions (violating any of the following will result is punishble to death!):
 1. **SELECT Clause:** 
-    - Only select columns mentioned in the user's question. 
+    - Only select columns mentioned in the user's question. Absolutely make sure everything required by the user is selected.
     - Avoid unnecessary columns or values.
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
@@ -615,8 +622,7 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Refer to column statistics ("Value Statics") to determine if "DISTINCT" is necessary.
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -628,7 +634,7 @@ Database admin instructions (violating any of the following will result is punis
 13. **Date Processing:**
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
-    - Do not use columns that are not on the provided schema.
+    - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
 15. **Always put column names between quotation marks"
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
     
@@ -796,8 +802,13 @@ SELECT COUNT(T3."id") FROM games_city AS T1 INNER JOIN city AS T2 ON T1."city_id
 
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************
-【Table creation statements】
+【Schema description】
 {DATABASE_SCHEMA}
+
+Relevant Entities:
+{RELEVANT_ENTITIES}
+The "Relevant Entities" section shows database values that match phrases in your question. You do not need to use them if not necessary.
+If you need to use one of these and a value appears in multiple columns and the question does not specify exactly which one to choose, prefer the one with the broader meaning for filtering or selection tasks unless the question's context is more specific.
 
 **************************
 【Question】
@@ -806,7 +817,6 @@ Question:
 
 Evidence:
 {HINT}
-
 **************************
 【Answer】
 Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
@@ -817,6 +827,39 @@ PROMPT = """
 You are a SQLite expert. You need to read and understand the following database schema description, as well as the evidence that may be used,
  and use your SQLite knowledge to generate SQL statements to answer user questions.
 
+Database admin instructions (violating any of the following will result is punishble to death!):
+1. **SELECT Clause:** 
+    - Only select columns mentioned in the user's question. Absolutely make sure everything required by the user is selected.
+    - Avoid unnecessary columns or values.
+2. **Aggregation (MAX/MIN):**
+    - Always perform JOINs before using MAX() or MIN().
+3. **ORDER BY with Distinct Values:**
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+4. **Handling NULLs:**
+    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+5. **FROM/JOIN Clauses:**
+    - Only include tables essential to answer the question.
+6. **Strictly Follow Hints:**
+    - Adhere to all provided hints.
+7. **Thorough Question Analysis:**
+    - Address all conditions mentioned in the question.
+8. **DISTINCT Keyword:**
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+9. **Column Selection:**
+    - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
+10. **String Concatenation:**
+    - Never use "|| ' ' ||" or any other method to concatenate strings in the "SELECT" clause. 
+11. **JOIN Preference:**
+    - Prioritize "INNER JOIN" over nested "SELECT" statements.
+12. **SQLite Functions Only:**
+    - Use only functions available in SQLite.
+13. **Date Processing:**
+    - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
+14. **Only utilize columns from schema**
+    - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
+15. **Always put column names between quotation marks"
+    - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+    
 The following examples are for your reference.
 
 =========
@@ -1037,6 +1080,7 @@ establishment has the same meaning as business; score of 90 or more refers to sc
 ```sql
 SELECT DISTINCT T4."name" FROM ( SELECT T3."name", T3."years", row_number() OVER (PARTITION BY T3."name" ORDER BY T3."years") AS rowNumber FROM ( SELECT DISTINCT "name", STRFTIME('%Y', "date") AS years FROM inspections AS T1 INNER JOIN businesses AS T2 ON T1."business_id" = T2."business_id" WHERE T1."score" = 100 ) AS T3 ) AS T4 GROUP BY T4."name", date(T4."years" || '-01-01', '-' || (T4."rowNumber" - 1) || ' years') HAVING COUNT(T4."years") = 4
 ```
+----
 
 Now is the real question:
 
@@ -1049,10 +1093,6 @@ Now is the real question:
 【Evidence】
 {HINT}
 
-【Rules】
-- Always use double quotes for column names in the constructed query(E.g T1."column_name")
-- Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-
 Wrap the resulting SQL in 
 ```sql
 ```
@@ -1062,6 +1102,39 @@ OMNI_PROMPT = """
 '''Task Overview:
 You are a data science expert. Below, you are provided with a database schema and a natural language question. Your task is to understand the schema and generate a valid SQL query to answer the question.
 
+Database admin instructions (violating any of the following will result is punishble to death!):
+1. **SELECT Clause:** 
+    - Only select columns mentioned in the user's question. Absolutely make sure everything required by the user is selected.
+    - Avoid unnecessary columns or values.
+2. **Aggregation (MAX/MIN):**
+    - Always perform JOINs before using MAX() or MIN().
+3. **ORDER BY with Distinct Values:**
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+4. **Handling NULLs:**
+    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+5. **FROM/JOIN Clauses:**
+    - Only include tables essential to answer the question.
+6. **Strictly Follow Hints:**
+    - Adhere to all provided hints.
+7. **Thorough Question Analysis:**
+    - Address all conditions mentioned in the question.
+8. **DISTINCT Keyword:**
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+9. **Column Selection:**
+    - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
+10. **String Concatenation:**
+    - Never use "|| ' ' ||" or any other method to concatenate strings in the "SELECT" clause. 
+11. **JOIN Preference:**
+    - Prioritize "INNER JOIN" over nested "SELECT" statements.
+12. **SQLite Functions Only:**
+    - Use only functions available in SQLite.
+13. **Date Processing:**
+    - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
+14. **Only utilize columns from schema**
+    - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
+15. **Always put column names between quotation marks"
+    - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+    
 Database Engine:
 SQLite
 
@@ -1080,8 +1153,6 @@ Instructions:
 - Make sure you only output the information that is asked in the question. If the question asks for a specific column, make sure to only include that column in the SELECT clause, nothing more.
 - The generated query should return all of the information asked in the question without any missing or extra information.
 - Before generating the final SQL query, please think through the steps of how to write the query.
-- Always use double quotes for column names in the constructed query(E.g Given a column with name "Column Name" use SELECT T1."Column Name")
-- Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
 
 Output Format:
 In your answer, please enclose the generated SQL query in a code block:
@@ -1096,23 +1167,50 @@ DEFOG_PROMPT="""
 ### Task
 Generate a SQL query to answer [QUESTION]{QUESTION}[/QUESTION]
 
+Database admin instructions (violating any of the following will result is punishble to death!):
+1. **SELECT Clause:** 
+    - Only select columns mentioned in the user's question. Absolutely make sure everything required by the user is selected.
+    - Avoid unnecessary columns or values.
+2. **Aggregation (MAX/MIN):**
+    - Always perform JOINs before using MAX() or MIN().
+3. **ORDER BY with Distinct Values:**
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+4. **Handling NULLs:**
+    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+5. **FROM/JOIN Clauses:**
+    - Only include tables essential to answer the question.
+6. **Strictly Follow Hints:**
+    - Adhere to all provided hints.
+7. **Thorough Question Analysis:**
+    - Address all conditions mentioned in the question.
+8. **DISTINCT Keyword:**
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+9. **Column Selection:**
+    - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
+10. **String Concatenation:**
+    - Never use "|| ' ' ||" or any other method to concatenate strings in the "SELECT" clause. 
+11. **JOIN Preference:**
+    - Prioritize "INNER JOIN" over nested "SELECT" statements.
+12. **SQLite Functions Only:**
+    - Use only functions available in SQLite.
+13. **Date Processing:**
+    - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
+14. **Only utilize columns from schema**
+    - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
+15. **Always put column names between quotation marks"
+    - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+    
 Database Engine:
 SQLite
 
 Hint:
 {HINT}
 
-### Instructions
-- If you cannot answer the question with the available database schema, return 'I do not know'
-- The resulting SQL must be wrapped in ```<generated-sql>```
-- Always use double quotes for column names in the constructed query(E.g Given a column with name "Column Name" use SELECT T1."Column Name")
-- Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-
 ### Database Schema
 The query will run on a database with the following schema:
 {DATABASE_SCHEMA}
 
-### Answer
+### Answer Format
 Given the database schema, here is the SQL query that answers [QUESTION]{QUESTION}[/QUESTION]
 ```
 [SQL]
