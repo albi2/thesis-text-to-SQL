@@ -185,8 +185,16 @@ Relevant Entities:
 
 The "Relevant Entities" section shows database values that match phrases in your question. Use this to identify the necessary tables and columns. If a value appears in multiple columns, prefer the one with the broader meaning unless the question's context is more specific.
 
+**Crucial Information: A preliminary SQL query has been generated to guide you. It is vital that you first analyze this query and its execution results to understand what it accomplishes correctly and what might be missing. Use the literals from this SQL to correlate with the "Relevant Entities" and identify the correct columns.**
+
+Preliminary SQL:
+{PRELIMINARY_SQL}
+
+Execution Result:
+{EXECUTION_RESULT}
+
 Task:
-Based on the database schema, question, and hint provided, your task is to identify all and only the columns that are essential for crafting a SQL query to answer the question.
+Based on the database schema, question, hint, and **most importantly, your analysis of the preliminary SQL**, your task is to identify all and only the columns that are essential for crafting a final, correct SQL query.
 For each of the selected columns, explain why exactly it is necessary for answering the question. Your reasoning should be concise and clear, demonstrating a logical connection between the columns and the question asked.
 
 Tip: If you are choosing a column for filtering a value within that column, make sure that column has the value as an example.

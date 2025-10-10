@@ -44,6 +44,8 @@ class PipelineContext(GenericContext):
         self.evaluation_result: Optional[Any] = None
         self.descriptions_database: Optional[DatabaseDescriptor] = None
         self.relevant_entities: dict = {}
+        self.unique_table_names: List[str] = []
+        self.unique_column_names: List[str] = []
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint

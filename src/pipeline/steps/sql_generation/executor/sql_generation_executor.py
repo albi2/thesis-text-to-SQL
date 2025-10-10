@@ -41,9 +41,22 @@ class SQLGenerationExecutor:
         ddl_schema_representations: list[SchemaRepresentation] = []
         selected_schemas = pipeline_context.selected_schemas
 
-        if len(pipeline_context.schema_engine.get_table_names()) <= 7:
-            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
-            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
+        schema_representations.append(SchemaRepresentation(
+            schema=pipeline_context.schema_engine.mschema.to_mschema(
+                selected_tables=pipeline_context.unique_table_names,
+                selected_columns=pipeline_context.unique_column_names
+            ),
+            format=SchemaFormat.M_SCHEMA,
+            type=SchemaType.FULL
+        ))
+        ddl_schema_representations.append(SchemaRepresentation(
+            schema=pipeline_context.schema_engine.ddl_schema.to_ddl(
+                selected_tables=pipeline_context.unique_table_names,
+                selected_columns=pipeline_context.unique_column_names
+            ),
+            format=SchemaFormat.DDL,
+            type=SchemaType.FULL
+        ))
 
         if selected_schemas:
             for selected_schema in selected_schemas:
@@ -88,7 +101,7 @@ class SQLGenerationExecutor:
                 hint = getattr(pipeline_context, 'hint', '')
                 
                 # M-Schema call
-                full_prompt_mschema = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
+                full_prompt_mschema = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
                 query_chain = self.api_model_gemini.get_chain()
                 model_response_mschema = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt_mschema})
 

@@ -1,17 +1,25 @@
 import json
 from typing import List
 import re
+import asyncio
+from typing import Tuple
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from prompts.schema_filtering import PROMPT as COLUMN_SELECTION_PROMPT, FEWSHOT_EXAMPLES
 from prompts.schema_filtering_with_criteria import PROMPT as SCHEMA_FILTERING_WITH_CRITERIA_PROMPT, FEWSHOT_EXAMPLES_WITH_CRITERIA
 from context.pipeline_context import PipelineContext
 from components.models.api_model_facade import ApiModelFacade
+from prompts.preliminary_sql_generation import PRELIMINARY_SQL_PROMPT
+from util.db.execute import execute_sql_queries_async, SQLExecInfo
+from util.constants import DatabaseConstants
+from prompts.sql_extraction import SQL_EXTRACTION_PROMPT
+from pipeline.steps.information_retrieval.executor.information_retriever import InformationRetriever
 
 class SchemaFilterExecutor:
     def __init__(self):
         # self.reasoning_model_facade = ReasoningModelFacade()
         self.api_model_default = ApiModelFacade(temperature=0.5)
         self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.5)
+        self.information_retriever = InformationRetriever()
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         """
@@ -37,6 +45,38 @@ class SchemaFilterExecutor:
         
         return output_str
 
+    async def _generate_and_execute_preliminary_sql(self, pipeline_context: PipelineContext, mschema_representation: str) -> SQLExecInfo:
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        
+        prompt = PRELIMINARY_SQL_PROMPT.format(
+            DATABASE_SCHEMA=mschema_representation,
+            QUESTION=pipeline_context.user_query,
+            HINT=pipeline_context.task.evidence,
+            RELEVANT_ENTITIES=relevant_entities_str,
+        )
+
+        query_chain = self.api_model_default.get_chain()
+        model_response = self.api_model_default.invoke_chain(query_chain, {"user_prompt": prompt})
+
+        if "```sql" in model_response:
+            preliminary_sql = model_response.split("```sql")[1].split("```")[0].strip()
+        else:
+            preliminary_sql = model_response.strip()
+
+        sql_exec_info = await execute_sql_queries_async([preliminary_sql], DatabaseConstants.DB_PATH, pipeline_context.db_engine)
+        
+        return sql_exec_info[0]
+
+    async def _extract_sql_components(self, sql_query: str) -> dict:
+        prompt = SQL_EXTRACTION_PROMPT.format(SQL_QUERY=sql_query)
+        query_chain = self.api_model_default.get_chain()
+        model_response = self.api_model_default.invoke_chain(query_chain, {"user_prompt": prompt})
+
+        if "```json" in model_response:
+            model_response = model_response.split("```json")[1].split("```")[0]
+        
+        return json.loads(re.sub(r"^\s+", "", model_response))
+
     def execute(self, pipeline_context: PipelineContext) -> List[dict]:
         # 1. Get unique table and column names from context
         unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
@@ -57,20 +97,61 @@ class SchemaFilterExecutor:
             selected_columns=unique_column_names
         )
 
+        # Generate and execute preliminary SQL
+        sql_exec_info = asyncio.run(self._generate_and_execute_preliminary_sql(pipeline_context, mschema_representation))
+        preliminary_sql = sql_exec_info.sql
+        execution_result = str(sql_exec_info.result)
+
+        # Extract components from SQL and re-run information retrieval
+        sql_components = asyncio.run(self._extract_sql_components(preliminary_sql))
+        
+        keywords = sql_components.get("columns", [])
+        keywords.append(f"{pipeline_context.user_query} {pipeline_context.task.evidence}")
+        phrases = sql_components.get("literals", [])
+
+        pipeline_context.relevant_entities = self.information_retriever.retrieve_entities(
+            db_id=pipeline_context.task.db_id,
+            phrases=phrases
+        )
+        pipeline_context.db_schema_per_keyword.update(self.information_retriever.retrieve_context(keywords=keywords, task=pipeline_context.task, k = 3))
+
+        # Re-generate unique table and column names
+        unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+        unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+
+        if pipeline_context.relevant_entities:
+            for table_name, columns in pipeline_context.relevant_entities.items():
+                if table_name not in unique_table_names:
+                    unique_table_names.append(table_name)
+                for column_name in columns.keys():
+                    full_column_name = f"{table_name}.{column_name}"
+                    if full_column_name not in unique_column_names:
+                        unique_column_names.append(full_column_name)
+
+        pipeline_context.unique_table_names = unique_table_names
+        pipeline_context.unique_column_names = unique_column_names
+
+        mschema_representation = pipeline_context.schema_engine.mschema.to_mschema(
+            selected_tables=unique_table_names,
+            selected_columns=unique_column_names
+        )
         ddl_schema_representation = pipeline_context.schema_engine.ddl_schema.to_ddl(
             selected_tables=unique_table_names,
             selected_columns=unique_column_names
         )
 
         # 3. Call LLM to filter the schema
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         full_mschema_prompt = COLUMN_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_representation,
             QUESTION=pipeline_context.user_query,
             HINT=pipeline_context.task.evidence,
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
+            PRELIMINARY_SQL=preliminary_sql,
+            EXECUTION_RESULT=execution_result,
+            RELEVANT_ENTITIES=relevant_entities_str,
         )
 
-        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         full_ddl_schema_prompt = SCHEMA_FILTERING_WITH_CRITERIA_PROMPT.format(
             DATABASE_SCHEMA=ddl_schema_representation,
             QUESTION=pipeline_context.user_query,
@@ -78,6 +159,8 @@ class SchemaFilterExecutor:
             FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES_WITH_CRITERIA,
             CRITERIA=pipeline_context.query_evaluation_criteria,
             RELEVANT_ENTITIES=relevant_entities_str,
+            PRELIMINARY_SQL=preliminary_sql,
+            EXECUTION_RESULT=execution_result,
         )
 
         # 4. Define model configurations
