@@ -77,9 +77,7 @@ away_player_9,,,,
 away_player_10,,,,
 away_player_11,,,,
 goal,,the goal of the match,text,
-shoton,shot on,the shot on goal of the match,text,"commonsense reasoning: 
-A shot on goal is a shot that enters the goal or would have entered the goal if it had not been blocked by the goalkeeper or another defensive player.
-"
+shoton,shot on,the shot on goal of the match,text,"commonsense reasoning:  A shot on goal is a shot that enters the goal or would have entered the goal if it had not been blocked by the goalkeeper or another defensive player."
 shotoff,shot off,"the shot off goal of the match, which is the opposite of shot on",text,
 foulcommit,foul commit,the fouls occurred in the match,text,
 card,,the cards given in the match,text,

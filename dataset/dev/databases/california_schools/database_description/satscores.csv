@@ -1,6 +1,6 @@
 ﻿original_column_name,column_name,column_description,data_format,value_description
 cds,,California Department Schools,text,
-rtype,,rtype,text,unuseful
+rtype,,rtype,text,
 sname,school name,school name,text,
 dname,district name,district segment,text,
 cname,county name,county name,text,
@@ -9,8 +9,4 @@ NumTstTakr,Number of Test Takers,Number of Test Takers in this school,integer,nu
 AvgScrRead,average scores in Reading,average scores in Reading,integer,average scores in Reading
 AvgScrMath,average scores in Math,average scores in Math,integer,average scores in Math
 AvgScrWrite,average scores in writing,average scores in writing,integer,average scores in writing
-NumGE1500,Number of Test Takers Whose Total SAT Scores Are Greater or Equal to 1500,Number of Test Takers Whose Total SAT Scores Are Greater or Equal to 1500,integer,"Number of Test Takers Whose Total SAT Scores Are Greater or Equal to 1500
-
-commonsense evidence:
-
-Excellence Rate = NumGE1500 / NumTstTakr"
+NumGE1500,Number of Test Takers Whose Total SAT Scores Are Greater or Equal to 1500,Number of Test Takers Whose Total SAT Scores Are Greater or Equal to 1500,integer,"Number of Test Takers Whose Total SAT Scores Are Greater or Equal to 1500 commonsense evidence: Excellence Rate = NumGE1500 / NumTstTakr"
