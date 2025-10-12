@@ -20,8 +20,9 @@ class InformationRetrievalStep(PipelineStep[PipelineContext, InformationRetrieva
     def handle_execution(self, context: PipelineContext, previous_step_output: Optional[Any] = None) -> Optional[InformationRetrievalStepOutput]:
         context.descriptions_database = load_database_descriptor(context.task.db_id)
         context.schema_engine.mschema.set_database_descriptor(context.descriptions_database)
+        context.schema_engine.ddl_schema.set_database_descriptor(context.descriptions_database)
 
-        keywords_and_phrases = self.information_retriever.extract_keywords(user_query=context.user_query)
+        keywords_and_phrases = self.information_retriever.extract_keywords(user_query=f"{context.user_query} {context.task.evidence}")
         context.keywords_and_phrases = keywords_and_phrases
         
         keywords = keywords_and_phrases.get("keywords", [])

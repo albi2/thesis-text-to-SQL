@@ -87,3 +87,52 @@ class EditDistanceUtil:
         
         results.sort(key=lambda x: x['distance'], reverse=True)
         return results
+
+    @staticmethod
+    def get_similar_by_threshold_loose(query: str, candidates: list, threshold: float = 0.3, max_weight: float = 0.7) -> list:
+        """
+        Gets candidates with a normalized edit similarity above a certain threshold.
+
+        Args:
+            query (str): The query string.
+            candidates (list): A list of candidate dictionaries. Each dictionary must have a "value" key.
+            threshold (float): The minimum similarity threshold.
+
+        Returns:
+            list: A list of candidates with their 'edit_similarity' score, exceeding the threshold.
+        """
+        if not candidates:
+            return []
+
+        results = []
+        query_tokens = query.split()
+
+        for candidate in candidates:
+            candidate_tokens = candidate['value'].split()
+            if not candidate_tokens:
+                continue
+
+            # Compute edit similarity for each candidate token vs query
+            token_similarities = []
+            for token in candidate_tokens:
+                distance = Levenshtein.distance(query, token)
+                max_len = max(len(query), len(token))
+                similarity = 1 - (distance / max_len) if max_len > 0 else 0
+                token_similarities.append(similarity)
+
+            # Compute weighted combination: max similarity dominates
+            max_sim = max(token_similarities)
+            rest_sim = sum(token_similarities) - max_sim
+            if len(token_similarities) > 1:
+                avg_rest = rest_sim / (len(token_similarities) - 1)
+                final_similarity = max_weight * max_sim + (1 - max_weight) * avg_rest
+            else:
+                final_similarity = max_sim
+
+            if final_similarity >= threshold:
+                candidate['distance'] = final_similarity
+                results.append(candidate)
+
+        results.sort(key=lambda x: x['distance'], reverse=True)
+        return results
+        

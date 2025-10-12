@@ -95,13 +95,13 @@ def get_unique_values_for_db(db_id: str) -> Dict[str, Dict[str, List[str]]]:
                     average_length = sum_of_lengths / count_distinct
 
                     # Skip columns that exceed limits
-                    skip_column = (
+                    allow_column = (
                         ("name" in column_name_lower and sum_of_lengths < MAX_TOTAL_NAME_LENGTH)
                         or (sum_of_lengths < MAX_TOTAL_LENGTH and average_length < MAX_AVERAGE_LENGTH)
                         or count_distinct < MAX_DISTINCT_VALUES
                     )
 
-                    if not skip_column:
+                    if allow_column:
                         # Fetch unique non-null values for valid columns
                         values_query = text(f'''
                             SELECT DISTINCT "{column_name}"

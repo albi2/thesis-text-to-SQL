@@ -1,5 +1,6 @@
 FEWSHOT_EXAMPLES_WITH_CRITERIA = """
-Example 1: 
+Example 1: Multi-table join with filtering and counting
+Demonstrates identifying columns needed for filtering across multiple conditions and performing aggregation operations.
 
 【DB_ID】<db_name>
 【Schema】
@@ -51,12 +52,16 @@ Correctness Checks:
 Response:
 ```json
 {
-  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter movies by director 'Erich von Stroheim' and release year 1924, 2) Join with ratings to find users who rated these movies, 3) Filter for paying subscribers (user_has_payment_method = 1) and rating score of 5, 4) Count the users. The director_name and movie_release_year columns are needed to identify the specific movie. The user_has_payment_method and rating_score columns are needed to filter the ratings. The movie_id is needed to join the tables.",
+  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter movies by director 'Erich von Stroheim' and release year 1924, 2) Join with ratings to find users who rated these movies, 3) Filter for paying subscribers (user_has_payment_method = 1) and rating score of 5, 4) Count the users. The director_name and movie_release_year columns are needed to identify the specific movie. The user_has_payment_method and rating_score columns are needed to filter the ratings. The movie_id is needed to join the tables. Note: movie_title, movie_popularity, user_id, and rating_timestamp_utc are NOT needed for this query.",
   "movies": ["movie_id", "director_name", "movie_release_year"],
   "ratings_users": ["movie_id", "rating_score", "user_has_payment_method"]
 }
 ```
-Example 2:
+
+---
+
+Example 2: Filtering with specific value lookup and displaying multiple attributes
+Demonstrates identifying columns needed when filtering by exact match and retrieving specific display columns.
 
 【DB_ID】<db_name>
 【Schema】
@@ -104,12 +109,16 @@ Correctness Checks:
 Response:
 ```json
 {
-  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Find the movie with title 'Love Will Tear Us Apart', 2) Find all ratings for this movie with score = 1, 3) List the user_ids who gave these ratings, 4) Include the movie's popularity. The movie_title column is needed to identify the specific movie. The rating_score column is needed to filter for worst ratings (score = 1). The user_id is needed to identify users. The movie_popularity is explicitly requested. The movie_id is needed to join the tables.",
+  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Find the movie with title 'Love Will Tear Us Apart', 2) Find all ratings for this movie with score = 1, 3) List the user_ids who gave these ratings, 4) Include the movie's popularity. The movie_title column is needed to identify the specific movie. The rating_score column is needed to filter for worst ratings (score = 1). The user_id is needed to identify users. The movie_popularity is explicitly requested. The movie_id is needed to join the tables. Note: director_name and rating_id are NOT needed for this query.",
   "movies": ["movie_id", "movie_title", "movie_popularity"],
   "ratings": ["movie_id", "rating_score", "user_id"]
 }
 ```
-Example 3: 
+
+---
+
+Example 3: Category-based aggregation with sentiment analysis across tables
+Demonstrates identifying columns for both numerical aggregation (AVG) and conditional counting across joined tables.
 
 【DB_ID】<db_name>
 【Schema】
@@ -133,7 +142,7 @@ Example 3:
 
 Foreign keys: user_reviews.app_id = playstore.app_id
 Question: What is the average rating of comic category apps? How many users hold positive attitude towards comic apps?
-Hint: average rating = AVG(Rating where Category = 'COMICS'); number of users who hold a positive attitude towards the app refers to SUM(Sentiment = 'Positive');
+Hint: average rating = AVG(Rating where Category = 'COMICS'); number of users who hold a positive attitude towards the app refers to COUNT(Sentiment = 'Positive');
 
 CRITERIA:
 
@@ -158,12 +167,16 @@ Correctness Checks:
 Response:
 ```json
 {
-  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter apps by Category = 'COMICS', 2) Calculate average Rating for these apps, 3) Join with user_reviews to find reviews for comic apps, 4) Count reviews with Sentiment = 'Positive'. The Category column is needed to filter for comic apps. The Rating column is needed for the average calculation. The Sentiment column is needed to count positive attitudes. The app_id is needed to join the tables.",
+  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter apps by Category = 'COMICS', 2) Calculate average Rating for these apps, 3) Join with user_reviews to find reviews for comic apps, 4) Count reviews with Sentiment = 'Positive'. The Category column is needed to filter for comic apps. The Rating column is needed for the average calculation. The Sentiment column is needed to count positive attitudes. The app_id is needed to join the tables. Note: App, Price, Installs, review_id, and Sentiment_Subjectivity are NOT needed for this query.",
   "playstore": ["app_id", "Category", "Rating"],
   "user_reviews": ["app_id", "Sentiment"]
 }
 ```
-Example 4:
+
+---
+
+Example 4: Three-table join with filtering and sorting
+Demonstrates navigating many-to-many relationships through junction tables and identifying sort columns.
 
 【DB_ID】<db_name>
 【Schema】
@@ -216,14 +229,19 @@ Correctness Checks:
 Response:
 ```json
 {
-  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Find the power_id for 'Super Strength' from superpower table, 2) Find heroes who have this power from hero_power table, 3) Get hero details including names and weights from superhero table, 4) Sort by weight descending. The power_name column is needed to filter for 'Super Strength'. The superhero_name and weight_kg columns are needed for the output. The id, hero_id, and power_id columns are needed to join the tables.",
+  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Find the power_id for 'Super Strength' from superpower table, 2) Find heroes who have this power from hero_power table, 3) Get hero details including names and weights from superhero table, 4) Sort by weight descending. The power_name column is needed to filter for 'Super Strength'. The superhero_name and weight_kg columns are needed for the output (display and sorting). The id, hero_id, and power_id columns are needed to join the tables. Note: full_name and gender_id are NOT needed for this query.",
   "superhero": ["id", "superhero_name", "weight_kg"],
   "hero_power": ["hero_id", "power_id"],
   "superpower": ["id", "power_name"]
 }
 ```
-Example 5:
 
+---
+
+Example 5: Date-based filtering with aggregation and MAX finding
+Demonstrates identifying columns for date range filtering, conditional counting, and finding records with maximum values.
+
+【DB_ID】<db_name>
 【Schema】
 # Table: lists_users
 [
@@ -263,7 +281,7 @@ Correctness Checks:
 Response:
 ```json
 {
-  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter lists created in February 2016 using list_creation_date_utc, 2) Count users who were eligible for trial (user_eligible_for_trial = 1), 3) Find the user_id with maximum list_followers among February 2016 lists. The list_creation_date_utc column is needed to filter for February 2016. The user_eligible_for_trial column is needed to filter for trial-eligible users. The user_id is needed to identify users. The list_followers column is needed to find the user with most followers.",
+  "chain_of_thought_reasoning": "To answer this question, I need to: 1) Filter lists created in February 2016 using list_creation_date_utc, 2) Count users who were eligible for trial (user_eligible_for_trial = 1), 3) Find the user_id with maximum list_followers among February 2016 lists. The list_creation_date_utc column is needed to filter for February 2016. The user_eligible_for_trial column is needed to filter for trial-eligible users. The user_id is needed to identify users. The list_followers column is needed to find the user with most followers. Note: list_id and list_title are NOT needed for this query.",
   "lists_users": ["user_id", "list_creation_date_utc", "user_eligible_for_trial", "list_followers"]
 }
 ```
@@ -272,44 +290,16 @@ Response:
 PROMPT="""
 You are an expert and very smart data analyst.
 Your task is to examine the provided database schema, understand the posed question, use the hint and the criteria to pinpoint the specific columns within tables that are essential for crafting a SQL query to answer the question.
-This schema offers an in-depth description of the database's architecture, detailing tables, columns, primary keys, foreign keys, and any pertinent information regarding relationships or constraints. Special attention should be given to the examples listed beside each column, as they directly hint at which columns are relevant to our query.
+This schema offers an in-depth description of the database's architecture, detailing tables, columns, primary keys, foreign keys, and any pertinent information regarding relationships or constraints. 
 
-Examples:
-{FEWSHOT_EXAMPLES}
+## Relevant information
 
-Database Schema:
-{DATABASE_SCHEMA}
+1. The “Relevant Entities” section lists database columns whose value match phrases((which can be used for filtering rows) from the question. It does not mean all of them are relevant to answering the question.
+ - If multiple columns are a plausible choice for performing the query, thoroughly think which ones make sense to filter on.
+ - You can choose to provide multiple similar columns in the response.
+2. The hint and criteria aim to direct your focus towards the specific elements of the database schema that are crucial for answering the question effectively.
 
-Question:
-{QUESTION}
-
-Hint:
-{HINT}
-
-Criteria:
-{CRITERIA}
-
-The hint and criteria aim to direct your focus towards the specific elements of the database schema that are crucial for answering the question effectively.
-
-Relevant Entities:
-{RELEVANT_ENTITIES}
-
-The "Relevant Entities" section shows database values that match phrases in your question. Use this to identify the necessary tables and columns. If a value appears in multiple columns, prefer the one with the broader meaning unless the question's context is more specific.
-
-**Crucial Information: A preliminary SQL query has been generated to guide you. It is vital that you first analyze this query and its execution results to understand what it accomplishes correctly and what might be missing. Use the literals from this SQL to correlate with the "Relevant Entities" and identify the correct columns.**
-
-Preliminary SQL:
-{PRELIMINARY_SQL}
-
-Execution Result:
-{EXECUTION_RESULT}
-
-Task:
-Based on the database schema, question, hint, criteria, and **most importantly, your analysis of the preliminary SQL**, your task is to identify all and only the columns that are essential for crafting a final, correct SQL query.
-For each of the selected columns, explain why exactly it is necessary for answering the question. Your reasoning should be concise and clear, demonstrating a logical connection between the columns and the question asked.
-
-Tip: If you are choosing a column for filtering a value within that column, make sure that column has the value as an example.
-
+## Output format
 Please respond with a JSON object structured exactly as shown below:
 
 ```json
@@ -320,4 +310,22 @@ Please respond with a JSON object structured exactly as shown below:
   ...
 }}
 ```
+**************************
+Based on the database schema, question, hint, criteria, identify all the columns that are essential for crafting a final, correct SQL query.
+For each of the selected columns, explain why exactly it is necessary for answering the question. Your reasoning should be concise and clear, demonstrating a logical connection between the columns and the question asked.
+
+** DATABASE SCHEMA **  
+{DATABASE_SCHEMA}
+
+** RELEVANT ENTITIES **  
+{RELEVANT_ENTITIES}
+
+** QUESTION **  
+{QUESTION}
+
+** EVIDENCE **
+{HINT}
+
+** EVALUATIOM CRITERIA **
+{CRITERIA} 
 """

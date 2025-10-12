@@ -146,7 +146,7 @@ class SchemaEngine(SQLDatabase):
     def get_unique_constraints(self, table_name: str):
         return self._inspector.get_unique_constraints(table_name, self._tables_schemas[table_name])
 
-    def fetch_distinct_values(self, table_name: str, column_name: str, max_num: int = 5):
+    def fetch_distinct_values(self, table_name: str, column_name: str, max_num: int = 10):
         table = Table(table_name, self.metadata_obj, autoload_with=self._engine, schema=self._tables_schemas[table_name])
         # Construct SELECT DISTINCT query
         query = select(table.c[column_name]).distinct().limit(max_num)

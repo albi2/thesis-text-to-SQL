@@ -8,10 +8,11 @@ You are an expert SQL parser. Your task is to analyze the provided SQL query and
 3.  **Identify Literals:** Extract all string literals (text enclosed in single quotes).
 4.  **Output:** Respond with a JSON object containing three keys: `tables`, `columns`, and `literals`.
 
-**SQL Query:**
+** SQL Query **
 {SQL_QUERY}
 
-**JSON Output:**
+** JSON Output Format **
+Always respond in this format:
 ```json
 {{
   "tables": ["table1", "table2", ...],

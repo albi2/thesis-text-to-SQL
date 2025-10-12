@@ -33,7 +33,7 @@ class QuerySelectionExecutor:
         output_str = ""
         for phrase, entities in entities_by_phrase.items():
             output_str += f"'{phrase}':\n"
-            output_str += "\n".join(entities[:3])
+            output_str += "\n".join(entities)
             output_str += "\n\n"
         
         return output_str
@@ -67,16 +67,16 @@ class QuerySelectionExecutor:
             show_type_detail=True
         )
 
-        filtered_schemas_str = self._prepare_filtered_schemas(pipeline_context.filtered_schemas)
-        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        filtered_schemas_str = self._prepare_filtered_schemas(pipeline_context.selected_schemas)
+        # relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         full_prompt = QUERY_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_string,
             FILTERED_SCHEMAS=filtered_schemas_str,
             QUESTION=pipeline_context.user_query,
             HINT=getattr(pipeline_context, 'hint', ''),
             CRITERIA=pipeline_context.query_evaluation_criteria,
-            QUERIES=queries_with_results,
-            RELEVANT_ENTITIES=relevant_entities_str
+            QUERIES=queries_with_results
+            # RELEVANT_ENTITIES=relevant_entities_str
         )
         
         query_chain = self.api_model.get_chain()

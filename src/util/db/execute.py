@@ -161,27 +161,21 @@ def compare_sqls_outcomes(sql_1: str, sql_2: str, db_path: str, engine: Engine) 
         if len(result_1[0]) != len(result_2[0]):
             return 0
 
-        def sort_and_hash(result):
+        def sort_and_hash_ignore_col_order(result):
             if not result:
                 return ""
-            
-            # Sort columns by name
-            sorted_columns = sorted(result[0].keys())
-            
-            # Create a list of tuples (rows) with sorted values
-            sorted_rows = []
-            for row in result:
-                sorted_row = tuple(row[col] for col in sorted_columns)
-                sorted_rows.append(sorted_row)
-            
-            # Sort rows based on the values in each column
-            sorted_rows.sort()
-            
-            # Hash the sorted result
+
+            # Sort values within each row (ignore column order)
+            rows_as_tuples = [tuple(sorted(row.values(), key=str)) for row in result]
+
+            # Sort rows (so row order doesn't matter)
+            sorted_rows = sorted(rows_as_tuples)
+
+            # Hash final representation
             return hashlib.md5(json.dumps(sorted_rows, sort_keys=True).encode()).hexdigest()
 
-        hash_1 = sort_and_hash(result_1)
-        hash_2 = sort_and_hash(result_2)
+        hash_1 = sort_and_hash_ignore_col_order(result_1)
+        hash_2 = sort_and_hash_ignore_col_order(result_2)
 
         return int(hash_1 == hash_2)
     except Exception as e:

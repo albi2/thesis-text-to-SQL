@@ -11,7 +11,7 @@ def get_model_configurations():
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-2.5-pro",
-                    "temperature": 0.7,
+                    "temperature": 0.2,
                     "top_p": 0.9,
                 }
             },
@@ -19,42 +19,42 @@ def get_model_configurations():
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-2.5-flash",
-                    "temperature": 0.5,
+                    "temperature": 0.2,
                 }
             },
             "gemini-2.5-flash-lite": {
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-2.5-flash-lite",
-                    "temperature": 0.5,
+                    "temperature": 0.2,
                 }
             },
             "gemini-2.0-flash": {
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-2.0-flash",
-                    "temperature": 0.5,
+                    "temperature": 0.2,
                 }
             },
             "gemini-2.0-flash-lite": {
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-2.0-flash-lite",
-                    "temperature": 0.5,
+                    "temperature": 0.2,
                 }
             },
             "gemini-1.5-flash": {
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-1.5-flash",
-                    "temperature": 0.5,
+                    "temperature": 0.2,
                 }
             },
             "gemini-1.5-pro": {
                 "constructor": ChatGoogleGenerativeAI,
                 "params": {
                     "model": "gemini-1.5-pro",
-                    "temperature": 0.7,
+                    "temperature": 0.2,
                 }
             },
         },

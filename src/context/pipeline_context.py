@@ -32,6 +32,7 @@ class PipelineContext(GenericContext):
         self.user_query = task.question
         self.keywords_and_phrases: dict = None
         self._last_executed_step: Optional[Any] = None # Use Any to avoid circular import issues
+        self.preliminary_sql = None
         self.db_schema_per_keyword = {}  # Dictionary to store schema information per keyword
         self.selected_schema: dict = None
         self.selected_schemas: List[dict] = []
@@ -72,6 +73,7 @@ class PipelineContext(GenericContext):
             "user_query": self.user_query,
             "keywords_and_phrases": self.keywords_and_phrases,
             "descriptions_database": self.descriptions_database.to_dict() if self.descriptions_database else None,
+            "preliminary_sql": self.preliminary_sql,
             "relevant_entities": self.relevant_entities,
             "db_schema_per_keyword": self.db_schema_per_keyword,
             "selected_schema": self.selected_schema,

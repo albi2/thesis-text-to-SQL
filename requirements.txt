@@ -38,7 +38,6 @@ cymem==2.0.11
 dataclasses-json==0.6.7
 datasets==4.1.1
 datasketch==1.6.5
-dbus-python==1.2.18
 debugpy==1.8.13
 decorator==5.2.1
 defusedxml==0.7.1
@@ -266,7 +265,6 @@ torch==2.8.0
 tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3
-transformers==4.52.4
 triton==3.4.0
 typer==0.16.0
 types-python-dateutil==2.9.0.20241206
@@ -295,3 +293,4 @@ xxhash==3.6.0
 yarl==1.20.1
 zipp==3.23.0
 zstandard==0.25.0
+transformers

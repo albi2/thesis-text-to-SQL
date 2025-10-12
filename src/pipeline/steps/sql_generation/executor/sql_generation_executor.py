@@ -20,6 +20,30 @@ class SQLGenerationExecutor:
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
         self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash", temperature=0.2)
 
+    def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
+        """
+        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
+        """
+        if not relevant_entities:
+            return ""
+
+        entities_by_phrase = {}
+        for table, columns in relevant_entities.items():
+            for column, entities in columns.items():
+                for entity in entities:
+                    phrase = entity["phrase"]
+                    if phrase not in entities_by_phrase:
+                        entities_by_phrase[phrase] = []
+                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
+
+        output_str = ""
+        for phrase, entities in entities_by_phrase.items():
+            output_str += f"'{phrase}':\n"
+            output_str += "\n".join(entities)
+            output_str += "\n\n"
+        
+        return output_str
+
     def execute(self, pipeline_context: PipelineContext) -> List[SQLQuery]:
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             return []
@@ -28,6 +52,8 @@ class SQLGenerationExecutor:
         
         sql_queries = self._generate_sql_for_gemini(pipeline_context, schema_representations, ddl_schema_representations)
         # sql_queries.extend(self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations))
+
+        print(f"SQL QUERIES {sql_queries}")
         
         self._execute_queries_async(pipeline_context, sql_queries)
 
@@ -41,22 +67,9 @@ class SQLGenerationExecutor:
         ddl_schema_representations: list[SchemaRepresentation] = []
         selected_schemas = pipeline_context.selected_schemas
 
-        schema_representations.append(SchemaRepresentation(
-            schema=pipeline_context.schema_engine.mschema.to_mschema(
-                selected_tables=pipeline_context.unique_table_names,
-                selected_columns=pipeline_context.unique_column_names
-            ),
-            format=SchemaFormat.M_SCHEMA,
-            type=SchemaType.FULL
-        ))
-        ddl_schema_representations.append(SchemaRepresentation(
-            schema=pipeline_context.schema_engine.ddl_schema.to_ddl(
-                selected_tables=pipeline_context.unique_table_names,
-                selected_columns=pipeline_context.unique_column_names
-            ),
-            format=SchemaFormat.DDL,
-            type=SchemaType.FULL
-        ))
+        if len(pipeline_context.schema_engine.get_table_names()) <= 7:
+            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
+            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
 
         if selected_schemas:
             for selected_schema in selected_schemas:
@@ -73,7 +86,7 @@ class SQLGenerationExecutor:
                     execution_plan=execution_plan
                 ))
                 ddl_schema_representations.append(SchemaRepresentation(
-                    schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables),
+                    schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables),
                     format=SchemaFormat.DDL,
                     type=SchemaType.FILTERED_TABLES,
                     execution_plan=execution_plan
@@ -86,7 +99,7 @@ class SQLGenerationExecutor:
                     execution_plan=execution_plan
                 ))
                 ddl_schema_representations.append(SchemaRepresentation(
-                    schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns),
+                    schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables, selected_columns=selected_columns),
                     format=SchemaFormat.DDL,
                     type=SchemaType.FILTERED_TABLES_AND_COLUMNS,
                     execution_plan=execution_plan
@@ -96,14 +109,15 @@ class SQLGenerationExecutor:
 
     def _generate_sql_for_gemini(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         sql_queries: list[SQLQuery] = []
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+
         for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
             try:
                 hint = getattr(pipeline_context, 'hint', '')
                 
-                # M-Schema call
-                full_prompt_mschema = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
+                full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
                 query_chain = self.api_model_gemini.get_chain()
-                model_response_mschema = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt_mschema})
+                model_response_mschema = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt})
 
                 print('SQL GENERATION MODEL RESPONSE (GEMINI M-SCHEMA)', model_response_mschema)
                 if "```sql" in model_response_mschema:
@@ -155,10 +169,7 @@ class SQLGenerationExecutor:
             Text2SQLModelKeys.OMNI: []
         }
 
-        shortened_schema_rep = schema_representations[:3]
-        shortened_ddl_schema_representations = ddl_schema_representations[:3]
-
-        for mschema, ddl_schema in zip(shortened_schema_rep, shortened_ddl_schema_representations):
+        for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
             if mschema.type not in [SchemaType.FILTERED_TABLES_AND_COLUMNS]:
                 continue
 
@@ -171,19 +182,19 @@ class SQLGenerationExecutor:
                 "prompt": PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
                 "schema_rep": mschema
             })
-            model_prompts[Text2SQLModelKeys.DEFOG].append({
-                "prompt": DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
-                "schema_rep": ddl_schema
-            })
-            model_prompts[Text2SQLModelKeys.OMNI].append({
-                "prompt": OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
-                "schema_rep": ddl_schema
-            })
+            # model_prompts[Text2SQLModelKeys.DEFOG].append({
+            #     "prompt": DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
+            #     "schema_rep": ddl_schema
+            # })
+            # model_prompts[Text2SQLModelKeys.OMNI].append({
+            #     "prompt": OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
+            #     "schema_rep": ddl_schema
+            # })
 
         model_facades = {
-            Text2SQLModelKeys.XIYAN: self.text2sql_model_facade,
-            Text2SQLModelKeys.DEFOG: self.defog_text2sql_model_facade,
-            Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade
+            Text2SQLModelKeys.XIYAN: self.text2sql_model_facade
+            # Text2SQLModelKeys.DEFOG: self.defog_text2sql_model_facade,
+            # Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade
         }
 
         for model_key, prompts_with_schemas in model_prompts.items():
@@ -223,30 +234,6 @@ class SQLGenerationExecutor:
                 model_facade.unload_model()
 
         return sql_queries
-
-    def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
-        """
-        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
-        """
-        if not relevant_entities:
-            return ""
-
-        entities_by_phrase = {}
-        for table, columns in relevant_entities.items():
-            for column, entities in columns.items():
-                for entity in entities:
-                    phrase = entity["phrase"]
-                    if phrase not in entities_by_phrase:
-                        entities_by_phrase[phrase] = []
-                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
-
-        output_str = ""
-        for phrase, entities in entities_by_phrase.items():
-            output_str += f"'{phrase}':\n"
-            output_str += "\n".join(entities[:3])
-            output_str += "\n\n"
-        
-        return output_str
 
     def _execute_queries_async(self, pipeline_context: PipelineContext, sql_queries: List[SQLQuery]):
         try:

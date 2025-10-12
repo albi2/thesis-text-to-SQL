@@ -1,5 +1,5 @@
 import os
-base_cache = "/media/storage/ge62nok"
+base_cache = "/var/tmp/ge62nok"
 
 os.environ["HF_HOME"] = base_cache
 os.environ["HF_HUB_CACHE"] = os.path.join(base_cache, "hub")

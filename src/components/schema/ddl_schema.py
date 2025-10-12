@@ -77,6 +77,15 @@ class DDLSchemaGenerator:
                         field_line += f" DEFAULT {field_info['default']}"
                     
                     comment = field_info.get('comment', '')
+                    if not comment and self.database_descriptor:
+                        table_descriptor = self.database_descriptor.tables.get(table_name)
+                        if table_descriptor:
+                            column_definition = table_descriptor.columns.get(field_name)
+                            if column_definition:
+                                if column_definition.column_description:
+                                    comment += f"Column Description: {column_definition.column_description}"
+                                if column_definition.value_description:
+                                    comment += f", Column Value Explanation: {column_definition.value_description}"
                     if comment:
                         field_line += f" -- {comment.strip()}"
 

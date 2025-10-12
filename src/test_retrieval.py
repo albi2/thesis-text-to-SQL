@@ -1,7 +1,7 @@
 from util.similarity_measures.lsh import LSHUtil
 from util.similarity_measures.bm25 import BM25Util
-from pipeline.steps.information_retrieval.executor.information_retrieval import InformationRetriever
-
+from pipeline.steps.information_retrieval.executor.information_retriever import InformationRetriever
+from executor.task_model import Task
 def test_bm25():
     """
     Initializes the RunningManager and starts the evaluation process.
@@ -33,7 +33,7 @@ def test_lsh():
     """
     # load_comments()
     db_id = "california_schools"
-    keyword = "Los Angeles"
+    keyword = "Riverside"
     lsh = LSHUtil.load_lsh_index(db_id)
     minhashes = LSHUtil.load_minhashes(db_id)
     
@@ -41,12 +41,16 @@ def test_lsh():
     
     filtered_minhashes = {key: value for key, value in minhashes.items() if value["column_name"] == 'City'}
     column_names = set([value["column_name"] for key,value in minhashes.items()])
-    print(column_names)
+    print(similar_values)
 
 def main():
-    information_retrieve = InformationRetriever()
-    
-
+    # information_retriever = InformationRetriever()
+    # keywords = ["grade"]
+    # task = Task(question_id="1", db_id="california_schools", question="In which city can you find the school in the state of California with the lowest latitude coordinates and what is its lowest grade? Indicate the school name.")
+    # retrieved_schema = information_retriever.retrieve_context(keywords, task)
+    # # retrieved_entities = information_retriever.retrieve_entities(db_id="california_schools", phrases=["Riverside"])
+    # print(f"RETRIEVED SCHEMA : {retrieved_schema}")
+    test_lsh()
 
 if __name__ == "__main__":
     main()

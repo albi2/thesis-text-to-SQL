@@ -2,7 +2,7 @@ import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 os.environ['PYTORCH_NVML_BASED_CUDA_CHECK'] = "1"
 # Consistent cache directory
-base_cache = "/media/storage/ge62nok"
+base_cache = "/var/tmp/ge62nok"
 
 os.environ["HF_HOME"] = base_cache
 os.environ["HF_HUB_CACHE"] = os.path.join(base_cache, "hub")

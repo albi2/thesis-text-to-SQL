@@ -34,7 +34,8 @@ class InformationRetriever:
                 If None, the default reasoning model will be used.
         """
         # self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
-        self.api_model = ApiModelFacade(temperature=0.8)
+        # First 0.8
+        self.api_model = ApiModelFacade(temperature=0.3)
 
         # Initialize ConfigurationHelper to load ChromaDB settings
         self.config_helper = ConfigurationHelper()
@@ -80,7 +81,7 @@ class InformationRetriever:
             Returns an empty dict with empty lists if extraction or parsing fails.
         """
         # Inject the dictionary-output examples into the original prompt
-        formatted_prompt = PROMPT.format(FEWSHOT_EXAMPLES = FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR, QUESTION=user_query, HINT=hint if hint else "No hint provided.")
+        formatted_prompt = PROMPT.format(FEWSHOT_EXAMPLES=FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR, QUESTION=user_query, HINT=hint if hint else "No hint provided.")
 
         keywords_list: List[str] = []
         phrases_list: List[str] = []
@@ -155,7 +156,7 @@ class InformationRetriever:
                 continue
 
             # 1. Pre-filter with absolute thresholds
-            edit_filtered_candidates = EditDistanceUtil.get_similar_by_threshold(phrase, all_candidates, threshold=0.3)
+            edit_filtered_candidates = EditDistanceUtil.get_similar_by_threshold_loose(phrase, all_candidates, threshold=0.3)
             
             if not edit_filtered_candidates:
                 continue
@@ -168,7 +169,7 @@ class InformationRetriever:
             # 2. Filter based on max similarity thresholds
             max_edit_similarity = max(c['distance'] for c in semantic_filtered_candidates)
             final_edit_filtered = [
-                c for c in semantic_filtered_candidates if c['distance'] >= 0.9 * max_edit_similarity
+                c for c in semantic_filtered_candidates if c['distance'] >= 0.7 * max_edit_similarity
             ]
 
             if not final_edit_filtered:
@@ -176,7 +177,7 @@ class InformationRetriever:
                 
             max_embedding_similarity = max(c['embedding_similarity'] for c in final_edit_filtered)
             filtered_candidates = [
-                c for c in final_edit_filtered if c['embedding_similarity'] >= 0.9 * max_embedding_similarity
+                c for c in final_edit_filtered if c['embedding_similarity'] >= 0.8 * max_embedding_similarity
             ]
             
             # 3. Structure the results
@@ -234,7 +235,7 @@ class InformationRetriever:
                 query_results = self.chroma_client.query_collection(
                     collection_name=collection_name,
                     query_texts=[keyword],
-                    n_results=k * 2# Retrieve more to rerank
+                    n_results=k*4# Retrieve more to rerank
                 )
 
                 chroma_contexts: List[Dict[str, Any]] = []
@@ -251,6 +252,7 @@ class InformationRetriever:
                                 "type": metadata.get('type')
                             })
 
+                print(f"chroma contexts {chroma_contexts}")
                 # Rerank using BM25
                 if chroma_contexts:
                     bm25_results = bm25_retriever.get_relevant_documents(keyword)

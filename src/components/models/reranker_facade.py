@@ -46,6 +46,7 @@ class Reranker:
         if not documents:
             return []
 
+
         doc_texts = [doc["description"] for doc in documents]
         
         scores = self._calculate_sim(query, doc_texts)

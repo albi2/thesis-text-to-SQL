@@ -3,18 +3,22 @@
 ORIGINAL_PROMPT = """
 You are an experienced SQLite expert.
 Now you need to generate a SQL query given the database information, a question and some additional information.
-The database structure is defined by the following table schemas.
-Note that the "Example Values" are actual values from the column. Some column might contain the values that are directly related to the question. Use it to help you justify which columns to use.
+The database structure is defined by a custom schema called M-Schema.
+Note that the "Example Values" are actual values from the column. Some column might contain the values or similar values that are directly related to the question. Use it to help you justify which columns to use.
 
 Given the table schema information description and the "Question". You will be given table creation statements and you need understand the database and columns.
 
 You will be using a method called "recursive divide-and-conquer approach to SQL query generation from natural language".
+
+## Recursive Divide-And-Conquery Steps
 
 Here is a high level description of the steps.
 1. **Divide (Decompose Sub-question with Pseudo SQL):** The complex natural language question is recursively broken down into simpler sub-questions. Each sub-question targets a specific piece of information or logic required for the final SQL query. 
 2. **Conquer (Real SQL for sub-questions):**  For each sub-question (and the main question initially), a "pseudo-SQL" fragment is formulated. This pseudo-SQL represents the intended SQL logic but might have placeholders for answers to the decomposed sub-questions. 
 3. **Combine (Reassemble):** Once all sub-questions are resolved and their corresponding SQL fragments are generated, the process reverses. The SQL fragments are recursively combined by replacing the placeholders in the pseudo-SQL with the actual generated SQL from the lower levels.
 4. **Final Output:** This bottom-up assembly culminates in the complete and correct SQL query that answers the original complex question. Make sure all of the required information from the original query is retrieved.
+
+## Instructions 
 
 Database admin instructions (violating any of the following will result is punishble to death!):
 1. **SELECT Clause:** 
@@ -46,16 +50,30 @@ Database admin instructions (violating any of the following will result is punis
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-15. **Always put column names between quotation marks"
+15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+16. **Handling similar columns for filtering**
+    - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
+    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
     
-When you get to the final query, output the query string ONLY inside the delimiter ```sql```.
+## Relevant Information
 
-Here are some examples
+1.The “Relevant Entities” section lists database columns that match phrases from the question. It does not mean all of them are relevant to answering this question.
+You can refer to these as hints when choosing the correct columns in the query. You can either choose the column with the broader meaning or you can choose to perform loose filtering on multiple columns.
 
-======= Example =======
-**************************
-【Schema】
+## Output Format
+In your answer, please enclose the generated SQL query in a code block:
+```sql
+-- Your SQL 
+```
+
+## Examples
+
+Here are some examples to guide your query creation process.
+
+======= Example 0 =======
+
+** DATABASE SCHEMA **
 
 Table: generalinfo
 [
@@ -74,18 +92,16 @@ Table: location
 【Foreign keys】
 location.id_restaurant = generalinfo.id_restaurant
 
-
-**************************
-【Question】
-Question: 
+** QUESTION **
 How many Thai restaurants can be found in San Pablo Ave, Albany? 
 
-Evidence:
+** EVIDENCE **
 Thai restaurant refers to food_type = 'thai'; San Pablo Ave Albany refers to street_name = 'san pablo ave' AND T1.city = 'albany'
 
-
 **************************
-【Answer】
+
+** ANSWER **
+
 Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
 **Question**: How many Thai restaurants can be found in San Pablo Ave, Albany? 
 **Evidence**: Thai restaurant refers to food_type = 'thai'; San Pablo Ave Albany refers to street_name = 'san pablo ave' AND T1.city = 'albany'
@@ -125,10 +141,9 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 SELECT COUNT(T1.id_restaurant) FROM generalinfo AS T1 INNER JOIN location AS T2 ON T1.id_restaurant = T2.id_restaurant WHERE T1.food_type = 'thai' AND T1.city = 'albany' AND T2.street_name = 'san pablo ave'
 ``` 
 
-===========
-Example 1
-**************************
-【Schema】
+=========== Example 1 ===========
+
+** DATABASE SCHEMA **
 
 Table: account
 [
@@ -156,13 +171,17 @@ Table: district
 【Foreign keys】
 account.district_id = district.district_id
 client.district_id = district.district_id
-**************************
-【Question】
-Question: What is the gender of the youngest client who opened account in the lowest average salary branch?
-Hint: Given that Later birthdate refers to younger age; A11 refers to average salary
+
+** QUESTION **
+What is the gender of the youngest client who opened account in the lowest average salary branch?
+
+** EVIDENCE **
+Given that Later birthdate refers to younger age; A11 refers to average salary
 
 **************************
-【Answer】
+
+** ANSWER **
+
 Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
 **Question**: What is the gender of the youngest client who opened account in the lowest average salary branch?
 **Hint**: Given that Later birthdate refers to younger age; A11 refers to average salary
@@ -200,17 +219,15 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 
 ```sql
 SELECT "T1"."gender"
-  FROM "client" AS "T1"
-  INNER JOIN "district" AS "T2"
+  FROM "client" AS "T1" INNER JOIN "district" AS "T2"
   ON "T1"."district_id" = "T2"."district_id"
   ORDER BY "T2"."A11" ASC, "T1"."birth_date" DESC NULLS LAST
   LIMIT 1
 ```
+=========== Example 2 (dividing into two parallel sub-questions) ===========
 
-===========
-Example 2 (dividing into two parallel sub-questions)
-**************************
-【Schema】
+** DATABASE SCHEMA **
+
 Table: games
 [
 (id:INTEGER, Primary Key, the unique identifier for the game),
@@ -234,15 +251,16 @@ games_city.city_id = city.id
 games_city.games_id = games.id
 
 **************************
-【Question】
-Question:
+
+** QUESTION **
 From 1900 to 1992, how many games did London host?
 
-Hint:
+** HINT **
 From 1900 to 1992 refers to games_year BETWEEN 1900 AND 1992; London refers to city_name = 'London'; games refer to games_name;
 
 **************************
-【Answer】
+
+** ANSWER **
 
 Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
 **Question**: From 1900 to 1992, how many games did London host?
@@ -283,12 +301,9 @@ Repeating the question and hint, and generating the SQL with Recursive Divide-an
 SELECT COUNT(T3.id) FROM games_city AS T1 INNER JOIN city AS T2 ON T1.city_id = T2.id INNER JOIN games AS T3 ON T1.games_id = T3.id WHERE T2.city_name = 'London' AND T3.games_year BETWEEN 1900 AND 1992
 ``` 
 
-===========
+=========== Example 3 (When it's not clear which column should be used for a string matching, use a loosen condition such as string LIKE and OR condition to cover multiple possible columns.) ===========
 
-Example 3 (When it's not clear which column should be used for a string matching, use a loosen condition such as string LIKE and OR condition to cover multiple possible columns.)
-**************************
-【Table creation statements】
-【Schema】
+** DATABASE SCHEMA **
 
 Table: student_programs
 [
@@ -298,12 +313,15 @@ Table: student_programs
 (School Category:TEXT, School Category, Examples: ['Charter Schools', 'Private Schools', 'Magnet Schools'])
 ]
 
+** QUESTION **
+Please list the lowest three participation rates for students aged 10-15 in online programs. 
+
+** EVIDENCE **
+
 **************************
-【Question】
-Question: Please list the lowest three participation rates for students aged 10-15 in online programs. 
-Hint: Participation rate for students aged 10-15 = "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)"
-**************************
-【Answer】
+
+** ANSWER **
+
 Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
 **Question:** Please list the lowest three participation rates for students aged 10-15 in online programs. 
 **Hint:** Participation rate for students aged 10-15 = "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)"
@@ -345,22 +363,22 @@ SELECT "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" FROM "stude
   ORDER BY "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" ASC NULLS LAST LIMIT 3;
 ```
 
-=============
+============= Example 4 =============
 
-Example 4
-**************************
-【Schema】
+** DATABASE SCHEMA **
+
 Table: employees
 [
 (employee_id:INTEGER, Primary Key, the unique identifier of the employee, Examples: [100, 101, 102]),
 (department_id:INTEGER, the id of the department the employee belongs to, Examples: [10, 20, 30]),
 (salary:INTEGER, the salary of the employee, Examples: [50000, 75000, 90000])
 ]
-**************************
-【Question】
+
+** QUESTION **
 Question: How many employees earn over $100,000?
 
-【Answer】
+** ANSWER **
+
 Repeating the question and hint, and generating the SQL with Recursive Divide-and-Conquer.
 **Question:** How many employees earn over $100,000?
 
@@ -394,7 +412,9 @@ SELECT COUNT(*) FROM employees WHERE salary > 100000;
 ```
 
 ====== Example 5 =======
-**************************
+
+** DATABASE SCHEMA **
+
 【DB_ID】 airline
 【Schema】
 Table: Airlines
@@ -412,17 +432,16 @@ Table: Airports
 Airlines.ORIGIN = Airports.Code
 Airlines.DEST = Airports.Code
 
-**************************
-【Question】
-Question: 
+** QUESTION **
 How many flights were there from San Diego International airport to Los Angeles International airport in the August of 2018? 
 
-Evidence:
+** EVIDENCE **
 flights from refers to ORIGIN; San Diego International airport refers to Description = 'San Diego, CA: San Diego International'; flights to refers to DEST; Los Angeles International airport refers to Description = 'Los Angeles, CA: Los Angeles International'; in the August of 2018 refers to FL_DATE like '2018/8%';
 
-
 **************************
-【Answer】
+
+** ANSWER **
+
 **Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.**
 
 **Question**: How many flights were there from San Diego International airport to Los Angeles International airport in the August of 2018? 
@@ -470,7 +489,10 @@ flights from refers to ORIGIN; San Diego International airport refers to Descrip
 SELECT COUNT(FL_DATE) FROM Airlines WHERE FL_DATE LIKE '2018/8%' AND ORIGIN = ( SELECT T2.ORIGIN FROM Airports AS T1 INNER JOIN Airlines AS T2 ON T1.Code = T2.ORIGIN WHERE T1.Description = 'San Diego, CA: San Diego International' ) AND DEST = ( SELECT T4.DEST FROM Airports AS T3 INNER JOIN Airlines AS T4 ON T3.Code = T4.DEST WHERE T3.Description = 'Los Angeles, CA: Los Angeles International' )
 ``` 
 
-===== Example 5 ========
+===== Example 6 ========
+
+** DATABASE SCHEMA **
+
 【DB_ID】 eatery_inspection
 【Schema】
 Table: businesses
@@ -493,16 +515,16 @@ Table: violations
 inspections.business_id = businesses.business_id
 violations.business_id = businesses.business_id
 
-
-**************************
-【Question】
-Question: 
+** QUESTION **
 What are the names of the establishments that met all the required standards for 4 consecutive years? 
-Evidence:
+
+** EVIDENCE **
 establishment has the same meaning as business; score of 90 or more refers to score ≥ 90; year(date) = 2015; ; met all required standards for 4 consecutive years refers to COUNT(year(date)) = 4 where score = 100;
 
 **************************
-【Answer】
+
+** ANSWER **
+
 Repeating the question and evidence, and generating the SQL with Recursive Divide-and-Conquer.
 
 **Question**: What are the names of the establishments that met all the required standards for 4 consecutive years? 
@@ -560,34 +582,21 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 ```sql
 SELECT DISTINCT T4.name FROM ( SELECT T3.name, T3.years, row_number() OVER (PARTITION BY T3.name ORDER BY T3.years) AS rowNumber FROM ( SELECT DISTINCT name, STRFTIME('%Y', "date") AS years FROM inspections AS T1 INNER JOIN businesses AS T2 ON T1.business_id = T2.business_id WHERE T1.score = 100 ) AS T3 ) AS T4 GROUP BY T4.name, date(T4.years || '-01-01', '-' || (T4.rowNumber - 1) || ' years') HAVING COUNT(T4.years) = 4
 ```
-===========
 
-Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************
-【Table creation statements】
+Now, given the following database schema and question, generate the Divide-And-Conquer steps and the Final Optimized SQL Query.
+
+** DATABASE SCHEMA **
 {DATABASE_SCHEMA}
 
-Relevant Entities:
+** RELEVANT ENTITIES ** 
 {RELEVANT_ENTITIES}
 
-The “Relevant Entities” section lists database columns that match phrases from the question. It does not mean all of them are relevant to answering this question.
-You can refer to these as hints when choosing the correct columns in the query(the column MUST be in the database schema otherwise it HAS TO BE ignored.)
-If a value appears in multiple columns and you determined you only need one of those columns, you can pick the column with the broader meaning — unless the question clearly asks for something more specific.
-
-**************************
-【Question】
-Question: 
+** QUESTION **
 {QUESTION}
 
-Evidence:
+** EVIDENCE ** 
 {HINT}
-
-**************************
-Output Format:
-In your answer, please enclose the generated SQL query in a code block:
-```sql
--- Your SQL 
-```
 """
 
 
@@ -635,11 +644,9 @@ Database admin instructions (violating any of the following will result is punis
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-15. **Always put column names between quotation marks"
+15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
     
-When you get to the final query, output the query string ONLY inside the xml delimiter ```sql```.
-
 Here are some examples
 
 ===========

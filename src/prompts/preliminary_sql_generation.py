@@ -1,10 +1,8 @@
 PRELIMINARY_SQL_PROMPT = """
-You are an experienced SQLite expert.
-Now you need to generate a SQL query given the database information, a question and some additional information.
-The database structure is defined by the following table schemas.
+You are an experienced SQLite expert.Tou need to generate a SQL query given the database information, a question and some additional information.
 Note that the "Example Values" are actual values from the column. Some column might contain the values that are directly related to the question. Use it to help you justify which columns to use.
 
-Given the table schema information description and the "Question". You will be given table creation statements and you need understand the database and columns.
+## Instructions
 
 Database admin instructions (violating any of the following will result is punishble to death!):
 1. **SELECT Clause:** 
@@ -38,32 +36,30 @@ Database admin instructions (violating any of the following will result is punis
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
 15. **Always put column names between quotation marks"
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
-    
-When you get to the final query, output the query string ONLY inside the delimiter ```sql```.
+16. ** Relevant Entities For Disambiguation **
+    - If a value appears in multiple columns as a relevant entity and you determined you only need one of those columns, you can pick the column with the broader meaning — unless the question clearly asks for something more specific.
+    - You can refer to these as hints when choosing the correct columns for the query.
 
-**************************
-【Table creation statements】
-{DATABASE_SCHEMA}
 
-Relevant Entities:
-{RELEVANT_ENTITIES}
-
-The “Relevant Entities” section lists database columns that match phrases from the question. It does not mean all of them are relevant to answering this question.
-You can refer to these as hints when choosing the correct columns for the query as a helper.
-If a value appears in multiple columns and you determined you only need one of those columns, you can pick the column with the broader meaning — unless the question clearly asks for something more specific.
-
-**************************
-【Question】
-Question: 
-{QUESTION}
-
-Evidence:
-{HINT}
-
-**************************
-Output Format:
+## Output Format:
 In your answer, please enclose the generated SQL query in a code block:
 ```sql
 -- Your SQL 
 ```
+
+**************************
+Given the following information, generate the SQL query that answers the question.
+First understand the database schema and the criteria in the question very well.
+
+** DATABASE SCHEMA **  
+{DATABASE_SCHEMA}
+
+** RELEVANT ENTITIES **  
+{RELEVANT_ENTITIES}
+
+** QUESTION **  
+{QUESTION}
+
+** EVIDENCE **
+{HINT}
 """
