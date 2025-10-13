@@ -16,14 +16,21 @@ Tips:
 
 ## Input Format
 
-SQL Queries and their Results will be provided in this format:
+SQL Queries are grouped by their execution results. The "Votes" for each group indicate the number of queries that produced the same output.
+
+The queries and their results will be provided in this format:
+--- Query Group 1 (Votes: <<vote_count>>) ---
   0: <<sql-query>>
       Execution Status: <<status>>
       Query output: <<json>>
   1: <<sql-query>>
       Execution Status: <<status>>
       Query output: <<json>>
-  ...
+--- Query Group 2 (Votes: <<vote_count>>) ---
+  2: <<sql-query>>
+      Execution Status: <<status>>
+      Query output: <<json>>
+...
 
 ## Output Format
 

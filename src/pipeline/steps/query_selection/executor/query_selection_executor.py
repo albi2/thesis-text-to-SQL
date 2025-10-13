@@ -10,65 +10,55 @@ from util.constants import DatabaseConstants, Text2SQLModelKeys
 from components.models.api_model_facade import ApiModelFacade
 
 class QuerySelectionExecutor:
+    MAJORITY_THRESHOLD = 0.5
+    MAX_RETRIES = 2
+    MAX_QUERIES_PER_GROUP = 3
+
     def __init__(self):
-        # self.reasoning_model_facade = ReasoningModelFacade()
         self.api_model = ApiModelFacade()
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
-        """
-        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
-        """
         if not relevant_entities:
             return ""
-
-        entities_by_phrase = {}
-        for table, columns in relevant_entities.items():
-            for column, entities in columns.items():
-                for entity in entities:
-                    phrase = entity["phrase"]
-                    if phrase not in entities_by_phrase:
-                        entities_by_phrase[phrase] = []
-                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
-
-        output_str = ""
-        for phrase, entities in entities_by_phrase.items():
-            output_str += f"'{phrase}':\n"
-            output_str += "\n".join(entities)
-            output_str += "\n\n"
-        
-        return output_str
+        entities_by_phrase = {
+            entity["phrase"]: entities_by_phrase.get(entity["phrase"], []) + [f"- {table}.{column} = {entity['value']}"]
+            for table, columns in relevant_entities.items()
+            for column, entities in columns.items()
+            for entity in entities
+        }
+        return "\n\n".join([f"'{phrase}':\n" + "\n".join(entities) for phrase, entities in entities_by_phrase.items()]) + "\n\n"
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
         clusters = self._cluster_equivalent_queries(pipeline_context)
-        
-        model_priority = {
-            model: config["priority"]
-            for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
-        }
-        
-        selected_queries = []
-        for cluster in clusters:
-            best_query_in_cluster = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
-            selected_queries.append(best_query_in_cluster)
+
+        if len(clusters) == 1:
+            return clusters[0][0]
+
+        selected_queries = [
+            query for cluster in clusters for query in sorted(
+                cluster, key=lambda q: Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.get(q.model_key, {}).get("priority", 99)
+            )[:self.MAX_QUERIES_PER_GROUP]
+        ]
 
         queries_with_results = ""
-        for i, info in enumerate(selected_queries):
-            cluster_size = len([q for q in pipeline_context.generated_sql_queries if compare_sqls_outcomes(q.sql_exec_info.sql, info.sql_exec_info.sql, DatabaseConstants.DB_PATH, pipeline_context.db_engine)])
-            queries_with_results += f"{i}: {info.sql_exec_info.sql}\n"
-            queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
-            if info.sql_exec_info.result is not None:
-                queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
-            queries_with_results += f"  Votes: {cluster_size}\n"
+        query_index = 0
+        for i, cluster in enumerate(clusters):
+            queries_with_results += f"--- Query Group {i+1} (Votes: {len(cluster)}) ---\n"
+            sorted_cluster = sorted(cluster, key=lambda q: Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.get(q.model_key, {}).get("priority", 99))
+            
+            for info in sorted_cluster[:self.MAX_QUERIES_PER_GROUP]:
+                queries_with_results += f"{query_index}: {info.sql_exec_info.sql}\n"
+                queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
+                if info.sql_exec_info.result is not None:
+                    queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
+                query_index += 1
 
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
             raise ValueError("SchemaEngine not found in pipeline context.")
 
-        mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
-            show_type_detail=True
-        )
-
+        mschema_string = pipeline_context.schema_engine.mschema.to_mschema(show_type_detail=True)
         filtered_schemas_str = self._prepare_filtered_schemas(pipeline_context.selected_schemas)
-        # relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        
         full_prompt = QUERY_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_string,
             FILTERED_SCHEMAS=filtered_schemas_str,
@@ -76,32 +66,23 @@ class QuerySelectionExecutor:
             HINT=getattr(pipeline_context, 'hint', ''),
             CRITERIA=pipeline_context.query_evaluation_criteria,
             QUERIES=queries_with_results
-            # RELEVANT_ENTITIES=relevant_entities_str
         )
         
-        query_chain = self.api_model.get_chain()
-        model_response = self.api_model.invoke_chain(query_chain, {"user_prompt": full_prompt})
-
-        try:
-            match = re.search(r"reasoning:\s*(.*?)\s*query_index:\s*(\d+)", model_response, re.DOTALL)
-            if match:
-                reasoning = match.group(1).strip()
-                query_index = int(match.group(2))
-                pipeline_context.query_selection_reasoning = reasoning
-                return selected_queries[query_index]
-            else:
+        for attempt in range(self.MAX_RETRIES):
+            model_response = self.api_model.invoke_chain(self.api_model.get_chain(), {"user_prompt": full_prompt})
+            try:
+                match = re.search(r"reasoning:\s*(.*?)\s*query_index:\s*(\d+)", model_response, re.DOTALL)
+                if match:
+                    reasoning, query_index_str = match.groups()
+                    query_index = int(query_index_str)
+                    pipeline_context.query_selection_reasoning = reasoning.strip()
+                    return selected_queries[query_index]
+            except (ValueError, IndexError) as e:
+                print(f"Attempt {attempt + 1} failed: Could not parse query index or reasoning from model response: {e}")
                 pipeline_context.query_selection_reasoning = model_response
-                print("Could not parse query index from selection response: {}", model_response)
-        except (ValueError, IndexError) as e:
-            print(f"Could not parse query index or reasoning from model response: {e}")
-            pipeline_context.query_selection_reasoning = model_response
-            if selected_queries:
-                return selected_queries[0]
         
-        if selected_queries:
-            return selected_queries[0]
-        
-        return None
+        print("All retries failed. Returning the first query.")
+        return selected_queries[0] if selected_queries else None
 
     def _prepare_filtered_schemas(self, filtered_schemas: List[dict]) -> str:
         """
