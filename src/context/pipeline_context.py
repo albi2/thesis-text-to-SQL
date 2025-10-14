@@ -42,6 +42,7 @@ class PipelineContext(GenericContext):
         self.query_selection_reasoning: Optional[str] = None
         self.query_evaluation_criteria: Optional[str] = None
         self.non_executable_sql_queries: List[SQLQuery] = []
+        self.fixed_sql_queries: List[SQLQuery] = []
         self.evaluation_result: Optional[Any] = None
         self.descriptions_database: Optional[DatabaseDescriptor] = None
         self.relevant_entities: dict = {}
@@ -80,6 +81,7 @@ class PipelineContext(GenericContext):
             "selected_schemas": [selected_schema for selected_schema in self.selected_schemas],
             "generated_sql_queries": [gen_sql.to_full_dict() for gen_sql in self.generated_sql_queries],
             "non_executable_sql_queries": [query.to_full_dict() for query in self.non_executable_sql_queries],
+            "fixed_sql_queries": [query.to_full_dict() for query in self.fixed_sql_queries],
             "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None,
             "query_selection_reasoning": self.query_selection_reasoning,
             "query_evaluation_criteria": self.query_evaluation_criteria

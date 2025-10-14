@@ -27,7 +27,7 @@ class QueryRefinementExecutor:
                     QUESTION=pipeline_context.user_query,
                     SQL_QUERY=sql_query.sql_exec_info.sql,
                     ERROR_MESSAGE=sql_query.sql_exec_info.error_message, 
-                    HINT=pipeline.task.evidence
+                    HINT=pipeline_context.task.evidence
                 )
                 
                 query_chain = self.api_model_gemini.get_chain()
@@ -45,7 +45,9 @@ class QueryRefinementExecutor:
             except Exception as e:
                 print(f"Could not parse refined response from Gemini: {e}")
 
+
         if refined_sql_queries:
+            pipeline_context.non_executable_sql_queries = []
             try:
                 loop = asyncio.get_event_loop()
             except RuntimeError:
@@ -63,5 +65,17 @@ class QueryRefinementExecutor:
                         schema_representation=original_query.schema_representation,
                         model_key=original_query.model_key
                     ))
+                    pipeline_context.fixed_sql_queries.append(SQLQuery(
+                        sql_exec_info=sql_exec_info,
+                        schema_representation=original_query.schema_representation,
+                        model_key=original_query.model_key
+                    ))
+                else:
+                    pipeline_context.non_executable_sql_queries.append(SQLQuery(
+                        sql_exec_info=sql_exec_info,
+                        schema_representation=original_query.schema_representation,
+                        model_key=original_query.model_key
+                    ))
+
         
         return refined_sql_queries
