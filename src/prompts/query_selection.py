@@ -16,18 +16,11 @@ Tips:
 
 ## Input Format
 
-SQL Queries are grouped by their execution results. The "Votes" for each group indicate the number of queries that produced the same output.
-
 The queries and their results will be provided in this format:
---- Query Group 1 (Votes: <<vote_count>>) ---
   0: <<sql-query>>
       Execution Status: <<status>>
       Query output: <<json>>
   1: <<sql-query>>
-      Execution Status: <<status>>
-      Query output: <<json>>
---- Query Group 2 (Votes: <<vote_count>>) ---
-  2: <<sql-query>>
       Execution Status: <<status>>
       Query output: <<json>>
 ...
@@ -37,11 +30,11 @@ The queries and their results will be provided in this format:
 First repeat the question, hint and the evaluation criteria.
 Follow up with the response exactly in this format:
 reasoning: <concise reasoning explaining your choice in 2–4 sentences based on the provided evaluation criteria>
-query_index: <index>
+query_indices: [<index1>, <index2>, ...]
 
 Where:
 - <reasoning> briefly justifies your choice based on the evaluation criteria.
-- <index> is the 0-based index of the selected query.
+- <query_indices> is a JSON array of 0-based indices of the selected queries that meet the criteria.
 
 **************************
 Given the following information perform the analysis and choose the best query to answer the question.

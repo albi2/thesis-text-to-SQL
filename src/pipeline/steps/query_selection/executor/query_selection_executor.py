@@ -4,6 +4,7 @@ from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.query_selection import PROMPT as QUERY_SELECTION_PROMPT
+from prompts.query_selection_second_round import PROMPT as QUERY_SELECTION_SECOND_ROUND_PROMPT
 from prompts.criteria_generation import PROMPT as CRITERIA_GENERATION_PROMPT
 from util.db.execute import SQLExecInfo, compare_sqls_outcomes
 from util.constants import DatabaseConstants, Text2SQLModelKeys
@@ -29,60 +30,108 @@ class QuerySelectionExecutor:
         return "\n\n".join([f"'{phrase}':\n" + "\n".join(entities) for phrase, entities in entities_by_phrase.items()]) + "\n\n"
 
     def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
-        clusters = self._cluster_equivalent_queries(pipeline_context)
+        generated_queries = pipeline_context.generated_sql_queries
+
+        # First selection round
+        selected_indices = self._select_queries(pipeline_context, generated_queries)
+        
+        if not selected_indices:
+            print("No queries selected in the first round. Returning the first generated query.")
+            return generated_queries[0] if generated_queries else None
+
+        selected_queries = [generated_queries[i] for i in selected_indices]
+
+        # Check for result equality
+        clusters = self._cluster_equivalent_queries_from_list(selected_queries, pipeline_context)
 
         if len(clusters) == 1:
-            return clusters[0][0]
+            # All queries have the same result
+            return self._select_final_query(clusters, pipeline_context)
 
-        selected_queries = [
-            query for cluster in clusters for query in sorted(
-                cluster, key=lambda q: Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.get(q.model_key, {}).get("priority", 99)
-            )[:self.MAX_QUERIES_PER_GROUP]
-        ]
+        # Second selection round if results are not equal
+        print("Query results are not equal, performing second selection round.")
+        
+        queries_from_first_round = [q for cluster in clusters for q in cluster]
+        selected_indices_2 = self._select_queries(pipeline_context, generated_queries, is_second_round=True, previous_selection=queries_from_first_round)
+        
+        if not selected_indices_2:
+            print("No queries selected in the second round. Falling back to clustering.")
+            final_clusters = self._cluster_equivalent_queries_from_list(selected_queries, pipeline_context)
+            return self._select_final_query(final_clusters, pipeline_context)
 
+        selected_queries_2 = [generated_queries[i] for i in selected_indices_2]
+        
+        final_clusters = self._cluster_equivalent_queries_from_list(selected_queries_2, pipeline_context)
+        
+        return self._select_final_query(final_clusters, pipeline_context)
+
+    def _select_final_query(self, clusters, pipeline_context):
+        if not clusters:
+            return pipeline_context.generated_sql_queries[0]
+
+        biggest_cluster = max(clusters, key=len)
+        
+        original_clusters = self._cluster_equivalent_queries(pipeline_context)
+        original_biggest_cluster = max(original_clusters, key=len)
+
+        for query in biggest_cluster:
+            if query in original_biggest_cluster:
+                return query
+        
+        return biggest_cluster[0]
+
+    def _select_queries(self, pipeline_context: PipelineContext, queries: List[SQLExecInfo], is_second_round: bool = False, previous_selection: List[SQLExecInfo] = None) -> List[int]:
         queries_with_results = ""
-        query_index = 0
-        for i, cluster in enumerate(clusters):
-            queries_with_results += f"--- Query Group {i+1} (Votes: {len(cluster)}) ---\n"
-            sorted_cluster = sorted(cluster, key=lambda q: Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.get(q.model_key, {}).get("priority", 99))
-            
-            for info in sorted_cluster[:self.MAX_QUERIES_PER_GROUP]:
-                queries_with_results += f"{query_index}: {info.sql_exec_info.sql}\n"
-                queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
-                if info.sql_exec_info.result is not None:
-                    queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
-                query_index += 1
-
-        if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
-            raise ValueError("SchemaEngine not found in pipeline context.")
+        for i, info in enumerate(queries):
+            queries_with_results += f"{i}: {info.sql_exec_info.sql}\n"
+            queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
+            if info.sql_exec_info.result is not None:
+                queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
 
         mschema_string = pipeline_context.schema_engine.mschema.to_mschema(show_type_detail=True)
         filtered_schemas_str = self._prepare_filtered_schemas(pipeline_context.selected_schemas)
         
-        full_prompt = QUERY_SELECTION_PROMPT.format(
-            DATABASE_SCHEMA=mschema_string,
-            FILTERED_SCHEMAS=filtered_schemas_str,
-            QUESTION=pipeline_context.user_query,
-            HINT=getattr(pipeline_context, 'hint', ''),
-            CRITERIA=pipeline_context.query_evaluation_criteria,
-            QUERIES=queries_with_results
-        )
+        prompt_template = QUERY_SELECTION_SECOND_ROUND_PROMPT if is_second_round else QUERY_SELECTION_PROMPT
         
+        prompt_args = {
+            "DATABASE_SCHEMA": mschema_string,
+            "FILTERED_SCHEMAS": filtered_schemas_str,
+            "QUESTION": pipeline_context.user_query,
+            "HINT": getattr(pipeline_context, 'hint', ''),
+            "CRITERIA": pipeline_context.query_evaluation_criteria,
+            "QUERIES": queries_with_results
+        }
+
+        if is_second_round and previous_selection:
+            previous_selection_str = ""
+            for info in previous_selection:
+                # Find the index of the query in the main list
+                try:
+                    previous_selection_str += f"{info.sql_exec_info.sql}\n"
+                    previous_selection_str += f"  Execution Status: {info.sql_exec_info.status.value}\n"
+                    if info.sql_exec_info.result is not None:
+                        previous_selection_str += f"  Query Output: {str(info.sql_exec_info.result)}\n"
+                except ValueError:
+                    # Should not happen if logic is correct
+                    pass
+            prompt_args["PREVIOUS_SELECTION"] = previous_selection_str
+
+        full_prompt = prompt_template.format(**prompt_args)
+
         for attempt in range(self.MAX_RETRIES):
             model_response = self.api_model.invoke_chain(self.api_model.get_chain(), {"user_prompt": full_prompt})
             try:
-                match = re.search(r"reasoning:\s*(.*?)\s*query_index:\s*(\d+)", model_response, re.DOTALL)
+                match = re.search(r"reasoning:\s*(.*?)\s*query_indices:\s*(\[.*?\])", model_response, re.DOTALL)
                 if match:
-                    reasoning, query_index_str = match.groups()
-                    query_index = int(query_index_str)
+                    reasoning, indices_str = match.groups()
+                    indices = json.loads(indices_str)
                     pipeline_context.query_selection_reasoning = reasoning.strip()
-                    return selected_queries[query_index]
-            except (ValueError, IndexError) as e:
-                print(f"Attempt {attempt + 1} failed: Could not parse query index or reasoning from model response: {e}")
+                    return [int(i) for i in indices]
+            except (ValueError, IndexError, json.JSONDecodeError) as e:
+                print(f"Attempt {attempt + 1} failed: Could not parse query indices or reasoning from model response: {e}")
                 pipeline_context.query_selection_reasoning = model_response
         
-        print("All retries failed. Returning the first query.")
-        return selected_queries[0] if selected_queries else None
+        return []
 
     def _prepare_filtered_schemas(self, filtered_schemas: List[dict]) -> str:
         """
@@ -104,8 +153,7 @@ class QuerySelectionExecutor:
         
         return output_str
 
-    def _cluster_equivalent_queries(self, pipeline_context: PipelineContext) -> List[List[SQLExecInfo]]:
-        queries = pipeline_context.generated_sql_queries
+    def _cluster_equivalent_queries_from_list(self, queries: List[SQLExecInfo], pipeline_context: PipelineContext) -> List[List[SQLExecInfo]]:
         clusters = []
         visited = [False] * len(queries)
 
@@ -131,3 +179,6 @@ class QuerySelectionExecutor:
             clusters.append(current_cluster)
             
         return clusters
+
+    def _cluster_equivalent_queries(self, pipeline_context: PipelineContext) -> List[List[SQLExecInfo]]:
+        return self._cluster_equivalent_queries_from_list(pipeline_context.generated_sql_queries, pipeline_context)
