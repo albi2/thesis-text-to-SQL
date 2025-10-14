@@ -55,42 +55,48 @@ class RunningManager:
         """
         print(f"Running pipeline for question_id: {task.question_id} on db_id: {task.db_id}")
 
-        db_manager = DatabaseManager()
-        database_engine = db_manager.create_engine(task.db_id)
-        
-        if not database_engine:
-            print(f"Failed to create database engine for db_id: {task.db_id}. Skipping task.")
-            return
+        try:
+            db_manager = DatabaseManager()
+            database_engine = db_manager.create_engine(task.db_id)
+            
+            if not database_engine:
+                print(f"Failed to create database engine for db_id: {task.db_id}. Skipping task.")
+                return
 
-        schema_factory = SchemaEngineFactory()
-        schema_engine = schema_factory.create_schema_engine(engine=database_engine, db_name=task.db_id)
+            schema_factory = SchemaEngineFactory()
+            schema_engine = schema_factory.create_schema_engine(engine=database_engine, db_name=task.db_id)
 
-        if not schema_engine:
-            print(f"Failed to create SchemaEngine for db_id: {task.db_id}. Skipping task.")
-            return
+            if not schema_engine:
+                print(f"Failed to create SchemaEngine for db_id: {task.db_id}. Skipping task.")
+                return
 
-        context = PipelineContext(
-            task=task,
-            db_engine=database_engine,
-            schema_engine=schema_engine
-        )
+            context = PipelineContext(
+                task=task,
+                db_engine=database_engine,
+                schema_engine=schema_engine
+            )
 
-        pipeline = Pipeline[PipelineContext].Builder() \
-            .add_step(InformationRetrievalStep()) \
-            .add_step(CriteriaGenerationStep()) \
-            .add_step(SchemaFilterStep()) \
-            .add_step(SQLGenerationStep()) \
-            .add_step(QuerySelectionStep()) \
-            .add_step(QueryRefinementStep()) \
-            .add_step(EvaluationStep()) \
-            .add_step(PrintOutputStep()) \
-            .build()
+            pipeline = Pipeline[PipelineContext].Builder() \
+                .add_step(InformationRetrievalStep()) \
+                .add_step(CriteriaGenerationStep()) \
+                .add_step(SchemaFilterStep()) \
+                .add_step(SQLGenerationStep()) \
+                .add_step(QuerySelectionStep()) \
+                .add_step(QueryRefinementStep()) \
+                .add_step(EvaluationStep()) \
+                .add_step(PrintOutputStep()) \
+                .build()
 
-        pipeline.run(context)
-        
-        self.statistics_manager.add_result(context.evaluation_result)
-        print(f"Finished pipeline for question_id: {task.question_id}")
-        return context.to_full_dict()
+            pipeline.run(context)
+            
+            self.statistics_manager.add_result(context.evaluation_result)
+            print(f"Finished pipeline for question_id: {task.question_id}")
+            return context.to_full_dict()
+        except Exception as e:
+            print(f"An error occurred during pipeline execution for task {task.question_id}: {e}")
+            # Create an empty context or handle the error as needed
+            empty_context = PipelineContext(task=task)
+            return empty_context.to_full_dict()
 
     def run_evaluation(self):
         """
