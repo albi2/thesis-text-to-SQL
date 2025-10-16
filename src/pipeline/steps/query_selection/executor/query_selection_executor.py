@@ -35,13 +35,19 @@ class QuerySelectionExecutor:
         scored_queries = self._score_queries(pipeline_context, generated_queries)
         pipeline_context.scoring = scored_queries
 
-        # Sort by score and take the top 5
-        sorted_queries = sorted(scored_queries, key=lambda x: x[0], reverse=True)
-        top_queries = [query for score, query in sorted_queries[:5]]
+        if scored_queries:
+            # Sort by score and take the top 5
+            sorted_queries = sorted(scored_queries, key=lambda x: x[0], reverse=True)
+            top_queries = [query for score, query in sorted_queries[:5]]
 
-        # Cluster the top 5 queries
-        clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context)
-        print(f"CLUSTERS AFTER SCORING {clusters}")
+            # Cluster the top 5 queries
+            clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context)
+            print(f"CLUSTERS AFTER SCORING {clusters}")
+        else:
+            # If scoring fails, cluster all generated queries
+            clusters = self._cluster_equivalent_queries_from_list(generated_queries, pipeline_context)
+            print(f"CLUSTERS AFTER FAILED SCORING {clusters}")
+
         # Run tournament
         winning_query = self._run_tournament(clusters, pipeline_context)
         print(f"WINNER {winning_query}")
@@ -116,39 +122,31 @@ class QuerySelectionExecutor:
         return []
 
     def _run_tournament(self, clusters: List[List[SQLExecInfo]], pipeline_context: PipelineContext) -> SQLExecInfo:
-        # Trim clusters to a maximum of two queries
-        if len(clusters) == 0:
+        if not clusters:
+            return None
+
+        # Take the first query from each cluster as a representative
+        representatives = [cluster[0] for cluster in clusters if cluster]
+        
+        if not representatives:
             return None
         
-        for i in range(len(clusters)):
-            clusters[i] = clusters[i][:2]
+        if len(representatives) == 1:
+            return representatives[0]
 
-        while len(clusters) > 1:
-            # Round robin selection of two groups
-            group1_idx, group2_idx = 0, 1
-            
-            group1 = clusters[group1_idx]
-            group2 = clusters[group2_idx]
+        scores = {i: 0 for i in range(len(representatives))}
 
-            champion1 = group1.pop(0)
-            champion2 = group2.pop(0)
-
-            winner = self._compare_queries(champion1, champion2, pipeline_context)
-
-            if winner == 1:
-                # champion1 wins, champion2 is out
-                if group1: # if group1 has more champions, put the winner back
-                    group1.insert(0, champion1)
-                if not group2:
-                    clusters.pop(group2_idx)
-            else:
-                # champion2 wins, champion1 is out
-                if group2:
-                    group2.insert(0, champion2)
-                if not group1:
-                    clusters.pop(group1_idx)
+        for i in range(len(representatives)):
+            for j in range(i + 1, len(representatives)):
+                winner = self._compare_queries(representatives[i], representatives[j], pipeline_context)
+                if winner == 1:
+                    scores[i] += 1
+                else:
+                    scores[j] += 1
         
-        return clusters[0][0]
+        # Find the query with the highest score
+        winner_index = max(scores, key=scores.get)
+        return representatives[winner_index]
 
     def _compare_queries(self, query1: SQLExecInfo, query2: SQLExecInfo, pipeline_context: PipelineContext) -> int:
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
