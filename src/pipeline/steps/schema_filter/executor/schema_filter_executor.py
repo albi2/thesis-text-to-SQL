@@ -80,7 +80,11 @@ class SchemaFilterExecutor:
             return None
 
     def execute(self, pipeline_context: PipelineContext) -> List[dict]:
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         
         # 1. Get unique table and column names from context
         unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
