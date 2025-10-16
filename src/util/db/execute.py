@@ -165,14 +165,25 @@ def compare_sqls_outcomes(sql_1: str, sql_2: str, db_path: str, engine: Engine) 
             if not result:
                 return ""
 
+            def safe_sort_key(value):
+                """Convert value to a sortable format, handling None"""
+                if value is None:
+                    return (0, '')  # None sorts first
+                elif isinstance(value, str):
+                    return (1, value)
+                elif isinstance(value, (int, float)):
+                    return (2, value)
+                else:
+                    return (3, str(value))
+
             # Sort values within each row (ignore column order)
-            rows_as_tuples = [tuple(sorted(row.values(), key=str)) for row in result]
+            rows_as_tuples = [tuple(sorted(row.values(), key=safe_sort_key)) for row in result]
 
             # Sort rows (so row order doesn't matter)
-            sorted_rows = sorted(rows_as_tuples)
+            sorted_rows = sorted(rows_as_tuples, key=lambda row: tuple(safe_sort_key(val) for val in row))
 
             # Hash final representation
-            return hashlib.md5(json.dumps(sorted_rows, sort_keys=True).encode()).hexdigest()
+            return hashlib.md5(json.dumps(sorted_rows, sort_keys=True, default=str).encode()).hexdigest()
 
         hash_1 = sort_and_hash_ignore_col_order(result_1)
         hash_2 = sort_and_hash_ignore_col_order(result_2)

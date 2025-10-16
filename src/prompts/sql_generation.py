@@ -37,7 +37,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -55,6 +58,8 @@ Database admin instructions (violating any of the following will result is punis
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
     - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
 ## Relevant Information
 
@@ -533,7 +538,7 @@ Repeating the question and evidence, and generating the SQL with Recursive Divid
 **1. Divide and Conquer:**
 
 * **Main Question:** What are the names of the establishments that met all the required standards for 4 consecutive years?
-    * **Analysis:** We need to find the names of businesses that have a score of 100 for 4 consecutive years. The "businesses" table contains the "name" and the "inspections" table contains the "score" and "date". We will need to join these tables and filter by score. To check for consecutive years, we'll need to group by business and year, then check if each group has a count of 4.
+    * **Analysis:** We need to find the unique names of businesses that have a score of 100 for 4 consecutive years. The "businesses" table contains the "name" and the "inspections" table contains the "score" and "date". We will need to join these tables and filter by score. To check for consecutive years, we'll need to group by business and year, then check if each group has a count of 4.
     * **Pseudo SQL:** SELECT DISTINCT "T2"."name" FROM "inspections" AS "T1" INNER JOIN "businesses" AS "T2" ON "T1"."business_id" = "T2"."business_id" WHERE  <score = 100> AND <4 consecutive years>
 
     * **Sub-question 1:** score = 100

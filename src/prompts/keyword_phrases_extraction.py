@@ -142,6 +142,18 @@ Output:
 ```json
 {"keywords": ["products", "inventory", "stock", "status"], "phrases": []}
 ```
+
+Example 19:
+Question: "Find all movies starring Henry Cavill released after 2018."
+Hint: "Identify actor name and release year."
+Output:
+```json
+{
+  "keywords": ["movies", "actor", "release year"],
+  "phrases": ["Henry", "Cavill", "Henry Cavill", "2018"]
+}
+```
+```
 """
 
 PROMPT = """

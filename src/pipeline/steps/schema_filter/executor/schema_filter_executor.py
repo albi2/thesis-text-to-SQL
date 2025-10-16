@@ -17,9 +17,8 @@ from pipeline.steps.information_retrieval.executor.information_retriever import 
 class SchemaFilterExecutor:
     def __init__(self):
         # self.reasoning_model_facade = ReasoningModelFacade()
-        # Initially 0.5, 0.3
-        self.api_model_default = ApiModelFacade(temperature=0.2)
-        self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.2)
+        self.api_model_default = ApiModelFacade(temperature=0.5)
+        self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.3)
         self.information_retriever = InformationRetriever()
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
@@ -32,7 +31,7 @@ class SchemaFilterExecutor:
         entities_by_phrase = {}
         for table, columns in relevant_entities.items():
             for column, entities in columns.items():
-                for entity in entities:
+                for entity in entities[:3]:
                     phrase = entity["phrase"]
                     if phrase not in entities_by_phrase:
                         entities_by_phrase[phrase] = []
@@ -57,7 +56,7 @@ class SchemaFilterExecutor:
         )
 
         query_chain = self.api_model_default.get_chain()
-        model_response = self.api_model_default.invoke_chain(query_chain, {"user_prompt": prompt})
+        model_response = self.api_model_default.call(query_chain, {"user_prompt": prompt})
 
         if "```sql" in model_response:
             preliminary_sql = model_response.split("```sql")[1].split("```")[0].strip()
@@ -71,7 +70,7 @@ class SchemaFilterExecutor:
     async def _extract_sql_components(self, sql_query: str) -> dict:
         prompt = SQL_EXTRACTION_PROMPT.format(SQL_QUERY=sql_query)
         query_chain = self.api_model_default.get_chain()
-        model_response = self.api_model_default.invoke_chain(query_chain, {"user_prompt": prompt})
+        model_response = self.api_model_default.call(query_chain, {"user_prompt": prompt})
 
         try:
             if "```json" in model_response:
@@ -96,43 +95,49 @@ class SchemaFilterExecutor:
                     if full_column_name not in unique_column_names:
                         unique_column_names.append(full_column_name)
 
+        pipeline_context.unique_table_names = unique_table_names
+        pipeline_context.unique_column_names = unique_column_names
+        
         # 2. Generate a single schema representation with all retrieved tables and columns
         mschema_representation = pipeline_context.schema_engine.mschema.to_mschema(
             selected_tables=unique_table_names,
             selected_columns=unique_column_names
         )
 
-        # Generate and execute preliminary SQL
-        sql_exec_info = loop.run_until_complete(self._generate_and_execute_preliminary_sql(pipeline_context, mschema_representation))
-        preliminary_sql = sql_exec_info.sql
-        pipeline_context.preliminary_sql = preliminary_sql
+        if not pipeline_context.relevant_entities:
+            # Generate and execute preliminary SQL
+            sql_exec_info = asyncio.run(self._generate_and_execute_preliminary_sql(pipeline_context, mschema_representation))
+            preliminary_sql = sql_exec_info.sql
+            pipeline_context.preliminary_sql = preliminary_sql
 
-        # Extract components from SQL and re-run information retrieval
-        sql_components = loop.run_until_complete(self._extract_sql_components(preliminary_sql))
-        if sql_components is not None:
-            keywords = sql_components.get("columns", [])
-            phrases = sql_components.get("literals", [])
 
-            pipeline_context.relevant_entities = self.information_retriever.retrieve_entities(
-                db_id=pipeline_context.task.db_id,
-                phrases=phrases
-            )
+            # Extract components from SQL and re-run information retrieval
+            sql_components = asyncio.run(self._extract_sql_components(preliminary_sql))
+            if sql_components is not None: 
+                keywords = sql_components.get("columns", [])
+                phrases = sql_components.get("literals", [])
 
-        # Re-generate unique table and column names
-        unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
-        unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+                pipeline_context.relevant_entities = self.information_retriever.retrieve_entities(
+                    db_id=pipeline_context.task.db_id,
+                    phrases=phrases
+                )
+                # pipeline_context.db_schema_per_keyword.update(self.information_retriever.retrieve_context(keywords=keywords, task=pipeline_context.task, k = 3))
 
-        if pipeline_context.relevant_entities:
-            for table_name, columns in pipeline_context.relevant_entities.items():
-                if table_name not in unique_table_names:
-                    unique_table_names.append(table_name)
-                for column_name in columns.keys():
-                    full_column_name = f"{table_name}.{column_name}"
-                    if full_column_name not in unique_column_names:
-                        unique_column_names.append(full_column_name)
+            # Re-generate unique table and column names
+            unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+            unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
 
-        pipeline_context.unique_table_names = unique_table_names
-        pipeline_context.unique_column_names = unique_column_names
+            if pipeline_context.relevant_entities:
+                for table_name, columns in pipeline_context.relevant_entities.items():
+                    if table_name not in unique_table_names:
+                        unique_table_names.append(table_name)
+                    for column_name in columns.keys():
+                        full_column_name = f"{table_name}.{column_name}"
+                        if full_column_name not in unique_column_names:
+                            unique_column_names.append(full_column_name)
+
+            pipeline_context.unique_table_names = unique_table_names
+            pipeline_context.unique_column_names = unique_column_names
 
         mschema_representation = pipeline_context.schema_engine.mschema.to_mschema(
             selected_tables=unique_table_names,
@@ -156,7 +161,6 @@ class SchemaFilterExecutor:
             DATABASE_SCHEMA=mschema_representation,
             QUESTION=pipeline_context.user_query,
             HINT=pipeline_context.task.evidence,
-            FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES,
             RELEVANT_ENTITIES=relevant_entities_str
         )
 

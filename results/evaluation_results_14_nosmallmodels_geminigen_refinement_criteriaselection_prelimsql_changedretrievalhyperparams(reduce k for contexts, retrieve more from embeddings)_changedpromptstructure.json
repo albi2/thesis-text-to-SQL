@@ -2,7 +2,7 @@
     {
         "question": "Among the schools with the average score in Math over 560 in the SAT test, how many schools are directly charter-funded?",
         "evidence": "",
-        "generated_sql": "SELECT COUNT(T1.cds) FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T1.AvgScrMath > 560 AND T2.FundingType = 'Directly funded'\n",
+        "generated_sql": "SELECT COUNT(DISTINCT T1.cds) FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T1.AvgScrMath > 560 AND T2.FundingType = 'Directly funded'\n",
         "gold_sql": "SELECT COUNT(T2.`School Code`) FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE T1.AvgScrMath > 560 AND T2.`Charter Funding Type` = 'Directly funded'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -10,7 +10,7 @@
     {
         "question": "In Los Angeles how many schools have more than 500 free meals but less than 700 free meals for K-12?",
         "evidence": "",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.CDSCode) FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.City = 'Los Angeles' AND T2.\"Free Meal Count (K-12)\" > 500 AND T2.\"Free Meal Count (K-12)\" < 700\n",
+        "generated_sql": "SELECT COUNT(DISTINCT \"School Name\") FROM frpm WHERE \"County Name\" = 'Los Angeles' AND \"Free Meal Count (K-12)\" > 500 AND \"Free Meal Count (K-12)\" < 700\n",
         "gold_sql": "SELECT COUNT(CDSCode) FROM frpm WHERE `County Name` = 'Los Angeles' AND `Free Meal Count (K-12)` > 500 AND `Free Meal Count (K-12)` < 700",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -18,7 +18,7 @@
     {
         "question": "Name schools in Riverside which the average of average math score for SAT is grater than 400, what is the funding type of these schools?",
         "evidence": "Average of average math = sum(average math scores) / count(schools).",
-        "generated_sql": "SELECT T2.School, T2.FundingType FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.City = 'Riverside' AND T1.AvgScrMath > 400\n",
+        "generated_sql": "SELECT\n  T1.\"School\",\n  T1.\"FundingType\"\nFROM schools AS T1\nINNER JOIN satscores AS T2\n  ON T1.CDSCode = T2.cds\nWHERE\n  T1.\"County\" = 'Riverside'\nGROUP BY\n  T1.\"CDSCode\",\n  T1.\"School\",\n  T1.\"FundingType\"\nHAVING\n  AVG(T2.\"AvgScrMath\") > 400;\n",
         "gold_sql": "SELECT T1.sname, T2.`Charter Funding Type` FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE T2.`District Name` LIKE 'Riverside%' GROUP BY T1.sname, T2.`Charter Funding Type` HAVING CAST(SUM(T1.AvgScrMath) AS REAL) / COUNT(T1.cds) > 400",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -26,7 +26,7 @@
     {
         "question": "What is the administrator's email address of the chartered school with the fewest students enrolled in grades 1 through 12?",
         "evidence": "Charted school means `Charter School (Y/N)` = 1 in the table frpm; Students enrolled in grades 1 through 12 refers to `Enrollment (K-12)`",
-        "generated_sql": "SELECT T1.AdmEmail1 FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.\"Charter School (Y/N)\" = 1 AND T2.\"Enrollment (K-12)\" = (SELECT MIN(\"Enrollment (K-12)\") FROM frpm WHERE \"Charter School (Y/N)\" = 1)\n",
+        "generated_sql": "SELECT T1.\"AdmEmail1\" FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.\"Charter School (Y/N)\" = 1 AND T2.\"Enrollment (K-12)\" IS NOT NULL ORDER BY T2.\"Enrollment (K-12)\" ASC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT T2.AdmEmail1 FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.`Charter School (Y/N)` = 1 ORDER BY T1.`Enrollment (K-12)` ASC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -34,7 +34,7 @@
     {
         "question": "What is the telephone number for the school with the lowest average score in reading in Fresno Unified?",
         "evidence": "Fresno Unified is a name of district;",
-        "generated_sql": "SELECT T1.Phone FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T1.District = 'Fresno Unified' ORDER BY T2.AvgScrRead ASC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT T1.Phone FROM schools AS T1 INNER JOIN satscores AS T2 ON T1.School = T2.sname WHERE T1.District = 'Fresno Unified' ORDER BY T2.AvgScrRead ASC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT T2.Phone FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.District = 'Fresno Unified' AND T1.AvgScrRead IS NOT NULL ORDER BY T1.AvgScrRead ASC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -42,23 +42,23 @@
     {
         "question": "What is the average math score of the school with the lowest average score for all subjects, and in which county is it located?",
         "evidence": "Average score for all subjects can be computed by AvgScrMath + AvgScrRead + AvgScrWrite",
-        "generated_sql": "SELECT T1.AvgScrMath, T2.County FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY (T1.AvgScrRead + T1.AvgScrMath + T1.AvgScrWrite) ASC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT\n  \"AvgScrMath\",\n  \"cname\"\nFROM satscores\nORDER BY\n  (\"AvgScrMath\" + \"AvgScrRead\" + \"AvgScrWrite\") ASC\nLIMIT 1;\n",
         "gold_sql": "SELECT T1.AvgScrMath, T2.County FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T1.AvgScrMath IS NOT NULL ORDER BY T1.AvgScrMath + T1.AvgScrRead + T1.AvgScrWrite ASC LIMIT 1",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "What is the city location of the high school level school with Lunch Provision 2 whose lowest grade is 9 and the highest grade is 12 in the county of Merced?",
         "evidence": "High school can be represented as EILCode = 'HS'",
-        "generated_sql": "SELECT DISTINCT T2.City FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.EILCode = 'HS' AND T1.\"NSLP Provision Status\" LIKE '%Provision 2%' AND T1.\"Low Grade\" = '9' AND T1.\"High Grade\" = '12' AND T1.\"County Name\" = 'Merced'\n",
+        "generated_sql": "SELECT DISTINCT T1.City FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.EILCode = 'HS' AND T2.\"NSLP Provision Status\" = 'Lunch Provision 2' AND T2.\"Low Grade\" = '9' AND T2.\"High Grade\" = '12' AND T1.County = 'Merced'\n",
         "gold_sql": "SELECT T2.City FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.`NSLP Provision Status` = 'Lunch Provision 2' AND T2.County = 'Merced' AND T1.`Low Grade` = 9 AND T1.`High Grade` = 12 AND T2.EILCode = 'HS'",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "In which city can you find the school in the state of California with the lowest latitude coordinates and what is its lowest grade? Indicate the school name.",
         "evidence": "State of California refers to state = 'CA'",
-        "generated_sql": "SELECT T1.City, T1.School, T2.\"Low Grade\" FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T1.State = 'CA' ORDER BY T1.Latitude ASC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT\n  T1.\"City\",\n  T2.\"Low Grade\",\n  T1.\"School\"\nFROM \"schools\" AS T1\nINNER JOIN \"frpm\" AS T2\n  ON T1.\"CDSCode\" = T2.\"CDSCode\"\nWHERE\n  T1.\"State\" = 'CA'\nORDER BY\n  T1.\"Latitude\" ASC NULLS LAST\nLIMIT 1;\n",
         "gold_sql": "SELECT T2.City, T1.`Low Grade`, T1.`School Name` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.State = 'CA' ORDER BY T2.Latitude ASC LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -66,7 +66,7 @@
     {
         "question": "How many male customers who are living in North Bohemia have average salary greater than 8000?",
         "evidence": "Male means that gender = 'M'; A3 refers to region; A11 pertains to average salary.",
-        "generated_sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A3 = 'north Bohemia' AND T2.A11 > 8000\n",
+        "generated_sql": "SELECT COUNT(T1.\"client_id\") FROM \"client\" AS T1 INNER JOIN \"district\" AS T2 ON T1.\"district_id\" = T2.\"district_id\" WHERE T1.\"gender\" = 'M' AND T2.\"A3\" = 'north Bohemia' AND T2.\"A11\" > 8000\n",
         "gold_sql": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A3 = 'North Bohemia' AND T2.A11 > 8000",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -74,15 +74,15 @@
     {
         "question": "List out the clients who choose statement of issuance after transaction are Disponent?",
         "evidence": "'POPLATEK PO OBRATU' stands for issuance after transaction",
-        "generated_sql": null,
+        "generated_sql": "SELECT DISTINCT T1.client_id FROM client AS T1 INNER JOIN disp AS T2 ON T1.client_id = T2.client_id INNER JOIN account AS T3 ON T2.account_id = T3.account_id WHERE T3.frequency = 'POPLATEK PO OBRATU' AND T2.type = 'DISPONENT'\n",
         "gold_sql": "SELECT T2.client_id FROM account AS T1 INNER JOIN disp AS T2 ON T1.account_id = T2.account_id WHERE T1.frequency = 'POPLATEK PO OBRATU' AND T2.type = 'DISPONENT'",
-        "comparison_status": 0,
-        "execution_status": null
+        "comparison_status": 1,
+        "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "Among the accounts who have approved loan date in 1997, list out the accounts that have the lowest approved amount and choose weekly issuance statement.",
         "evidence": "'POPLATEK TYDNE' stands for weekly issuance",
-        "generated_sql": "SELECT T1.account_id FROM account AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE STRFTIME('%Y', T2.date) = '1997' AND T1.frequency = 'POPLATEK TYDNE' ORDER BY T2.amount ASC LIMIT 1\n",
+        "generated_sql": "SELECT T1.account_id FROM account AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE STRFTIME('%Y', T2.date) = '1997' AND T1.frequency = 'POPLATEK TYDNE' ORDER BY T2.amount ASC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT T2.account_id FROM loan AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id WHERE STRFTIME('%Y', T1.date) = '1997' AND T2.frequency = 'POPLATEK TYDNE' ORDER BY T1.amount LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -98,7 +98,7 @@
     {
         "question": "How many of the account holders in South Bohemia still do not own credit cards?",
         "evidence": "A3 contains the region names; South Bohemia is one of region names.",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.client_id)\n        FROM disp AS T1\n        INNER JOIN account AS T2\n          ON T1.account_id = T2.account_id\n        INNER JOIN district AS T3\n          ON T2.district_id = T3.district_id\n        WHERE T3.A3 = 'south Bohemia'\n          AND T1.disp_id NOT IN (\n            SELECT disp_id\n            FROM card\n          );\n        ",
+        "generated_sql": "SELECT COUNT(DISTINCT T3.\"client_id\")\nFROM district AS T1\nINNER JOIN account AS T2\n  ON T1.\"district_id\" = T2.\"district_id\"\nINNER JOIN disp AS T3\n  ON T2.\"account_id\" = T3.\"account_id\"\nWHERE\n  T1.\"A3\" = 'south Bohemia' AND T3.\"client_id\" NOT IN (\n    SELECT\n      T1.\"client_id\"\n    FROM disp AS T1\n    INNER JOIN card AS T2\n      ON T1.\"disp_id\" = T2.\"disp_id\"\n  );\n",
         "gold_sql": "SELECT COUNT(T3.account_id) FROM district AS T1 INNER JOIN client AS T2 ON T1.district_id = T2.district_id INNER JOIN disp AS T3 ON T2.client_id = T3.client_id WHERE T1.A3 = 'south Bohemia' AND T3.type != 'OWNER'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -122,7 +122,7 @@
     {
         "question": "Who placed the order with the id 32423?",
         "evidence": "",
-        "generated_sql": "SELECT T1.client_id FROM disp AS T1 INNER JOIN \"order\" AS T2 ON T1.account_id = T2.account_id WHERE T2.order_id = 32423\n",
+        "generated_sql": "SELECT T2.client_id FROM \"order\" AS T1 INNER JOIN disp AS T2 ON T1.account_id = T2.account_id WHERE T1.order_id = 32423\n",
         "gold_sql": "SELECT T3.client_id FROM `order` AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id INNER JOIN client AS T3 ON T2.district_id = T3.district_id WHERE T1.order_id = 32423",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -130,7 +130,7 @@
     {
         "question": "What is the amount of debt that client number 992 has, and how is this client doing with payments?",
         "evidence": "",
-        "generated_sql": "SELECT T2.amount, T2.status FROM disp AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE T1.client_id = 992\n",
+        "generated_sql": "SELECT\n  SUM(CASE WHEN T3.\"status\" IN ('B', 'D') THEN T3.\"payments\" ELSE 0 END) AS \"Amount of Debt\",\n  CASE\n    WHEN SUM(CASE WHEN T3.\"status\" IN ('B', 'D') THEN T3.\"payments\" ELSE 0 END) > 0 THEN 'In Debt'\n    WHEN COUNT(T3.\"loan_id\") > 0 THEN 'Doing Well'\n    ELSE 'No Loans'\n  END AS \"Payment Status\"\nFROM client AS T1\nINNER JOIN disp AS T2\n  ON T1.\"client_id\" = T2.\"client_id\"\nLEFT JOIN loan AS T3\n  ON T2.\"account_id\" = T3.\"account_id\"\nWHERE T1.\"client_id\" = 992\nGROUP BY\n  T1.\"client_id\";\n",
         "gold_sql": "SELECT T3.amount, T3.status FROM client AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id INNER JOIN loan AS T3 ON T2.account_id = T3.account_id WHERE T1.client_id = 992",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -138,7 +138,7 @@
     {
         "question": "Name the account numbers of female clients who are oldest and have lowest average salary?",
         "evidence": "Female refers to 'F' in the gender; A11 contains information about average salary",
-        "generated_sql": "SELECT T3.account_id\nFROM client AS T1\nINNER JOIN disp AS T2\n  ON T1.client_id = T2.client_id\nINNER JOIN account AS T3\n  ON T2.account_id = T3.account_id\nINNER JOIN district AS T4\n  ON T1.district_id = T4.district_id\nWHERE\n  T1.gender = 'F'\nORDER BY\n  T4.A11 ASC,\n  T1.birth_date ASC\nLIMIT 1;\n",
+        "generated_sql": "SELECT T1.account_id FROM disp AS T1 WHERE T1.client_id IN ( SELECT T1.client_id FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'F' AND T1.birth_date = ( SELECT MIN(birth_date) FROM client WHERE gender = 'F' ) AND T2.A11 = ( SELECT MIN(T3.A11) FROM client AS T4 INNER JOIN district AS T3 ON T4.district_id = T3.district_id WHERE T4.gender = 'F' AND T4.birth_date = ( SELECT MIN(birth_date) FROM client WHERE gender = 'F' ) ) )\n",
         "gold_sql": "SELECT T3.account_id FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id INNER JOIN account AS T3 ON T2.district_id = T3.district_id WHERE T1.gender = 'F' ORDER BY T1.birth_date ASC, T2.A11 ASC LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -146,7 +146,7 @@
     {
         "question": "Which bond type accounted for the majority of the bonds found in molecule TR018 and state whether or not this molecule is carcinogenic?",
         "evidence": "TR018 is the molecule id; majority of the bond found refers to MAX(COUNT(bond_type)); label = '+' mean molecules are carcinogenic; label = '-' means molecules are non-carcinogenic",
-        "generated_sql": "SELECT\n  (SELECT T1.bond_type FROM bond AS T1 WHERE T1.molecule_id = 'TR018' GROUP BY T1.bond_type ORDER BY COUNT(T1.bond_type) DESC LIMIT 1) AS majority_bond_type,\n  (SELECT T2.label FROM molecule AS T2 WHERE T2.molecule_id = 'TR018') AS carcinogenic_status;\n",
+        "generated_sql": "SELECT\n  (\n    SELECT \"bond_type\"\n    FROM bond\n    WHERE \"molecule_id\" = 'TR018'\n    GROUP BY \"bond_type\"\n    ORDER BY COUNT(\"bond_type\") DESC\n    LIMIT 1\n  ) AS \"Majority_Bond_Type\",\n  (\n    SELECT \"label\"\n    FROM molecule\n    WHERE \"molecule_id\" = 'TR018'\n  ) AS \"Carcinogenic_Label\";\n",
         "gold_sql": "SELECT T.bond_type FROM ( SELECT T1.bond_type, COUNT(T1.molecule_id) FROM bond AS T1  WHERE T1.molecule_id = 'TR018' GROUP BY T1.bond_type ORDER BY COUNT(T1.molecule_id) DESC LIMIT 1 ) AS T",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -154,7 +154,7 @@
     {
         "question": "List all the elements of the toxicology of the molecule \"TR004\".",
         "evidence": "TR004 is the molecule id; element = 'cl' means Chlorine; element = 'c' means Carbon; element = 'h' means Hydrogen; element = 'o' means Oxygen, element = 's' means Sulfur; element = 'n' means Nitrogen, element = 'p' means Phosphorus, element = 'na' means Sodium, element = 'br' means Bromine, element = 'f' means Fluorine; element = 'i' means Iodine; element = 'sn' means Tin; element = 'pb' means Lead; element = 'te' means Tellurium; element = 'ca' means Calcium",
-        "generated_sql": "SELECT DISTINCT element FROM atom WHERE molecule_id = 'TR004'\n",
+        "generated_sql": "SELECT DISTINCT \"element\" FROM atom WHERE \"molecule_id\" = 'TR004'\n",
         "gold_sql": "SELECT DISTINCT T.element FROM atom AS T WHERE T.molecule_id = 'TR004'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -162,7 +162,7 @@
     {
         "question": "List down atom id2 for atoms with element sulfur.",
         "evidence": "element sulfur refers to element = 's'",
-        "generated_sql": "SELECT T1.atom_id2 FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id = T2.atom_id WHERE T2.element = 's'\n",
+        "generated_sql": "SELECT DISTINCT T1.atom_id2 FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id2 = T2.atom_id WHERE T2.element = 's'\n",
         "gold_sql": "SELECT DISTINCT T2.atom_id2 FROM atom AS T1 INNER JOIN connected AS T2 ON T1.atom_id = T2.atom_id WHERE T1.element = 's'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -170,7 +170,7 @@
     {
         "question": "List down the bond type for molecules from molecule id TR000 to TR050.",
         "evidence": "double bond refers to bond_type = ' = '; single bond refers to bond_type = '-'; triple bond refers to bond_type = '#';",
-        "generated_sql": "SELECT DISTINCT bond_type FROM bond WHERE molecule_id BETWEEN 'TR000' AND 'TR050'\n",
+        "generated_sql": "SELECT \"bond_type\" FROM \"bond\" WHERE \"molecule_id\" BETWEEN 'TR000' AND 'TR050'\n",
         "gold_sql": "SELECT T2.molecule_id, T2.bond_type FROM molecule AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id BETWEEN 'TR000' AND 'TR050'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -178,7 +178,7 @@
     {
         "question": "Among all chemical compounds identified in the database, what percent of compounds form a triple-bond.",
         "evidence": "triple bond refers to bond_type = '#';",
-        "generated_sql": "SELECT CAST(COUNT(DISTINCT T1.molecule_id) AS REAL) * 100 / (\n  SELECT COUNT(DISTINCT molecule_id) FROM molecule\n)\nFROM molecule AS T1\nINNER JOIN bond AS T2\n  ON T1.molecule_id = T2.molecule_id\nWHERE\n  T2.bond_type = '#'\n",
+        "generated_sql": "SELECT\n  CAST(COUNT(DISTINCT T1.\"molecule_id\") AS REAL) * 100 / (\n    SELECT\n      COUNT(DISTINCT \"molecule_id\")\n    FROM molecule\n  )\nFROM bond AS T1\nWHERE\n  T1.\"bond_type\" = '#';\n",
         "gold_sql": "SELECT CAST(COUNT(CASE WHEN T.bond_type = '#' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id) FROM bond AS T",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -186,7 +186,7 @@
     {
         "question": "Among all chemical compounds that contain molecule TR047, identify the percent that form a double-bond.",
         "evidence": "TR047 is the molecule id; double bond refers to bond_type = ' = '; percentage = DIVIDE(SUM(bond_type = ' = '), COUNT(all bond_id)) as percent where molecule_id = 'TR047'",
-        "generated_sql": "SELECT CAST(SUM(bond_type = '=') AS REAL) * 100 / COUNT(bond_id)\nFROM bond\nWHERE molecule_id = 'TR047';\n",
+        "generated_sql": "SELECT CAST(SUM(CASE WHEN \"bond_type\" = '=' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(\"bond_id\") FROM \"bond\" WHERE \"molecule_id\" = 'TR047'\n",
         "gold_sql": "SELECT CAST(COUNT(CASE WHEN T.bond_type = '=' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id) FROM bond AS T WHERE T.molecule_id = 'TR047'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -194,7 +194,7 @@
     {
         "question": "Identify whether the molecule that contains atom TR001_1 is carcinogenic.",
         "evidence": "label = '+' mean molecules are carcinogenic;",
-        "generated_sql": "SELECT T2.label FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.atom_id = 'TR001_1'\n",
+        "generated_sql": "SELECT T1.label FROM molecule AS T1 WHERE T1.molecule_id = (SELECT T2.molecule_id FROM atom AS T2 WHERE T2.atom_id = 'TR001_1')\n",
         "gold_sql": "SELECT T2.label AS flag_carcinogenic FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.atom_id = 'TR001_1'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -202,7 +202,7 @@
     {
         "question": "How many chemical compounds in the database are identified as carcinogenic.",
         "evidence": "label = '+' mean molecules are carcinogenic;",
-        "generated_sql": "SELECT COUNT(molecule_id) FROM molecule WHERE label = '+'\n",
+        "generated_sql": "SELECT COUNT(DISTINCT \"molecule_id\") FROM molecule WHERE label = '+'\n",
         "gold_sql": "SELECT COUNT(T.molecule_id) FROM molecule AS T WHERE T.label = '+'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -210,7 +210,7 @@
     {
         "question": "How many double bonds does TR006 have and is it carcinogenic?",
         "evidence": "label = '+' mean molecules are carcinogenic; label = '-' means molecules are non-carcinogenic; double bond refers to bond_type = ' = ';",
-        "generated_sql": "SELECT\n          (SELECT COUNT(bond_id) FROM bond WHERE molecule_id = 'TR006' AND bond_type = '=') AS double_bond_count,\n          (SELECT label FROM molecule WHERE molecule_id = 'TR006') AS carcinogenic_status;\n        ",
+        "generated_sql": "SELECT\n  COUNT(CASE WHEN T1.bond_type = '=' THEN T1.bond_id ELSE NULL END) AS \"Double_Bonds_Count\",\n  T2.label AS \"Carcinogenic_Status\"\nFROM molecule AS T2\nLEFT JOIN bond AS T1\n  ON T2.molecule_id = T1.molecule_id\nWHERE\n  T2.molecule_id = 'TR006'\nGROUP BY\n  T2.molecule_id, T2.label;\n",
         "gold_sql": "SELECT COUNT(T1.bond_id), T2.label FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '=' AND T2.molecule_id = 'TR006' GROUP BY T2.label",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -226,7 +226,7 @@
     {
         "question": "List out the atom id that belongs to the TR346 molecule and how many bond type can be created by this molecule?",
         "evidence": "",
-        "generated_sql": "SELECT T1.atom_id, (SELECT COUNT(DISTINCT T2.bond_type) FROM bond AS T2 WHERE T2.molecule_id = 'TR346') AS bond_type_count FROM atom AS T1 WHERE T1.molecule_id = 'TR346'\n",
+        "generated_sql": "SELECT\n  T1.\"atom_id\",\n  (\n    SELECT\n      COUNT(DISTINCT T2.\"bond_type\")\n    FROM bond AS T2\n    WHERE\n      T2.\"molecule_id\" = 'TR346'\n  ) AS \"distinct_bond_types_count\"\nFROM atom AS T1\nWHERE\n  T1.\"molecule_id\" = 'TR346';\n",
         "gold_sql": "SELECT T1.atom_id, COUNT(DISTINCT T2.bond_type) FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id = 'TR346' GROUP BY T1.atom_id, T2.bond_type",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -234,15 +234,15 @@
     {
         "question": "Which molecule consisted of Sulphur atom with double bond?",
         "evidence": "sulphur refers to element - 's'; double bond refers to bond_type = ' = ';",
-        "generated_sql": "SELECT DISTINCT T1.molecule_id FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.element = 's' AND T2.bond_type = '='\n",
+        "generated_sql": null,
         "gold_sql": "SELECT DISTINCT T1.molecule_id FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.element = 's' AND T2.bond_type = '='",
-        "comparison_status": 1,
-        "execution_status": "CORRECT_SYNTAX"
+        "comparison_status": 0,
+        "execution_status": null
     },
     {
         "question": "List the element and bond type included in the molecule with molecule ID of TR016.",
         "evidence": "element = 'cl' means Chlorine; element = 'c' means Carbon; element = 'h' means Hydrogen; element = 'o' means Oxygen, element = 's' means Sulfur; element = 'n' means Nitrogen, element = 'p' means Phosphorus, element = 'na' means Sodium, element = 'br' means Bromine, element = 'f' means Fluorine; element = 'i' means Iodine; element = 'sn' means Tin; element = 'pb' means Lead; element = 'te' means Tellurium; element = 'ca' means Calcium; double bond refers to bond_type = ' = '; single bond refers to bond_type = '-'; triple bond refers to bond_type = '#';",
-        "generated_sql": "SELECT DISTINCT T1.element FROM atom AS T1 WHERE T1.molecule_id = 'TR016' UNION SELECT DISTINCT T1.bond_type FROM bond AS T1 WHERE T1.molecule_id = 'TR016'\n",
+        "generated_sql": "SELECT DISTINCT \"element\" FROM \"atom\" WHERE \"molecule_id\" = 'TR016' UNION SELECT DISTINCT \"bond_type\" FROM \"bond\" WHERE \"molecule_id\" = 'TR016'\n",
         "gold_sql": "SELECT DISTINCT T1.element, T2.bond_type FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id = 'TR016'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -250,7 +250,7 @@
     {
         "question": "What is the atom ID of double bonded carbon in TR012 molecule?",
         "evidence": "carbon refers to element = 'c'; double bond refers to bond_type = ' = ';",
-        "generated_sql": "SELECT DISTINCT T1.atom_id\nFROM atom AS T1\nINNER JOIN connected AS T3\n  ON T1.atom_id = T3.atom_id OR T1.atom_id = T3.atom_id2\nINNER JOIN bond AS T2\n  ON T3.bond_id = T2.bond_id\nWHERE\n  T1.element = 'c' AND T1.molecule_id = 'TR012' AND T2.molecule_id = 'TR012' AND T2.bond_type = '='\n",
+        "generated_sql": "SELECT DISTINCT A.\"atom_id\"\nFROM \"atom\" AS A\nINNER JOIN \"connected\" AS C\n  ON A.\"atom_id\" = C.\"atom_id\" OR A.\"atom_id\" = C.\"atom_id2\"\nINNER JOIN \"bond\" AS B\n  ON C.\"bond_id\" = B.\"bond_id\"\nWHERE A.\"molecule_id\" = 'TR012'\n  AND A.\"element\" = 'c'\n  AND B.\"bond_type\" = '='\n  AND B.\"molecule_id\" = 'TR012';\n",
         "gold_sql": "SELECT T1.atom_id FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id INNER JOIN bond AS T3 ON T2.molecule_id = T3.molecule_id WHERE T2.molecule_id = 'TR012' AND T3.bond_type = '=' AND T1.element = 'c'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -258,7 +258,7 @@
     {
         "question": "Find all cards illustrated by Stephen Daniel and describe the text of the ruling of these cards. State if these cards have missing or degraded properties and values.",
         "evidence": "cards have missing or degraded properties and value refers to hasContentWarning = 1; 'Stephen Daniele' is artist;",
-        "generated_sql": "SELECT\n  T1.name,\n  T1.artist,\n  T2.text,\n  T1.hasContentWarning\nFROM cards AS T1\nINNER JOIN rulings AS T2\n  ON T1.uuid = T2.uuid\nWHERE\n  T1.artist = 'Stephen Daniele';\n",
+        "generated_sql": "SELECT T1.name, T2.text, T1.hasContentWarning FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid WHERE T1.artist = 'Stephen Daniele'\n",
         "gold_sql": "SELECT T1.id, T2.text, T1.hasContentWarning FROM cards AS T1 INNER JOIN rulings AS T2 ON T1.uuid = T2.uuid WHERE T1.artist = 'Stephen Daniele'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -290,7 +290,7 @@
     {
         "question": "What are the cards for set OGW? State the colour for these cards.",
         "evidence": "set OGW refers to setCode = 'OGW';",
-        "generated_sql": "SELECT name, colors FROM cards WHERE setCode = 'OGW'\n",
+        "generated_sql": "SELECT \"name\", \"colors\" FROM cards WHERE \"setCode\" = 'OGW'\n",
         "gold_sql": "SELECT id, colors FROM cards WHERE id IN ( SELECT id FROM set_translations WHERE setCode = 'OGW' )",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -298,15 +298,15 @@
     {
         "question": "What is the percentage of Story Spotlight cards that also have a text box? List them by their ID.",
         "evidence": "Story Spotlight cards that do not have a text box refers to isStorylight = 1 and isTextless = 1; Percentage refer to DIVIDE(SUM(count(id) where isStorylight = 1), SUM(count(id))) * 100\n\n",
-        "generated_sql": "SELECT\n  CASE\n    WHEN (SELECT COUNT(id) FROM cards WHERE isStorySpotlight = 1) = 0 THEN 0.0\n    ELSE CAST((SELECT COUNT(id) FROM cards WHERE isStorySpotlight = 1 AND isTextless = 0) AS REAL) * 100.0 / (SELECT COUNT(id) FROM cards WHERE isStorySpotlight = 1)\n  END;\n",
+        "generated_sql": "WITH StorySpotlightStats AS (\n  SELECT\n    CAST(SUM(CASE WHEN \"isStorySpotlight\" = 1 AND \"isTextless\" = 0 THEN 1 ELSE 0 END) AS REAL) AS \"CountWithTextBox\",\n    SUM(CASE WHEN \"isStorySpotlight\" = 1 THEN 1 ELSE 0 END) AS \"TotalStorySpotlightCount\"\n  FROM cards\n)\nSELECT\n  T1.\"id\",\n  (SELECT (T2.\"CountWithTextBox\" * 100.0 / T2.\"TotalStorySpotlightCount\") FROM StorySpotlightStats AS T2) AS \"PercentageOfStorySpotlightWithTextBox\"\nFROM cards AS T1\nWHERE T1.\"isStorySpotlight\" = 1 AND T1.\"isTextless\" = 0\nORDER BY T1.\"id\";\n",
         "gold_sql": "SELECT CAST(SUM(CASE WHEN isTextless = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(id) FROM cards WHERE isStorySpotlight = 1",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "How many color cards with no borders have been ranked higher than 12000 on EDHRec?",
         "evidence": "color cards with no borders refers to borderColor = 'borderless'; ranked higher than 12000 on EDHRec refers to edhrecRank > 12000",
-        "generated_sql": "SELECT COUNT(DISTINCT id) FROM cards WHERE borderColor = 'borderless' AND edhrecRank > 12000 AND colors IS NOT NULL AND colors != ''\n",
+        "generated_sql": "SELECT COUNT(*) FROM \"cards\" WHERE \"colors\" IS NOT NULL AND \"colors\" != '' AND \"borderColor\" = 'borderless' AND \"edhrecRank\" > 12000\n",
         "gold_sql": "SELECT COUNT(id) FROM cards WHERE edhrecRank > 12000 AND borderColor = 'borderless'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -314,23 +314,23 @@
     {
         "question": "Please provide the ids of top three powerful pairs of Kingdom Foil and Kingdom Cards sorted by Kingdom Foil id in alphabetical order.",
         "evidence": "poweful refers to cardKingdomFoilId is not null AND cardKingdomId is not null",
-        "generated_sql": "SELECT uuid, cardKingdomFoilId, cardKingdomId FROM cards WHERE cardKingdomFoilId IS NOT NULL AND cardKingdomId IS NOT NULL ORDER BY cardKingdomFoilId ASC LIMIT 3\n",
+        "generated_sql": "SELECT \"cardKingdomFoilId\", \"cardKingdomId\"\nFROM cards\nWHERE \"cardKingdomFoilId\" IS NOT NULL AND \"cardKingdomId\" IS NOT NULL\nORDER BY \"cardKingdomFoilId\" ASC\nLIMIT 3;\n",
         "gold_sql": "SELECT cardKingdomFoilId, cardKingdomId FROM cards WHERE cardKingdomFoilId IS NOT NULL AND cardKingdomId IS NOT NULL ORDER BY cardKingdomFoilId LIMIT 3",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "How many cards have frame effect as extendedart? List out the id of those cards.",
         "evidence": "\nframe effect as extendedart refers to frameEffects = 'extendedart'\n",
-        "generated_sql": "SELECT id FROM cards WHERE frameEffects = 'extendedart'\n",
+        "generated_sql": "SELECT \"id\", COUNT(\"id\") OVER () AS \"total_count\" FROM \"cards\" WHERE \"frameEffects\" = 'extendedart'\n",
         "gold_sql": "SELECT id FROM cards WHERE frameEffects = 'extendedart' GROUP BY id",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "Name the foreign name of the card that has abzan watermark? List out the type of this card.",
         "evidence": "",
-        "generated_sql": "SELECT T2.name, T1.type FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T1.watermark = 'abzan'\n",
+        "generated_sql": "SELECT T2.\"name\", T2.\"type\" FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T1.watermark = 'abzan'\n",
         "gold_sql": "SELECT DISTINCT T1.name, T1.type FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T2.uuid = T1.uuid WHERE T1.watermark = 'abzan'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -338,7 +338,7 @@
     {
         "question": "When was the set of cards with \"Ancestor's Chosen\" released?",
         "evidence": "card set \"Ancestor's Chosen\" refers to name = 'Ancestor''s Chosen'; when released refers to releaseDate",
-        "generated_sql": "SELECT T1.releaseDate FROM sets AS T1 WHERE T1.code = (SELECT T2.setCode FROM cards AS T2 WHERE T2.name = 'Ancestor''s Chosen')\n",
+        "generated_sql": "SELECT T2.releaseDate FROM cards AS T1 INNER JOIN sets AS T2 ON T1.setCode = T2.code WHERE T1.name = 'Ancestor''s Chosen'\n",
         "gold_sql": "SELECT DISTINCT T2.releaseDate FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T1.name = 'Ancestor''s Chosen'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -354,7 +354,7 @@
     {
         "question": "Please list the Italian text ruling of all the cards in the set Coldsnap.",
         "evidence": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'",
-        "generated_sql": "SELECT T1.text FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid INNER JOIN sets AS T3 ON T2.setCode = T3.code WHERE T1.language = 'Italian' AND T3.name = 'Coldsnap'\n",
+        "generated_sql": "SELECT T2.\"text\" FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid INNER JOIN sets AS T3 ON T1.setCode = T3.code WHERE T3.name = 'Coldsnap' AND T2.language = 'Italian'\n",
         "gold_sql": "SELECT DISTINCT T1.text FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -362,7 +362,7 @@
     {
         "question": "Please list the Italian names of the cards in the set Coldsnap with the highest converted mana cost.",
         "evidence": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'",
-        "generated_sql": "SELECT T1.name FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid INNER JOIN sets AS T3 ON T2.setCode = T3.code WHERE T1.language = 'Italian' AND T3.name = 'Coldsnap' AND T2.convertedManaCost = (SELECT MAX(T4.convertedManaCost) FROM cards AS T4 INNER JOIN sets AS T5 ON T4.setCode = T5.code WHERE T5.name = 'Coldsnap')\n",
+        "generated_sql": "SELECT T1.name FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T1.uuid = T2.uuid INNER JOIN sets AS T3 ON T2.setCode = T3.code WHERE T1.language = 'Italian' AND T3.name = 'Coldsnap' AND T2.convertedManaCost = ( SELECT MAX(T4.convertedManaCost) FROM cards AS T4 INNER JOIN sets AS T5 ON T4.setCode = T5.code WHERE T5.name = 'Coldsnap' )\n",
         "gold_sql": "SELECT T2.name FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian' ORDER BY T2.convertedManaCost DESC LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -370,7 +370,7 @@
     {
         "question": "List the keyrune code for the set whose code is 'PKHC'.",
         "evidence": "keyrune code refers to keyruneCode",
-        "generated_sql": "SELECT keyruneCode FROM sets WHERE code = 'PKHC'\n",
+        "generated_sql": "SELECT \"keyruneCode\" FROM \"sets\" WHERE \"code\" = 'PKHC'\n",
         "gold_sql": "SELECT keyruneCode FROM sets WHERE code = 'PKHC'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -378,7 +378,7 @@
     {
         "question": "Among the cards that doesn't have multiple faces on the same card, who is the illustrator of the card art that has the highest cost of converted mana?",
         "evidence": "doesn't have multiple faces refers to side IS NULL; illustrator refers to artist",
-        "generated_sql": "SELECT artist FROM cards WHERE side IS NULL ORDER BY convertedManaCost DESC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT \"artist\" FROM \"cards\" WHERE \"side\" IS NULL ORDER BY \"convertedManaCost\" DESC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT artist FROM cards WHERE side IS NULL ORDER BY convertedManaCost DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -386,7 +386,7 @@
     {
         "question": "When was the oldest mythic card released and what are its legal play formats?",
         "evidence": "the oldest card refers to MIN(originalReleaseDate); mythic card refers to rarity = 'mythic'; legal play refers to status = 'legal'; play format refers to format",
-        "generated_sql": "SELECT T1.originalReleaseDate, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T1.rarity = 'mythic' AND T1.originalReleaseDate = (SELECT MIN(originalReleaseDate) FROM cards WHERE rarity = 'mythic' AND originalReleaseDate IS NOT NULL) AND T2.status = 'Legal'\n",
+        "generated_sql": "SELECT T1.\"originalReleaseDate\", T2.\"format\"\n        FROM \"cards\" AS T1\n        INNER JOIN \"legalities\" AS T2\n          ON T1.\"uuid\" = T2.\"uuid\"\n        WHERE T1.\"rarity\" = 'mythic'\n          AND T2.\"status\" = 'Legal'\n          AND T1.\"originalReleaseDate\" = (SELECT MIN(\"originalReleaseDate\") FROM \"cards\" WHERE \"rarity\" = 'mythic')\n        ",
         "gold_sql": "SELECT T1.originalReleaseDate, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T1.rarity = 'mythic' AND T1.originalReleaseDate IS NOT NULL AND T2.status = 'Legal' ORDER BY T1.originalReleaseDate LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -394,7 +394,7 @@
     {
         "question": "Who is the illustrator that illustrated the least amount of cards? List the format of play of the cards that he/she illustrated.",
         "evidence": "format of the cards refers to format; illustrator refers to artist; the least amount of cards refers to MIN(artist)",
-        "generated_sql": "SELECT DISTINCT T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T1.artist IN ( SELECT artist FROM cards GROUP BY artist HAVING COUNT(id) = ( SELECT MIN(card_count) FROM ( SELECT COUNT(id) AS card_count FROM cards GROUP BY artist ) ) )\n",
+        "generated_sql": "SELECT DISTINCT T2.\"format\"\nFROM \"cards\" AS T1\nINNER JOIN \"legalities\" AS T2\n  ON T1.\"uuid\" = T2.\"uuid\"\nWHERE T1.\"artist\" IN (\n  SELECT \"artist\"\n  FROM \"cards\"\n  GROUP BY \"artist\"\n  HAVING COUNT(id) = (\n    SELECT MIN(card_count)\n    FROM (\n      SELECT COUNT(id) AS card_count\n      FROM \"cards\"\n      GROUP BY \"artist\"\n    )\n  )\n);\n",
         "gold_sql": "SELECT T1.artist, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T2.uuid = T1.uuid GROUP BY T1.artist ORDER BY COUNT(T1.id) ASC LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -418,7 +418,7 @@
     {
         "question": "What is the display name of the user who is the owner of the most valuable post?",
         "evidence": "most valuable post refers to Max(FavoriteCount)",
-        "generated_sql": "SELECT T2.DisplayName FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id ORDER BY T1.FavoriteCount DESC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT T1.\"DisplayName\" FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId ORDER BY T2.FavoriteCount DESC LIMIT 1\n",
         "gold_sql": "SELECT T2.DisplayName FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id ORDER BY T1.FavoriteCount DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -426,7 +426,7 @@
     {
         "question": "From which post is the tag \"bayesian\" excerpted from? Please give the body of the post.",
         "evidence": "\"bayesian\" is the TagName; excerpt from refers to ExcerptPostId",
-        "generated_sql": "SELECT T1.Body FROM posts AS T1 INNER JOIN tags AS T2 ON T1.Id = T2.ExcerptPostId WHERE T2.TagName = 'bayesian'\n",
+        "generated_sql": "SELECT T1.Body FROM posts AS T1 WHERE T1.Id = (SELECT ExcerptPostId FROM tags WHERE TagName = 'bayesian')\n",
         "gold_sql": "SELECT T2.Body FROM tags AS T1 INNER JOIN posts AS T2 ON T2.Id = T1.ExcerptPostId WHERE T1.TagName = 'bayesian'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -442,7 +442,7 @@
     {
         "question": "Which user added a bounty amount of 50 to the post title mentioning variance?",
         "evidence": "\"bounty amount of 50 refers to BountyAmount = 50; user refers to DisplayName",
-        "generated_sql": "SELECT DISTINCT T3.DisplayName FROM posts AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.PostId INNER JOIN users AS T3 ON T2.UserId = T3.Id WHERE T1.Title LIKE '%variance%' AND T2.BountyAmount = 50\n",
+        "generated_sql": "SELECT DISTINCT \"T3\".\"DisplayName\"\nFROM \"posts\" AS \"T1\"\nINNER JOIN \"votes\" AS \"T2\"\n  ON \"T1\".\"Id\" = \"T2\".\"PostId\"\nINNER JOIN \"users\" AS \"T3\"\n  ON \"T2\".\"UserId\" = \"T3\".\"Id\"\nWHERE\n  \"T2\".\"BountyAmount\" = 50 AND \"T1\".\"Title\" LIKE '%variance%';\n",
         "gold_sql": "SELECT T3.DisplayName, T1.Title FROM posts AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.PostId INNER JOIN users AS T3 ON T3.Id = T2.UserId WHERE T2.BountyAmount = 50 AND T1.Title LIKE '%variance%'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -450,7 +450,7 @@
     {
         "question": "How many users are awarded with supporter badge during year 2011?",
         "evidence": "\"Supporter\" is the Name of badge; in year 2011 refers to year(Date) = 2011",
-        "generated_sql": "SELECT COUNT(DISTINCT UserId) FROM badges WHERE Name = 'Supporter' AND STRFTIME('%Y', Date) = '2011'\n",
+        "generated_sql": "SELECT COUNT(DISTINCT \"UserId\") FROM badges WHERE \"Name\" = 'Supporter' AND STRFTIME('%Y', \"Date\") = '2011'\n",
         "gold_sql": "SELECT COUNT(Id) FROM badges WHERE STRFTIME('%Y', Date) = '2011' AND Name = 'Supporter'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -458,7 +458,7 @@
     {
         "question": "How many users from New York have a teacher and supporter badge?",
         "evidence": "\"Supporter\" and \"Teachers\" are both Name of badge; 'New York' is the Location; user refers to UserId",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.Id) FROM users AS T1 INNER JOIN badges AS T2 ON T1.Id = T2.UserId INNER JOIN badges AS T3 ON T1.Id = T3.UserId WHERE T1.Location = 'New York, NY' AND T2.Name = 'Teacher' AND T3.Name = 'Supporter'\n",
+        "generated_sql": "SELECT COUNT(DISTINCT T1.Id) FROM users AS T1 INNER JOIN badges AS T2 ON T1.Id = T2.UserId INNER JOIN badges AS T3 ON T1.Id = T3.UserId WHERE T1.Location LIKE '%New York%' AND T2.Name = 'Teacher' AND T3.Name = 'Supporter'\n",
         "gold_sql": "SELECT COUNT(DISTINCT T1.Id) FROM badges AS T1 INNER JOIN users AS T2 ON T1.UserId = T2.Id WHERE T1.Name IN ('Supporter', 'Teacher') AND T2.Location = 'New York'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -466,7 +466,7 @@
     {
         "question": "List out all post that are related to post ID 61217 and what is the popularity of this post?",
         "evidence": "post related refers to RelatedPostId; popularity refers to ViewCount",
-        "generated_sql": "SELECT T2.Id, T2.ViewCount\nFROM postLinks AS T1\nINNER JOIN posts AS T2\n  ON T1.RelatedPostId = T2.Id\nWHERE\n  T1.PostId = 61217\nUNION\nSELECT T2.Id, T2.ViewCount\nFROM postLinks AS T1\nINNER JOIN posts AS T2\n  ON T1.PostId = T2.Id\nWHERE\n  T1.RelatedPostId = 61217;\n",
+        "generated_sql": "SELECT T2.\"Id\", T2.\"ViewCount\"\nFROM postLinks AS T1\nINNER JOIN posts AS T2\n  ON T1.\"RelatedPostId\" = T2.\"Id\"\nWHERE T1.\"PostId\" = 61217\nUNION\nSELECT T2.\"Id\", T2.\"ViewCount\"\nFROM postLinks AS T1\nINNER JOIN posts AS T2\n  ON T1.\"PostId\" = T2.\"Id\"\nWHERE T1.\"RelatedPostId\" = 61217;\n",
         "gold_sql": "SELECT T1.ViewCount FROM posts AS T1 INNER JOIN postLinks AS T2 ON T1.Id = T2.PostId WHERE T2.PostId = 61217",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -482,10 +482,10 @@
     {
         "question": "What is the detailed content of the comment of the post which was created on 7/19/2010 7:37:33 PM?",
         "evidence": "detailed content of the comment refers to Text; created on 7/19/2010 7:37:33 PM CreationDate = 2010-07-19 19:37:33.0'",
-        "generated_sql": "SELECT Text FROM comments WHERE CreationDate = '2010-07-19 19:37:33.0'\n",
+        "generated_sql": null,
         "gold_sql": "SELECT T1.Text FROM comments AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T1.CreationDate = '2010-07-19 19:37:33.0'",
-        "comparison_status": 1,
-        "execution_status": "CORRECT_SYNTAX"
+        "comparison_status": 0,
+        "execution_status": null
     },
     {
         "question": "How many adults who obtained the badge Supporter?",
@@ -506,7 +506,7 @@
     {
         "question": "How many users were from New York?",
         "evidence": "New York refers to Location;",
-        "generated_sql": "SELECT COUNT(*) FROM users WHERE Location = 'New York, NY'\n",
+        "generated_sql": "SELECT COUNT(*) FROM \"users\" WHERE \"Location\" LIKE '%New York%'\n",
         "gold_sql": "SELECT COUNT(Id) FROM users WHERE Location = 'New York'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -514,7 +514,7 @@
     {
         "question": "How many posts were created by Daniel Vassallo?",
         "evidence": "DisplayName = 'Daniel Vassallo';",
-        "generated_sql": "SELECT COUNT(T1.Id) FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T2.DisplayName = 'Daniel Vassallo'\n",
+        "generated_sql": "SELECT COUNT(\"T1\".\"Id\")\nFROM \"posts\" AS \"T1\"\nINNER JOIN \"users\" AS \"T2\"\n  ON \"T1\".\"OwnerUserId\" = \"T2\".\"Id\"\nWHERE \"T2\".\"DisplayName\" = 'Daniel Vassallo';\n",
         "gold_sql": "SELECT COUNT(T1.Id) FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId WHERE T1.DisplayName = 'Daniel Vassallo'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -522,7 +522,7 @@
     {
         "question": "What is the owner's display name of the most popular post?",
         "evidence": "Higher view count means the post has higher popularity; the most popular post refers to MAX(ViewCount);",
-        "generated_sql": "SELECT OwnerDisplayName FROM posts WHERE ViewCount = (SELECT MAX(ViewCount) FROM posts)\n",
+        "generated_sql": "SELECT \"OwnerDisplayName\" FROM posts ORDER BY \"ViewCount\" DESC LIMIT 1\n",
         "gold_sql": "SELECT DisplayName FROM users WHERE Id = ( SELECT OwnerUserId FROM posts ORDER BY ViewCount DESC LIMIT 1 )",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -530,7 +530,7 @@
     {
         "question": "Describe the display name of the parent ID for child post with the highest score.",
         "evidence": "If the parent id is not null, the post is the child post; the highest score refers to MAX(Score);",
-        "generated_sql": "SELECT T2.OwnerDisplayName FROM posts AS T1 INNER JOIN posts AS T2 ON T1.ParentId = T2.Id WHERE T1.Id = (SELECT Id FROM posts WHERE ParentId IS NOT NULL ORDER BY Score DESC NULLS LAST LIMIT 1)\n",
+        "generated_sql": "SELECT T3.DisplayName FROM posts AS T1 INNER JOIN posts AS T2 ON T1.ParentId = T2.Id INNER JOIN users AS T3 ON T2.OwnerUserId = T3.Id WHERE T1.ParentId IS NOT NULL ORDER BY T1.Score DESC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT DisplayName FROM users WHERE Id = ( SELECT OwnerUserId FROM posts WHERE ParentId IS NOT NULL ORDER BY Score DESC LIMIT 1 )",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -538,7 +538,7 @@
     {
         "question": "Under the vote type of 8, provide the display names and websites URLs of the user who got the highest bounty amount.",
         "evidence": "vote type of 8 refers to VoteTypeId = 8; the highest bounty amount refers to MAX(BountyAmount);",
-        "generated_sql": "SELECT T1.DisplayName, T1.WebsiteUrl FROM users AS T1 WHERE T1.Id IN (SELECT T2.UserId FROM votes AS T2 WHERE T2.VoteTypeId = 8 AND T2.BountyAmount = (SELECT MAX(T3.BountyAmount) FROM votes AS T3 WHERE T3.VoteTypeId = 8))\n",
+        "generated_sql": "SELECT\n  T1.\"DisplayName\",\n  T1.\"WebsiteUrl\"\nFROM users AS T1\nINNER JOIN votes AS T2\n  ON T1.\"Id\" = T2.\"UserId\"\nWHERE\n  T2.\"VoteTypeId\" = 8\nORDER BY\n  T2.\"BountyAmount\" DESC NULLS LAST\nLIMIT 1;\n",
         "gold_sql": "SELECT DisplayName, WebsiteUrl FROM users WHERE Id = ( SELECT UserId FROM votes WHERE VoteTypeId = 8 ORDER BY BountyAmount DESC LIMIT 1 )",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -546,7 +546,7 @@
     {
         "question": "Identify the latest badge awarded to the user with the display name Emmett.",
         "evidence": "the latest badge refers to Name FROM badges where MAX(Date);",
-        "generated_sql": "SELECT T1.Name FROM badges AS T1 INNER JOIN users AS T2 ON T1.UserId = T2.Id WHERE T2.DisplayName = 'Emmett' ORDER BY T1.Date DESC LIMIT 1\n",
+        "generated_sql": "SELECT \"Name\" FROM \"badges\" WHERE \"UserId\" = (SELECT \"Id\" FROM \"users\" WHERE \"DisplayName\" = 'Emmett') ORDER BY \"Date\" DESC LIMIT 1\n",
         "gold_sql": "SELECT T1.Name FROM badges AS T1 INNER JOIN users AS T2 ON T1.UserId = T2.Id WHERE T2.DisplayName = 'Emmett' ORDER BY T1.Date DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -554,7 +554,7 @@
     {
         "question": "Please list the full names of all the superheroes with over 15 super powers.",
         "evidence": "15 super powers refers to COUNT(full_name) > 15",
-        "generated_sql": "SELECT T1.full_name\nFROM superhero AS T1\nINNER JOIN hero_power AS T2\n  ON T1.id = T2.hero_id\nGROUP BY\n  T1.id,\n  T1.full_name\nHAVING\n  COUNT(T2.power_id) > 15;\n",
+        "generated_sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id GROUP BY T1.id HAVING COUNT(T2.power_id) > 15\n",
         "gold_sql": "SELECT DISTINCT T1.full_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id GROUP BY T1.full_name HAVING COUNT(T2.power_id) > 15",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -570,17 +570,17 @@
     {
         "question": "What is the average height of the superheroes from Marvel Comics?",
         "evidence": "superheroes from Marvel Comics refers to publisher_name = 'Marvel Comics'; average height of the superheroes refers to AVG(height_cm)",
-        "generated_sql": "SELECT AVG(T1.height_cm) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T2.publisher_name = 'Marvel Comics'\n",
+        "generated_sql": "SELECT AVG(T1.height_cm) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T2.publisher_name = 'Marvel Comics' AND T1.height_cm IS NOT NULL AND T1.height_cm > 0\n",
         "gold_sql": "SELECT AVG(T1.height_cm) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T2.publisher_name = 'Marvel Comics'",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "Which publisher published the slowest superhero?",
         "evidence": "the slowest superhero refers to attribute_name = 'Speed' where MIN(attribute_value); publisher refers to publisher_name",
-        "generated_sql": "SELECT T3.publisher_name\nFROM hero_attribute AS T1\nINNER JOIN superhero AS T2\n  ON T1.hero_id = T2.id\nINNER JOIN publisher AS T3\n  ON T2.publisher_id = T3.id\nORDER BY\n  T1.attribute_value ASC\nLIMIT 1;\n",
+        "generated_sql": "SELECT DISTINCT T3.\"publisher_name\"\nFROM hero_attribute AS T1\nINNER JOIN attribute AS T2\n  ON T1.\"attribute_id\" = T2.\"id\"\nINNER JOIN superhero AS T4\n  ON T1.\"hero_id\" = T4.\"id\"\nINNER JOIN publisher AS T3\n  ON T4.\"publisher_id\" = T3.\"id\"\nWHERE\n  T2.\"attribute_name\" = 'Speed' AND T1.\"attribute_value\" = (\n    SELECT\n      MIN(T5.\"attribute_value\")\n    FROM hero_attribute AS T5\n    INNER JOIN attribute AS T6\n      ON T5.\"attribute_id\" = T6.\"id\"\n    WHERE\n      T6.\"attribute_name\" = 'Speed'\n  );\n",
         "gold_sql": "SELECT T2.publisher_name FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN hero_attribute AS T3 ON T1.id = T3.hero_id INNER JOIN attribute AS T4 ON T3.attribute_id = T4.id WHERE T4.attribute_name = 'Speed' ORDER BY T3.attribute_value LIMIT 1",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
@@ -594,15 +594,15 @@
     {
         "question": "Provide the hair colour of the human superhero who is 185 cm tall.",
         "evidence": "185 cm tall refers to height_cm = 185; human superhero refers to race = 'human'; hair colour refers to colour where hair_colour_id = colour.id;",
-        "generated_sql": "SELECT T2.colour FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.hair_colour_id = T2.id WHERE T1.height_cm = 185\n",
+        "generated_sql": "SELECT DISTINCT T3.colour FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T2.race = 'Human' AND T1.height_cm = 185\n",
         "gold_sql": "SELECT DISTINCT T3.colour FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T1.height_cm = 185 AND T2.race = 'Human'",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "In superheroes with height between 150 to 180, what is the percentage of heroes published by Marvel Comics?",
         "evidence": "height between 150 to 180 refers to height_cm BETWEEN 150 AND 180; heroes published by Marvel Comics refers to publisher_id = 13; calculation = MULTIPLY(DIVIDE(SUM(publisher.id = 13)), COUNT(publisher.id), 100)",
-        "generated_sql": "SELECT CAST(SUM(CASE WHEN publisher_id = 13 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(id) FROM superhero WHERE height_cm BETWEEN 150 AND 180\n",
+        "generated_sql": "SELECT\n  CAST(SUM(CASE WHEN T1.publisher_id = 13 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id)\nFROM superhero AS T1\nWHERE\n  T1.height_cm BETWEEN 150 AND 180;\n",
         "gold_sql": "SELECT CAST(COUNT(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE NULL END) AS REAL) * 100 / COUNT(T1.id) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T1.height_cm BETWEEN 150 AND 180",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -610,15 +610,15 @@
     {
         "question": "What is the hero's full name with the highest attribute in strength?",
         "evidence": "highest attribute in strength refers to MAX(attribute_value) WHERE attribute_name = 'strength';",
-        "generated_sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id ORDER BY T2.attribute_value DESC LIMIT 1\n",
+        "generated_sql": "SELECT T1.\"full_name\" FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.\"id\" = T2.\"hero_id\" INNER JOIN attribute AS T3 ON T2.\"attribute_id\" = T3.\"id\" WHERE T3.\"attribute_name\" = 'Strength' ORDER BY T2.\"attribute_value\" DESC LIMIT 1\n",
         "gold_sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T2.attribute_id = T3.id WHERE T3.attribute_name = 'Strength' ORDER BY T2.attribute_value DESC LIMIT 1",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "List the eyes, hair and skin colour of all female superheroes published by Dark Horse Comics.",
         "evidence": "eyes refers to eye_colour_id; hair refers to hair_colour_id; skin colour refers to skin_colour_id; female superheroes refers to gender = 'Female'; published by Dark Horse Comics refers to publisher_name = 'Dark Horse Comics';",
-        "generated_sql": "SELECT T4.colour, T5.colour, T6.colour FROM superhero AS T1 INNER JOIN gender AS T2 ON T1.gender_id = T2.id INNER JOIN publisher AS T3 ON T1.publisher_id = T3.id INNER JOIN colour AS T4 ON T1.eye_colour_id = T4.id INNER JOIN colour AS T5 ON T1.hair_colour_id = T5.id INNER JOIN colour AS T6 ON T1.skin_colour_id = T6.id WHERE T2.gender = 'Female' AND T3.publisher_name = 'Dark Horse Comics'\n",
+        "generated_sql": "SELECT DISTINCT\n  T3.\"colour\" AS \"eye_colour\",\n  T4.\"colour\" AS \"hair_colour\",\n  T5.\"colour\" AS \"skin_colour\"\nFROM superhero AS T1\nINNER JOIN gender AS T2\n  ON T1.\"gender_id\" = T2.\"id\"\nINNER JOIN colour AS T3\n  ON T1.\"eye_colour_id\" = T3.\"id\"\nINNER JOIN colour AS T4\n  ON T1.\"hair_colour_id\" = T4.\"id\"\nINNER JOIN colour AS T5\n  ON T1.\"skin_colour_id\" = T5.\"id\"\nINNER JOIN publisher AS T6\n  ON T1.\"publisher_id\" = T6.\"id\"\nWHERE\n  T2.\"gender\" = 'Female' AND T6.\"publisher_name\" = 'Dark Horse Comics';\n",
         "gold_sql": "SELECT T1.eye_colour_id, T1.hair_colour_id, T1.skin_colour_id FROM superhero AS T1 INNER JOIN publisher AS T2 ON T2.id = T1.publisher_id INNER JOIN gender AS T3 ON T3.id = T1.gender_id WHERE T2.publisher_name = 'Dark Horse Comics' AND T3.gender = 'Female'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -634,7 +634,7 @@
     {
         "question": "Which superheroes have blue eyes with brown hair?",
         "evidence": "which superheroes refers to superhero_name; blue eyes refers to eye_colour_id = 7; brown hair refers to hair_colour_id = 9;",
-        "generated_sql": "SELECT superhero_name FROM superhero WHERE eye_colour_id = 7 AND hair_colour_id = 9\n",
+        "generated_sql": "SELECT \"superhero_name\" FROM \"superhero\" WHERE \"eye_colour_id\" = 7 AND \"hair_colour_id\" = 9\n",
         "gold_sql": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T2.colour = 'Blue' AND T3.colour = 'Brown'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -642,7 +642,7 @@
     {
         "question": "List down at least five full names of superheroes with blue eyes.",
         "evidence": "blue eyes refers to colour.colour = 'Blue' WHERE eye_colour_id = colour.id;",
-        "generated_sql": "SELECT T1.full_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T2.colour = 'Blue' LIMIT 5\n",
+        "generated_sql": "SELECT DISTINCT\n  \"T1\".\"full_name\"\nFROM \"superhero\" AS \"T1\"\nINNER JOIN \"colour\" AS \"T2\"\n  ON \"T1\".\"eye_colour_id\" = \"T2\".\"id\"\nWHERE\n  \"T2\".\"colour\" = 'Blue' AND \"T1\".\"full_name\" IS NOT NULL\nLIMIT 5;\n",
         "gold_sql": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T2.colour = 'Blue' LIMIT 5",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -650,7 +650,7 @@
     {
         "question": "What is the surname of the driver with the best lap time in race number 19 in the second period?",
         "evidence": "race number refers to raceId; second qualifying period refers to q2; best lap time refers to MIN(q2);",
-        "generated_sql": "SELECT T1.surname FROM drivers AS T1 INNER JOIN qualifying AS T2 ON T1.driverId = T2.driverId WHERE T2.raceId = 19 AND T2.q2 = (SELECT MIN(q2) FROM qualifying WHERE raceId = 19 AND q2 IS NOT NULL)\n",
+        "generated_sql": "SELECT T1.surname FROM drivers AS T1 INNER JOIN qualifying AS T2 ON T1.driverId = T2.driverId WHERE T2.raceId = 19 ORDER BY T2.q2 ASC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT T2.surname FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 19 AND T1.q2 IS NOT NULL ORDER BY T1.q2 ASC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -658,7 +658,7 @@
     {
         "question": "Give the coordinate position for Abu Dhabi Grand Prix.",
         "evidence": "coordinates refers to (lat, lng); position and location shares the same meaning.",
-        "generated_sql": "SELECT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T1.circuitId = T2.circuitId WHERE T2.name = 'Abu Dhabi Grand Prix'\n",
+        "generated_sql": "SELECT T2.lat, T2.lng FROM races AS T1 INNER JOIN circuits AS T2 ON T1.circuitId = T2.circuitId WHERE T1.name = 'Abu Dhabi Grand Prix'\n",
         "gold_sql": "SELECT DISTINCT T1.lat, T1.lng, T1.location FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitID = T1.circuitId WHERE T2.name = 'Abu Dhabi Grand Prix'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -674,7 +674,7 @@
     {
         "question": "For the race happened on 2015/11/29, how many drivers finished the game?",
         "evidence": "game and race are synonyms; drivers who finished the race should have record in time;",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.driverId) FROM results AS T1 WHERE T1.raceId = (SELECT raceId FROM races WHERE date = '2015-11-29') AND T1.time IS NOT NULL\n",
+        "generated_sql": "SELECT COUNT(DISTINCT T1.driverId) FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.date = '2015-11-29' AND T1.time IS NOT NULL\n",
         "gold_sql": "SELECT COUNT(T2.driverId) FROM races AS T1 INNER JOIN results AS T2 ON T2.raceId = T1.raceId WHERE T1.date = '2015-11-29' AND T2.time IS NOT NULL",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -682,7 +682,7 @@
     {
         "question": "Which year was the first Singapore Grand Prix?",
         "evidence": "the first race refers to race happened in min(year);",
-        "generated_sql": "SELECT MIN(T1.year) FROM races AS T1 INNER JOIN circuits AS T2 ON T1.circuitId = T2.circuitId WHERE T2.country = 'Singapore'\n",
+        "generated_sql": "SELECT MIN(year) FROM races WHERE name = 'Singapore Grand Prix'\n",
         "gold_sql": "SELECT year FROM races WHERE name = 'Singapore Grand Prix' ORDER BY year ASC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -690,7 +690,7 @@
     {
         "question": "Calculate the percentage whereby Hamilton was not at the 1st track of the the f1 circuit since 2010.",
         "evidence": "DIVIDE(COUNT(raceId) where surname = 'Hamilton', year >= 2010 and position>1), (COUNT(raceId) where surname = 'Hamilton', year >= 2010) as percentage;",
-        "generated_sql": "SELECT COUNT(T2.raceId)\n    FROM drivers AS T1\n    INNER JOIN results AS T2 ON T1.driverId = T2.driverId\n    INNER JOIN races AS T3 ON T2.raceId = T3.raceId\n    WHERE T1.surname = 'Hamilton' AND T3.year >= 2010 AND T2.position > 1\n    ",
+        "generated_sql": "SELECT\n  CASE\n    WHEN COUNT(T1.\"raceId\") = 0 THEN 0.0\n    ELSE CAST(SUM(CASE WHEN CAST(T1.\"positionText\" AS INTEGER) > 1 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.\"raceId\")\n  END\nFROM results AS T1\nINNER JOIN drivers AS T2\n  ON T1.\"driverId\" = T2.\"driverId\"\nINNER JOIN races AS T3\n  ON T1.\"raceId\" = T3.\"raceId\"\nWHERE T2.\"surname\" = 'Hamilton'\n  AND T3.\"year\" >= 2010;\n",
         "gold_sql": "SELECT CAST(COUNT(CASE WHEN T2.position <> 1 THEN T2.position END) AS REAL) * 100 / COUNT(T2.driverStandingsId) FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.surname = 'Hamilton' AND T1.year >= 2010",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -698,7 +698,7 @@
     {
         "question": "Please list the Formula_1 races that Lewis Hamilton participated.",
         "evidence": "",
-        "generated_sql": "SELECT DISTINCT T3.name FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T2.raceId = T3.raceId WHERE T1.forename = 'Lewis' AND T1.surname = 'Hamilton'\n",
+        "generated_sql": "SELECT DISTINCT T1.name FROM races AS T1 INNER JOIN results AS T2 ON T1.raceId = T2.raceId INNER JOIN drivers AS T3 ON T2.driverId = T3.driverId WHERE T3.forename = 'Lewis' AND T3.surname = 'Hamilton'\n",
         "gold_sql": "SELECT T1.name FROM races AS T1 INNER JOIN results AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Lewis' AND T3.surname = 'Hamilton'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -706,7 +706,7 @@
     {
         "question": "What's the finish time for the driver who ranked second in 2008's Australian Grand Prix?",
         "evidence": "finish time refers to time",
-        "generated_sql": "SELECT T2.time FROM races AS T1 INNER JOIN results AS T2 ON T1.raceId = T2.raceId WHERE T1.year = 2008 AND T1.name = 'Australian Grand Prix' AND T2.positionOrder = 2\n",
+        "generated_sql": "SELECT T1.time FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.year = 2008 AND T2.name = 'Australian Grand Prix' AND T1.position = 2\n",
         "gold_sql": "SELECT T1.time FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId WHERE T1.rank = 2 AND T2.name = 'Australian Grand Prix' AND T2.year = 2008",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -714,15 +714,15 @@
     {
         "question": "How many drivers from the USA participated in the 2008 Australian Grand Prix?",
         "evidence": "from the USA refers to nationality = 'American'",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.driverId) FROM results AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T1.raceId = T3.raceId WHERE T2.nationality = 'American' AND T3.year = 2008 AND T3.name = 'Australian Grand Prix'\n",
+        "generated_sql": "SELECT COUNT(DISTINCT T1.driverId) FROM results AS T1 INNER JOIN drivers AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T1.raceId = T3.raceId WHERE T2.nationality = 'American' AND T3.name = 'Australian Grand Prix'\n",
         "gold_sql": "SELECT COUNT(*) FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverId = T2.driverId INNER JOIN races AS T3 ON T3.raceId = T2.raceId WHERE T3.name = 'Australian GrAND Prix' AND T1.nationality = 'American' AND T3.year = 2008",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "How much faster in percentage is the champion than the driver who finished the race last in the 2008 Australian Grand Prix?",
         "evidence": "how much faster in percentage = divide(subtract(incremental time, champion time), last_driver time) * 100%; last driver finished time = incremental time + champion time; only champion's finished time is represented by 'HH:MM:SS.mmm'; finished the game refers to time is not null",
-        "generated_sql": "WITH TargetRaceId AS (\n  -- Sub-question 1: Get the raceId for the '2008 Australian Grand Prix'.\n  SELECT T1.raceId\n  FROM races AS T1\n  INNER JOIN circuits AS T2\n    ON T1.circuitId = T2.circuitId\n  WHERE\n    T1.year = 2008 AND T2.circuitRef = 'australian'\n), ChampionActualTime AS (\n  -- Sub-question 2: Get the champion's actual time in seconds (T_champion_sec) for the identified raceId.\n  SELECT\n    (CAST(SUBSTR(T1.time, 1, INSTR(T1.time, ':') - 1) AS REAL) * 3600) + -- Hours to seconds\n    (CAST(SUBSTR(T1.time, INSTR(T1.time, ':') + 1, INSTR(SUBSTR(T1.time, INSTR(T1.time, ':') + 1), ':') - 1) AS REAL) * 60) + -- Minutes to seconds\n    (CAST(SUBSTR(T1.time, INSTR(SUBSTR(T1.time, INSTR(T1.time, ':') + 1), ':') + INSTR(T1.time, ':') + 1) AS REAL)) AS champion_time_sec -- Seconds (including milliseconds)\n  FROM results AS T1\n  INNER JOIN TargetRaceId AS TR\n    ON T1.raceId = TR.raceId\n  WHERE\n    T1.time NOT LIKE '+%' AND T1.time IS NOT NULL -- Champion's time is in HH:MM:SS.mmm format\n), AllActualTimes AS (\n  -- Sub-question 3: Calculate the actual time in seconds for *all* drivers in the identified race who finished.\n  SELECT\n    CASE\n      WHEN T1.time NOT LIKE '+%'\n      THEN (CAST(SUBSTR(T1.time, 1, INSTR(T1.time, ':') - 1) AS REAL) * 3600) + (CAST(SUBSTR(T1.time, INSTR(T1.time, ':') + 1, INSTR(SUBSTR(T1.time, INSTR(T1.time, ':') + 1), ':') - 1) AS REAL) * 60) + (CAST(SUBSTR(T1.time, INSTR(SUBSTR(T1.time, INSTR(T1.time, ':') + 1), ':') + INSTR(T1.time, ':') + 1) AS REAL))\n      ELSE (SELECT champion_time_sec FROM ChampionActualTime) + CAST(SUBSTR(T1.time, 2) AS REAL)\n    END AS actual_time_sec\n  FROM results AS T1\n  INNER JOIN TargetRaceId AS TR\n    ON T1.raceId = TR.raceId\n  WHERE\n    T1.time IS NOT NULL -- Only consider drivers who finished the race\n)\n-- Main Question: Calculate the percentage difference.\nSELECT\n  (\n    (MAX(actual_time_sec) - (SELECT champion_time_sec FROM ChampionActualTime)) * 100.0 / MAX(actual_time_sec)\n  )\nFROM AllActualTimes;\n",
+        "generated_sql": "SELECT ( (\n            (SELECT \"time_milliseconds\" FROM \"results\" WHERE \"race_id\" = (SELECT \"race_id\" FROM \"races\" WHERE \"name\" = 'Australian Grand Prix' AND \"year\" = 2008) AND \"position\" = (SELECT MAX(\"position\") FROM \"results\" WHERE \"race_id\" = (SELECT \"race_id\" FROM \"races\" WHERE \"name\" = 'Australian Grand Prix' AND \"year\" = 2008) AND \"time_milliseconds\" IS NOT NULL))\n            -\n            (SELECT \"time_milliseconds\" FROM \"results\" WHERE \"race_id\" = (SELECT \"race_id\" FROM \"races\" WHERE \"name\" = 'Australian Grand Prix' AND \"year\" = 2008) AND \"position\" = 1)\n        ) * 100.0 ) /\n        (SELECT \"time_milliseconds\" FROM \"results\" WHERE \"race_id\" = (SELECT \"race_id\" FROM \"races\" WHERE \"name\" = 'Australian Grand Prix' AND \"year\" = 2008) AND \"position\" = (SELECT MAX(\"position\") FROM \"results\" WHERE \"race_id\" = (SELECT \"race_id\" FROM \"races\" WHERE \"name\" = 'Australian Grand Prix' AND \"year\" = 2008) AND \"time_milliseconds\" IS NOT NULL))\n        ",
         "gold_sql": "WITH time_in_seconds AS ( SELECT T1.positionOrder, CASE WHEN T1.positionOrder = 1 THEN (CAST(SUBSTR(T1.time, 1, 1) AS REAL) * 3600) + (CAST(SUBSTR(T1.time, 3, 2) AS REAL) * 60) + CAST(SUBSTR(T1.time, 6) AS REAL) ELSE CAST(SUBSTR(T1.time, 2) AS REAL) END AS time_seconds FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Australian Grand Prix' AND T1.time IS NOT NULL AND T2.year = 2008 ), champion_time AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = 1), last_driver_incremental AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = (SELECT MAX(positionOrder) FROM time_in_seconds) ) SELECT (CAST((SELECT time_seconds FROM last_driver_incremental) AS REAL) * 100) / (SELECT time_seconds + (SELECT time_seconds FROM last_driver_incremental) FROM champion_time)",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -730,7 +730,7 @@
     {
         "question": "Which drivers born after 1975 have been ranked 2? Please give their forenames and surnames.",
         "evidence": "born after 1975 refers to year(dob) >1975;",
-        "generated_sql": "SELECT DISTINCT T1.forename, T1.surname FROM drivers AS T1 INNER JOIN results AS T2 ON T1.driverid = T2.driverid WHERE STRFTIME('%Y', T1.dob) > '1975' AND T1.dob IS NOT NULL AND T2.position = 2 AND T2.position IS NOT NULL\n",
+        "generated_sql": "SELECT DISTINCT\n  T1.\"forename\",\n  T1.\"surname\"\nFROM \"drivers\" AS T1\nINNER JOIN \"driverStandings\" AS T2\n  ON T1.\"driverId\" = T2.\"driverId\"\nWHERE\n  STRFTIME('%Y', T1.\"dob\") > '1975' AND T2.\"positionText\" = '2';\n",
         "gold_sql": "SELECT T2.forename, T2.surname FROM results AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId WHERE STRFTIME('%Y', T2.dob) > '1975' AND T1.rank = 2",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -738,7 +738,7 @@
     {
         "question": "Please state the reference name of the oldest German driver.",
         "evidence": "oldest refers to MIN(year(dob)); reference names appear in drverRef.",
-        "generated_sql": "SELECT driverRef FROM drivers WHERE nationality = 'German' ORDER BY dob ASC LIMIT 1\n",
+        "generated_sql": "SELECT \"driverRef\" FROM \"drivers\" WHERE \"nationality\" = 'German' ORDER BY STRFTIME('%Y', \"dob\") ASC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT driverRef FROM drivers WHERE nationality = 'German' ORDER BY JULIANDAY(dob) ASC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -746,7 +746,7 @@
     {
         "question": "Which drivers who were born in 1971 and has the fastest lap time on the race? Give id and code of these drivers.",
         "evidence": "born in 1971 refers to year(dob) = 1971; has the fastest lap time refers to fastestLapTime has values",
-        "generated_sql": "SELECT DISTINCT\n  T1.driverId,\n  T1.code\nFROM drivers AS T1\nINNER JOIN results AS T2\n  ON T1.driverId = T2.driverId\nWHERE\n  STRFTIME('%Y', T1.dob) = '1971' AND T2.rank = 1;\n",
+        "generated_sql": "SELECT DISTINCT T1.driverId, T1.code\n        FROM drivers AS T1\n        INNER JOIN results AS T2\n          ON T1.driverId = T2.driverId\n        WHERE STRFTIME('%Y', T1.dob) = '1971'\n          AND (T2.raceId, CAST(T2.fastestLapSpeed AS REAL)) IN (\n            SELECT raceId, MAX(CAST(fastestLapSpeed AS REAL))\n            FROM results\n            WHERE fastestLapSpeed IS NOT NULL AND fastestLapSpeed != ''\n            GROUP BY raceId\n          );\n        ",
         "gold_sql": "SELECT T2.driverId, T2.code FROM results AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId WHERE STRFTIME('%Y', T2.dob) = '1971' AND T1.fastestLapTime IS NOT NULL",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -754,7 +754,7 @@
     {
         "question": "What is the annual average number of races held during the first 10 years of the 21st century?",
         "evidence": "races in date between '2000-01-01' and '2010-12-31'",
-        "generated_sql": "SELECT AVG(T1.num_races) FROM (SELECT COUNT(raceId) AS num_races FROM races WHERE year BETWEEN 2000 AND 2009 GROUP BY year) AS T1\n",
+        "generated_sql": "SELECT AVG(T1.\"races_count\") FROM (SELECT COUNT(\"raceId\") AS \"races_count\" FROM \"races\" WHERE \"year\" BETWEEN 2000 AND 2010 GROUP BY \"year\") AS T1\n",
         "gold_sql": "SELECT CAST(SUM(CASE WHEN year BETWEEN 2000 AND 2010 THEN 1 ELSE 0 END) AS REAL) / 10 FROM races WHERE date BETWEEN '2000-01-01' AND '2010-12-31'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -762,7 +762,7 @@
     {
         "question": "Which citizenship do the vast majority of the drivers hold?",
         "evidence": "Citizenship of majority of drivers = MAX(nationality); citizenship and nationality are synonyms\n\n",
-        "generated_sql": "SELECT nationality FROM drivers GROUP BY nationality ORDER BY COUNT(*) DESC LIMIT 1\n",
+        "generated_sql": "SELECT \"nationality\" FROM \"drivers\" WHERE \"nationality\" IS NOT NULL GROUP BY \"nationality\" ORDER BY COUNT(*) DESC LIMIT 1\n",
         "gold_sql": "SELECT nationality FROM drivers GROUP BY nationality ORDER BY COUNT(driverId) DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -770,23 +770,23 @@
     {
         "question": "How many accidents did the driver who had the highest number accidents in the Canadian Grand Prix have?",
         "evidence": "number of accidents refers to the number where statusid = 3; Canadian Grand Prix refers to the race of name\n",
-        "generated_sql": "SELECT COUNT(T1.resultId) FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Canadian Grand Prix' AND T1.statusId = 3 AND T1.driverId = (SELECT T3.driverId FROM results AS T3 INNER JOIN races AS T4 ON T3.raceId = T4.raceId WHERE T4.name = 'Canadian Grand Prix' AND T3.statusId = 3 GROUP BY T3.driverId ORDER BY COUNT(T3.resultId) DESC LIMIT 1)\n",
+        "generated_sql": "SELECT COUNT(\"resultId\") FROM \"results\" WHERE \"statusId\" = 3 AND \"driverId\" = (SELECT \"driverId\" FROM \"results\" WHERE \"raceId\" = (SELECT \"raceId\" FROM \"races\" WHERE \"name\" = 'Canadian Grand Prix') AND \"statusId\" = 3 GROUP BY \"driverId\" ORDER BY COUNT(\"resultId\") DESC LIMIT 1)\n",
         "gold_sql": "SELECT COUNT(T1.driverId) FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN status AS T3 on T1.statusId = T3.statusId WHERE T3.statusId = 3 AND T2.name = 'Canadian Grand Prix' GROUP BY T1.driverId ORDER BY COUNT(T1.driverId) DESC LIMIT 1",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "What is the lap record for the Austrian Grand Prix Circuit?",
         "evidence": "lap record means the fastest time recorded which refers to time",
-        "generated_sql": "SELECT T3.time\nFROM circuits AS T1\nINNER JOIN races AS T2\n  ON T1.circuitId = T2.circuitId\nINNER JOIN lapTimes AS T3\n  ON T2.raceId = T3.raceId\nWHERE\n  T1.circuitRef = 'red_bull_ring'\nORDER BY\n  CAST(SUBSTR(T3.time, 1, INSTR(T3.time, ':') - 1) AS REAL) * 60 + CAST(SUBSTR(T3.time, INSTR(T3.time, ':') + 1) AS REAL) ASC\nLIMIT 1;\n",
+        "generated_sql": "SELECT MIN(T1.milliseconds) FROM lapTimes AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Austrian Grand Prix'\n",
         "gold_sql": "WITH fastest_lap_times AS ( SELECT T1.raceId, T1.fastestLapTime FROM results AS T1 WHERE T1.FastestLapTime IS NOT NULL) SELECT MIN(fastest_lap_times.fastestLapTime) as lap_record FROM fastest_lap_times INNER JOIN races AS T2 on fastest_lap_times.raceId = T2.raceId INNER JOIN circuits AS T3 on T2.circuitId = T3.circuitId WHERE T2.name = 'Austrian Grand Prix'",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "Give the name of the league with the highest matches of all time and how many matches were played in the said league.",
         "evidence": "name of the league refers to League.name; league with highest matches of all time refers to MAX(COUNT(league_id));",
-        "generated_sql": "SELECT T1.name, COUNT(T2.id) FROM League AS T1 INNER JOIN Match AS T2 ON T1.id = T2.league_id GROUP BY T1.name ORDER BY COUNT(T2.id) DESC LIMIT 1\n",
+        "generated_sql": "SELECT T1.name, COUNT(T2.league_id) FROM League AS T1 INNER JOIN Match AS T2 ON T1.id = T2.league_id GROUP BY T1.name ORDER BY COUNT(T2.league_id) DESC LIMIT 1\n",
         "gold_sql": "SELECT t2.name, COUNT(t1.id) FROM Match AS t1 INNER JOIN League AS t2 ON t1.league_id = t2.id GROUP BY t2.name ORDER BY COUNT(t1.id) DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -794,7 +794,7 @@
     {
         "question": "Give the team_fifa_api_id of teams with more than 50 but less than 60 build-up play speed.",
         "evidence": "teams with more than 50 but less than 60 build-up play speed refers to buildUpPlaySpeed BETWEEN 51 AND 59;",
-        "generated_sql": "SELECT DISTINCT team_fifa_api_id FROM Team_Attributes WHERE buildUpPlaySpeed BETWEEN 51 AND 59\n",
+        "generated_sql": "SELECT DISTINCT \"team_fifa_api_id\" FROM Team_Attributes WHERE \"buildUpPlaySpeed\" BETWEEN 51 AND 59\n",
         "gold_sql": "SELECT DISTINCT team_fifa_api_id FROM Team_Attributes WHERE buildUpPlaySpeed > 50 AND buildUpPlaySpeed < 60",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -802,7 +802,7 @@
     {
         "question": "List the long name of teams with above-average build-up play passing in 2012.",
         "evidence": "long name of teams refers to team_long_name; build-up play passing refers to buildUpPlayPassing; above-average build-up play passing = DIVIDE(SUM(buildUpPlayPassing), COUNT(team_long_name) WHERE buildUpPlayPassing IS NOT NULL) < buildUpPlayPassing; in 2012 refers to strftime('%Y', date) = '2012';",
-        "generated_sql": "SELECT DISTINCT T1.team_long_name FROM Team AS T1 INNER JOIN Team_Attributes AS T2 ON T1.team_api_id = T2.team_api_id WHERE STRFTIME('%Y', T2.date) = '2012' AND T2.buildUpPlayPassing IS NOT NULL AND T2.buildUpPlayPassing > (SELECT AVG(T3.buildUpPlayPassing) FROM Team_Attributes AS T3 WHERE STRFTIME('%Y', T3.date) = '2012' AND T3.buildUpPlayPassing IS NOT NULL)\n",
+        "generated_sql": "SELECT DISTINCT T1.team_long_name FROM Team AS T1 INNER JOIN Team_Attributes AS T2 ON T1.team_api_id = T2.team_api_id WHERE STRFTIME('%Y', T2.date) = '2012' AND T2.buildUpPlayPassing > (SELECT AVG(buildUpPlayPassing) FROM Team_Attributes WHERE STRFTIME('%Y', date) = '2012' AND buildUpPlayPassing IS NOT NULL)\n",
         "gold_sql": "SELECT DISTINCT t4.team_long_name FROM Team_Attributes AS t3 INNER JOIN Team AS t4 ON t3.team_api_id = t4.team_api_id WHERE SUBSTR(t3.`date`, 1, 4) = '2012' AND t3.buildUpPlayPassing > ( SELECT CAST(SUM(t2.buildUpPlayPassing) AS REAL) / COUNT(t1.id) FROM Team AS t1 INNER JOIN Team_Attributes AS t2 ON t1.team_api_id = t2.team_api_id WHERE SUBSTR(t2.`date`, 1, 4) = '2012' )",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -818,7 +818,7 @@
     {
         "question": "What is the football player Francois Affolter header's finishing rate on 18/09/2014?",
         "evidence": "header's finishing rate refers to heading_accuracy; on 18/09/2014 refers to date = '2014-09-18 00:00:00';",
-        "generated_sql": "SELECT T2.heading_accuracy FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.player_name = 'Francois Affolter' AND T2.date = '2014-09-18 00:00:00'\n",
+        "generated_sql": "SELECT T2.\"heading_accuracy\" FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.\"player_api_id\" = T2.\"player_api_id\" WHERE T1.\"player_name\" = 'Francois Affolter' AND T2.\"date\" = '2014-09-18 00:00:00'\n",
         "gold_sql": "SELECT t2.heading_accuracy FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.player_name = 'Francois Affolter' AND SUBSTR(t2.`date`, 1, 10) = '2014-09-18'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -826,7 +826,7 @@
     {
         "question": "What is Aaron Doran's potential score?",
         "evidence": "potential score refers to potential;",
-        "generated_sql": "SELECT T2.potential FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.player_name = 'Aaron Doran' ORDER BY T2.date DESC LIMIT 1\n",
+        "generated_sql": "-- The provided schema for Player_Attributes only contains the \"potential\" column and does not include any column for player names (e.g., \"player_name\", \"player_id\").\n-- Therefore, it is impossible to filter for \"Aaron Doran's\" specific potential score using the given database structure.\n-- The query below would return all potential scores, not specifically Aaron Doran's.\nSELECT \"potential\" FROM Player_Attributes;\n",
         "gold_sql": "SELECT t2.potential FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.player_name = 'Aaron Doran'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -858,7 +858,7 @@
     {
         "question": "What is Ajax's highest chance creation passing score and what is it classified as?",
         "evidence": "Ajax's refers to team_long_name = 'Ajax'; chance creation passing score refers to MAX(chanceCreationPassing); classified as chanceCreationPassingClass",
-        "generated_sql": "SELECT T1.chanceCreationPassing, T1.chanceCreationPassingClass FROM Team_Attributes AS T1 INNER JOIN Team AS T2 ON T1.team_api_id = T2.team_api_id WHERE T2.team_long_name = 'Ajax' ORDER BY T1.chanceCreationPassing DESC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT T2.chanceCreationPassing, T2.chanceCreationPassingClass FROM Team AS T1 INNER JOIN Team_Attributes AS T2 ON T1.team_api_id = T2.team_api_id WHERE T1.team_long_name = 'Ajax' ORDER BY T2.chanceCreationPassing DESC LIMIT 1\n",
         "gold_sql": "SELECT t2.chanceCreationPassing, t2.chanceCreationPassingClass FROM Team AS t1 INNER JOIN Team_Attributes AS t2 ON t1.team_api_id = t2.team_api_id WHERE t1.team_long_name = 'Ajax' ORDER BY t2.chanceCreationPassing DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -866,7 +866,7 @@
     {
         "question": "What was the potiential for Francesco Parravicini on 2010/8/30?",
         "evidence": "Francesco Parravicini refers to player_name = 'Francesco Parravicini'; on 2010/8/30 refers to date = '2010-08-30 00:00:00'",
-        "generated_sql": "SELECT T1.potential FROM Player_Attributes AS T1 INNER JOIN Player AS T2 ON T1.player_api_id = T2.player_api_id WHERE T2.player_name = 'Francesco Parravicini' AND T1.date = '2010-08-30 00:00:00'\n",
+        "generated_sql": "SELECT T2.potential FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.player_name = 'Francesco Parravicini' AND T2.date = '2010-08-30 00:00:00'\n",
         "gold_sql": "SELECT t2.potential FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE SUBSTR(t2.`date`, 1, 10) = '2010-08-30' AND t1.player_name = 'Francesco Parravicini'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -890,7 +890,7 @@
     {
         "question": "For in-patient age 50 and above, what is their average anti-cardiolipin antibody (IgG) concentration?",
         "evidence": "in-patient refers to Admission = '+'; age 50 and above refers to SUBTRACT(year(current_timestamp), year(Birthday)) >= '50'; average anti-cardiolipin antibody (IgG) concentration refers to AVG(aCL IgG)",
-        "generated_sql": "SELECT AVG(T1.`aCL IgG`) FROM Examination AS T1 INNER JOIN Patient AS T2 ON T1.ID = T2.ID WHERE T2.Admission = '+' AND (STRFTIME('%Y', 'now') - STRFTIME('%Y', T2.Birthday)) >= 50\n",
+        "generated_sql": "SELECT AVG(T1.\"aCL IgG\") FROM Examination AS T1 INNER JOIN Patient AS T2 ON T1.ID = T2.ID WHERE T2.Admission = '+' AND (STRFTIME('%Y', 'now') - STRFTIME('%Y', T2.Birthday)) >= 50\n",
         "gold_sql": "SELECT AVG(T2.`aCL IgG`) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) >= 50 AND T1.Admission = '+'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -898,7 +898,7 @@
     {
         "question": "For the patient who first came to the hospital on 1991/6/13 who was diagnosed with SJS, what is the total number of his/her Laboratory tests in 1995?",
         "evidence": "1991/6/13 refers to `First Date` = '1991-06-13'; 'SJS' refers to Diagnosis; total number of his/her Laboratory tests refers to COUNT(ID); 1995 refers to Date",
-        "generated_sql": "SELECT COUNT(T1.ID) FROM Laboratory AS T1 INNER JOIN Patient AS T2 ON T1.ID = T2.ID WHERE T2.\"First Date\" = '1991-06-13' AND T2.Diagnosis = 'SJS' AND STRFTIME('%Y', T1.Date) = '1995'\n",
+        "generated_sql": "SELECT COUNT(\"ID\") FROM \"Laboratory\" WHERE \"ID\" = ( SELECT \"ID\" FROM \"Patient\" WHERE \"First Date\" = '1991-06-13' AND \"Diagnosis\" = 'SJS' ) AND STRFTIME('%Y', \"Date\") = '1995'\n",
         "gold_sql": "SELECT COUNT(*) FROM Laboratory WHERE ID = ( SELECT ID FROM Patient WHERE `First Date` = '1991-06-13' AND Diagnosis = 'SJS' ) AND STRFTIME('%Y', Date) = '1995'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -906,7 +906,7 @@
     {
         "question": "What is the average blood albumin level for female patients with a PLT greater than 400 who have been diagnosed with SLE?",
         "evidence": "average blood albumin level refers to AVG(ALB); female refers to SEX = 'F'; PLT greater than 400 refers to PLT > 400; 'SLE' refers to diagnosis",
-        "generated_sql": "SELECT AVG(T2.ALB) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'F' AND T2.PLT > 400 AND T1.Diagnosis = 'SLE'\n",
+        "generated_sql": "SELECT AVG(T2.\"ALB\") FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.\"ID\" = T2.\"ID\" WHERE T1.\"SEX\" = 'F' AND T1.\"Diagnosis\" = 'SLE' AND T2.\"PLT\" > 400\n",
         "gold_sql": "SELECT AVG(T2.ALB) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.PLT > 400 AND T1.Diagnosis = 'SLE' AND T1.SEX = 'F'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -914,7 +914,7 @@
     {
         "question": "What percentage of patients who were born in 1980 and were diagnosed with RA are women?",
         "evidence": "born in 1980 refers to YEAR(BIRTHDAY) = '1980'; 'RA' refers to diagnosis; women refers to SEX = 'F'; calculation = DIVIDE((SEX = 'F'), COUNT(SEX)) where YEAR(BIRTHDAY) = '1980' AND diagnosis = 'RA' MULTIPLY 100",
-        "generated_sql": "SELECT\n  CAST(SUM(CASE WHEN SEX = 'F' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(ID)\nFROM Patient\nWHERE\n  STRFTIME('%Y', Birthday) = '1980' AND Diagnosis = 'RA';\n",
+        "generated_sql": "SELECT CAST(SUM(CASE WHEN \"SEX\" = 'F' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(\"ID\") FROM \"Patient\" WHERE STRFTIME('%Y', \"Birthday\") = '1980' AND \"Diagnosis\" = 'RA'\n",
         "gold_sql": "SELECT CAST(SUM(CASE WHEN SEX = 'F' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(ID) FROM Patient WHERE Diagnosis = 'RA' AND STRFTIME('%Y', Birthday) = '1980'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -922,7 +922,7 @@
     {
         "question": "Name the ID of the patient who is born on the April 1st, 1982. Is his/her alkaliphophatase (ALP) within normal range?",
         "evidence": "alkaliphophatase (ALP) within normal range refers to ALP < 300",
-        "generated_sql": "SELECT\n  T1.ID,\n  CASE\n    WHEN COUNT(T2.ALP) = 0 THEN 'No Data'\n    WHEN MAX(CASE WHEN T2.ALP >= 300 THEN 1 ELSE 0 END) = 0 THEN 'Yes'\n    ELSE 'No'\n  END AS ALP_Normal_Range\nFROM Patient AS T1\nLEFT JOIN Laboratory AS T2\n  ON T1.ID = T2.ID\nWHERE\n  T1.Birthday = '1982-04-01'\nGROUP BY\n  T1.ID;\n",
+        "generated_sql": "SELECT\n  P.\"ID\",\n  CASE\n    WHEN MAX(L.\"ALP\") IS NOT NULL AND MAX(L.\"ALP\") < 300\n    THEN 'Yes'\n    ELSE 'No'\n  END AS \"ALP_Normal_Range\"\nFROM \"Patient\" AS P\nLEFT JOIN \"Laboratory\" AS L\n  ON P.\"ID\" = L.\"ID\"\nWHERE\n  P.\"Birthday\" = '1982-04-01'\nGROUP BY\n  P.\"ID\";\n",
         "gold_sql": "SELECT T1.ID , CASE WHEN T2.ALP < 300 THEN 'normal' ELSE 'abNormal' END FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Birthday = '1982-04-01'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -938,9 +938,9 @@
     {
         "question": "What is the highest total bilirubin level recorded? List out the patient details with ID, sex and birthday with that index.",
         "evidence": "the highest total bilirubin refers to MAX(T-BIL)",
-        "generated_sql": "SELECT T1.ID, T1.SEX, T1.Birthday, T2.\"T-BIL\" FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.\"T-BIL\" = (SELECT MAX(\"T-BIL\") FROM Laboratory)\n",
+        "generated_sql": "SELECT T1.ID, T1.SEX, T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.\"T-BIL\" = (SELECT MAX(\"T-BIL\") FROM Laboratory)\n",
         "gold_sql": "SELECT T2.`T-BIL`, T1.ID, T1.SEX, T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID ORDER BY T2.`T-BIL` DESC LIMIT 1",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
@@ -954,7 +954,7 @@
     {
         "question": "Please list the disease names of the patients that have a proteinuria level higher than normal.",
         "evidence": "disease names refers to Diagnosis; proteinuria level higher than normal refers to `U-PRO` > = 30;",
-        "generated_sql": "SELECT DISTINCT T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE CAST(T2.\"U-PRO\" AS REAL) >= 30 AND T2.\"U-PRO\" NOT IN ('-', 'TR', '+-')\n",
+        "generated_sql": "SELECT DISTINCT T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE CAST(T2.\"U-PRO\" AS REAL) >= 30\n",
         "gold_sql": "SELECT T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.`U-PRO` >= 30",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -962,7 +962,7 @@
     {
         "question": "Which is the youngest patient with an abnormal anti-ribonuclear protein level? Please list his or her date of birth.",
         "evidence": "youngest patient refers to MAX(Birthday); abnormal anti-ribonuclear protein level refers to RNP NOT IN('-', '+-'); date of birth refers to Birthday;",
-        "generated_sql": "SELECT MAX(T1.Birthday) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RNP NOT IN ('-', '+-')\n",
+        "generated_sql": "SELECT T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RNP NOT IN ('-', '+-') ORDER BY T1.Birthday DESC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RNP != '-' OR '+-' ORDER BY T1.Birthday DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -970,7 +970,7 @@
     {
         "question": "For the patients with an abnormal anti-SM, please list the IDs of the three youngest ones.",
         "evidence": "abnormal anti-SM refers to SM NOT IN('-', '+-'); youngest refers to MAX(Birthday);",
-        "generated_sql": "SELECT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SM NOT IN ('-', '+-') ORDER BY T1.Birthday DESC NULLS LAST LIMIT 3\n",
+        "generated_sql": "SELECT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SM NOT IN ('-', '+-') GROUP BY T1.ID ORDER BY T1.Birthday DESC NULLS LAST LIMIT 3\n",
         "gold_sql": "SELECT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SM NOT IN ('negative','0') ORDER BY T1.Birthday DESC LIMIT 3",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -978,15 +978,15 @@
     {
         "question": "Which patient is the first patient with an abnormal anti-SSA to come to the hospital? Please give his or her ID.",
         "evidence": "first patient refers to ID with MIN(`First Date`); abnormal anti-SSA refers to SSA NOT IN('-', '+-');",
-        "generated_sql": "SELECT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SSA NOT IN ('-', '+-') ORDER BY T1.`First Date` ASC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT T1.\"ID\" FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.\"ID\" = T2.\"ID\" WHERE T2.\"SSA\" NOT IN ('-', '+-') ORDER BY T1.\"First Date\" ASC LIMIT 1\n",
         "gold_sql": "SELECT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.`First Date` IS NOT NULL AND T2.SSA NOT IN ('negative', '0') ORDER BY T1.`First Date` ASC LIMIT 1",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "Of the patients with an abnormal level of anti-DNA-II, how many of them admitted to the hospital?",
         "evidence": "normal level of anti-DNA-II refers to DNA-II < 8; admitted to the hospital refers to Admission = '+';",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T1.Admission = '+' AND T2.ANA >= 8\n",
+        "generated_sql": "SELECT COUNT(ID) FROM Patient WHERE Admission = '+'\n",
         "gold_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.`DNA-II` >= 8 AND T1.Admission = '+'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -994,7 +994,7 @@
     {
         "question": "How many male patients have a normal level of both albumin and total protein?",
         "evidence": "male refers to Sex = 'M'; normal level of both albumin and total protein refers to ALB > 3.5 and ALB < 5.5 AND TP between 6.0 and 8.5;",
-        "generated_sql": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'M' AND T2.ALB > 3.5 AND T2.ALB < 5.5 AND T2.TP > 6.0 AND T2.TP < 8.5\n",
+        "generated_sql": "SELECT COUNT(DISTINCT \"ID\") FROM \"Laboratory\" WHERE \"ALB\" > 3.5 AND \"ALB\" < 5.5 AND \"TP\" BETWEEN 6.0 AND 8.5\n",
         "gold_sql": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'M' AND T2.ALB BETWEEN 3.5 AND 5.5 AND T2.TP BETWEEN 6.0 AND 8.5",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -1002,7 +1002,7 @@
     {
         "question": "What is the highest anti-nucleus antibody concentration level of a patient with a normal creatinine level?",
         "evidence": "highest anti-nucleus antibody concentration level refers to MAX(ANA); normal creatinine level refers to CRE < 1.5;",
-        "generated_sql": "SELECT MAX(T1.ANA) FROM Examination AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CRE < 1.5\n",
+        "generated_sql": "SELECT MAX(T1.\"ANA\") FROM Examination AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CRE < 1.5\n",
         "gold_sql": "SELECT T2.ANA FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID INNER JOIN Laboratory AS T3 ON T1.ID = T3.ID WHERE T3.CRE < 1.5 ORDER BY T2.ANA DESC LIMIT 1",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -1018,7 +1018,7 @@
     {
         "question": "With the biggest budget for the \"Food\", what was the remaining of it?",
         "evidence": "remaining of budget refers to remaining, biggest budget for 'Food' refers to MAX(budget.amount) where category = 'Food'",
-        "generated_sql": "SELECT T1.remaining FROM budget AS T1 WHERE T1.category = 'Food' AND T1.amount = (SELECT MAX(amount) FROM budget WHERE category = 'Food')\n",
+        "generated_sql": "SELECT \"remaining\" FROM \"budget\" WHERE \"category\" = 'Food' ORDER BY \"amount\" DESC LIMIT 1\n",
         "gold_sql": "SELECT remaining FROM budget WHERE category = 'Food' AND amount = ( SELECT MAX(amount) FROM budget WHERE category = 'Food' )",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -1034,7 +1034,7 @@
     {
         "question": "List all the members who attended the event \"October Meeting\".",
         "evidence": "'October Meeting' is an event name;",
-        "generated_sql": "SELECT T1.first_name, T1.last_name FROM member AS T1 INNER JOIN attendance AS T2 ON T1.member_id = T2.link_to_member INNER JOIN event AS T3 ON T2.link_to_event = T3.event_id WHERE T3.event_name = 'October Meeting'\n",
+        "generated_sql": "SELECT DISTINCT\n  T1.first_name,\n  T1.last_name\nFROM member AS T1\nINNER JOIN attendance AS T2\n  ON T1.member_id = T2.link_to_member\nINNER JOIN event AS T3\n  ON T2.link_to_event = T3.event_id\nWHERE\n  T3.event_name = 'October Meeting';\n",
         "gold_sql": "SELECT DISTINCT T3.member_id FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event INNER JOIN member AS T3 ON T2.link_to_member = T3.member_id WHERE T1.event_name = 'October Meeting'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -1042,7 +1042,7 @@
     {
         "question": "What does the person with the phone number \"809-555-3360\" major in?",
         "evidence": "major in refers to major_name",
-        "generated_sql": "SELECT T2.major_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.phone = '809-555-3360'\n",
+        "generated_sql": "SELECT T1.major_name FROM major AS T1 INNER JOIN member AS T2 ON T1.major_id = T2.link_to_major WHERE T2.phone = '809-555-3360'\n",
         "gold_sql": "SELECT T2.major_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.phone = '809-555-3360'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -1050,7 +1050,7 @@
     {
         "question": "Provide the full name and email address of the Student_Club's Secretary.",
         "evidence": "full name refers to first_name, last_name; 'Secretary' is a position of Student Club",
-        "generated_sql": "SELECT first_name, last_name, email FROM member WHERE position = 'Secretary'\n",
+        "generated_sql": "SELECT \"first_name\", \"last_name\", \"email\" FROM \"member\" WHERE \"position\" = 'Secretary'\n",
         "gold_sql": "SELECT first_name, last_name, email FROM member WHERE position = 'Secretary'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -1058,15 +1058,15 @@
     {
         "question": "State what kind of expenses that Sacha Harrison incurred?",
         "evidence": "kind of expenses refers to expense_description",
-        "generated_sql": "SELECT T1.expense_description FROM expense AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T2.first_name = 'Sacha' AND T2.last_name = 'Harrison'\n",
+        "generated_sql": "SELECT DISTINCT T1.expense_description FROM expense AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T2.first_name = 'Sacha' AND T2.last_name = 'Harrison'\n",
         "gold_sql": "SELECT T2.expense_description FROM member AS T1 INNER JOIN expense AS T2 ON T1.member_id = T2.link_to_member WHERE T1.first_name = 'Sacha' AND T1.last_name = 'Harrison'",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "List out the position of members who joined major of Business.",
         "evidence": "'Business' is the major name",
-        "generated_sql": "SELECT T1.position FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T2.major_name = 'Business'\n",
+        "generated_sql": "SELECT DISTINCT T1.position FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T2.major_name = 'Business'\n",
         "gold_sql": "SELECT T2.position FROM major AS T1 INNER JOIN member AS T2 ON T1.major_id = T2.link_to_major WHERE T1.major_name = 'Business'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -1098,17 +1098,17 @@
     {
         "question": "List the name of events with less than average parking cost.",
         "evidence": "name of events refers to event_name; less than average parking cost refers to cost < DIVIDE(SUM(cost), COUNT(event_id)) where category = 'Parking'",
-        "generated_sql": null,
+        "generated_sql": "SELECT\n  T2.type\nFROM budget AS T1\nINNER JOIN event AS T2\n  ON T1.link_to_event = T2.event_id\nWHERE\n  T1.category = 'Parking' AND T1.spent < (\n    SELECT\n      AVG(spent)\n    FROM budget\n    WHERE\n      category = 'Parking'\n  );\n",
         "gold_sql": "SELECT T1.event_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T2.category = 'Parking' AND T3.cost < (SELECT AVG(cost) FROM expense)",
         "comparison_status": 0,
-        "execution_status": null
+        "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "What is the percentage of the cost for the game events?",
         "evidence": "game events refers to type = 'Game'; percentage = DIVIDE( SUM(cost), COUNT(event_id)) * 100",
-        "generated_sql": "SELECT (SUM(T1.cost) * 100.0 / COUNT(DISTINCT T3.event_id))\nFROM expense AS T1\nINNER JOIN budget AS T2\n  ON T1.link_to_budget = T2.budget_id\nINNER JOIN event AS T3\n  ON T2.link_to_event = T3.event_id\nWHERE T3.type = 'Game';\n",
+        "generated_sql": "SELECT\n  (SUM(CASE WHEN T1.\"type\" = 'Game' THEN T2.\"spent\" ELSE 0 END) * 100.0) / SUM(T2.\"spent\")\nFROM event AS T1\nINNER JOIN budget AS T2\n  ON T1.\"event_id\" = T2.\"link_to_event\"\nWHERE\n  T2.\"event_status\" = 'Closed';\n",
         "gold_sql": "SELECT SUM(CASE WHEN T1.type = 'Game' THEN T3.cost ELSE 0 END) * 100 / SUM(T3.cost) FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
@@ -1122,7 +1122,7 @@
     {
         "question": "Calculate the total amount spent on speaker gifts and list the name of the event they were spent on.",
         "evidence": "total amount spent = SUM(spent) where category = 'Speaker Gifts'",
-        "generated_sql": "SELECT SUM(T1.spent), T2.event_name FROM budget AS T1 INNER JOIN event AS T2 ON T1.link_to_event = T2.event_id WHERE T1.category = 'Speaker Gifts' GROUP BY T2.event_name\n",
+        "generated_sql": "SELECT T2.\"event_name\", SUM(T1.\"spent\") FROM budget AS T1 INNER JOIN event AS T2 ON T1.\"link_to_event\" = T2.\"event_id\" WHERE T1.\"category\" = 'Speaker Gifts' GROUP BY T2.\"event_name\"\n",
         "gold_sql": "SELECT SUM(T1.spent), T2.event_name FROM budget AS T1 INNER JOIN event AS T2 ON T1.link_to_event = T2.event_id WHERE T1.category = 'Speaker Gifts'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -1130,7 +1130,7 @@
     {
         "question": "In 2012, who had the least consumption in LAM?",
         "evidence": "Year 2012 can be presented as Between 201201 And 201212, which means between January and December in 2012",
-        "generated_sql": "SELECT T1.CustomerID FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Segment = 'LAM' AND T2.Date BETWEEN '201201' AND '201212' ORDER BY T2.Consumption ASC NULLS LAST LIMIT 1\n",
+        "generated_sql": "SELECT T1.CustomerID FROM yearmonth AS T1 INNER JOIN customers AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.Segment = 'LAM' AND T1.Date BETWEEN '201201' AND '201212' ORDER BY T1.Consumption ASC NULLS LAST LIMIT 1\n",
         "gold_sql": "SELECT T1.CustomerID FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Segment = 'LAM' AND T2.date BETWEEN 201201 AND 201212 GROUP BY T1.CustomerID ORDER BY SUM(T2.Consumption) ASC LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -1146,7 +1146,7 @@
     {
         "question": "How much more was customer 7 consuming in April 2013 than customer 5?",
         "evidence": "April 2013 refers to 201304 in the yearmonth.date",
-        "generated_sql": "SELECT (SELECT T1.Consumption FROM yearmonth AS T1 WHERE T1.CustomerID = 7 AND T1.Date = '201304') - (SELECT T1.Consumption FROM yearmonth AS T1 WHERE T1.CustomerID = 5 AND T1.Date = '201304')\n",
+        "generated_sql": "SELECT (SELECT T1.Consumption FROM yearmonth AS T1 WHERE T1.CustomerID = 7 AND T1.Date = '201304') - (SELECT T2.Consumption FROM yearmonth AS T2 WHERE T2.CustomerID = 5 AND T2.Date = '201304')\n",
         "gold_sql": "SELECT SUM(IIF(CustomerID = 7, Consumption, 0)) - SUM(IIF(CustomerID = 5, Consumption, 0)) FROM yearmonth WHERE Date = '201304'",
         "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
@@ -1154,15 +1154,15 @@
     {
         "question": "For the customers who paid in the euro, what is their average total price of the transactions?",
         "evidence": "",
-        "generated_sql": "SELECT AVG(T1.Price) FROM transactions_1k AS T1 INNER JOIN customers AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.Currency = 'EUR'\n",
+        "generated_sql": "SELECT AVG(T2.\"Amount\" * T2.\"Price\") FROM customers AS T1 INNER JOIN transactions_1k AS T2 ON T1.\"CustomerID\" = T2.\"CustomerID\" WHERE T1.\"Currency\" = 'EUR'\n",
         "gold_sql": "SELECT AVG(T1.Price) FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN customers AS T3 ON T1.CustomerID = T3.CustomerID WHERE T3.Currency = 'EUR'",
-        "comparison_status": 1,
+        "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
         "question": "Which gas station has the highest amount of revenue?",
         "evidence": "",
-        "generated_sql": "SELECT GasStationID FROM transactions_1k GROUP BY GasStationID ORDER BY SUM(Amount * Price) DESC LIMIT 1\n",
+        "generated_sql": "SELECT \"GasStationID\" FROM transactions_1k GROUP BY \"GasStationID\" ORDER BY SUM(Amount * Price) DESC LIMIT 1\n",
         "gold_sql": "SELECT GasStationID FROM transactions_1k GROUP BY GasStationID ORDER BY SUM(Price) DESC LIMIT 1",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"
@@ -1170,7 +1170,7 @@
     {
         "question": "For all the people who paid more than 29.00 per unit of product id No.5. Give their consumption status in the August of 2012.",
         "evidence": "August of 2012 means Date contains '201208' in the yearmonth.date of the database; Price per unit of product = Price / Amount",
-        "generated_sql": "SELECT T1.Consumption\nFROM yearmonth AS T1\nWHERE T1.Date LIKE '201208%'\n  AND T1.CustomerID IN (\n    SELECT DISTINCT T2.CustomerID\n    FROM transactions_1k AS T2\n    WHERE T2.ProductID = 5\n      AND T2.Price / T2.Amount > 29.00\n      AND T2.Amount IS NOT NULL\n      AND T2.Amount != 0\n  );\n",
+        "generated_sql": "SELECT T1.Consumption FROM yearmonth AS T1 WHERE T1.CustomerID IN ( SELECT DISTINCT CustomerID FROM transactions_1k WHERE ProductID = 5 AND Amount != 0 AND (Price * 1.0 / Amount) > 29.00 ) AND T1.Date LIKE '201208%'\n",
         "gold_sql": "SELECT T2.Consumption FROM transactions_1k AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Price / T1.Amount > 29.00 AND T1.ProductID = 5 AND T2.Date = '201208'",
         "comparison_status": 0,
         "execution_status": "CORRECT_SYNTAX"

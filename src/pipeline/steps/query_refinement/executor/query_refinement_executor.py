@@ -10,8 +10,31 @@ from util.db.execute import execute_sql_queries_async, SQLExecStatus
 
 class QueryRefinementExecutor:
     def __init__(self):
-        # It was 0.3
-        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.0-flash", temperature=0.2)
+        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.0-flash", temperature=0.3)
+    
+    def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
+        """
+        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
+        """
+        if not relevant_entities:
+            return ""
+
+        entities_by_phrase = {}
+        for table, columns in relevant_entities.items():
+            for column, entities in columns.items():
+                for entity in entities[:3]:
+                    phrase = entity["phrase"]
+                    if phrase not in entities_by_phrase:
+                        entities_by_phrase[phrase] = []
+                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
+
+        output_str = ""
+        for phrase, entities in entities_by_phrase.items():
+            output_str += f"'{phrase}':\n"
+            output_str += "\n".join(entities)
+            output_str += "\n\n"
+        
+        return output_str
 
     def execute(self, pipeline_context: PipelineContext) -> List[SQLQuery]:
         if not hasattr(pipeline_context, 'non_executable_sql_queries') or not pipeline_context.non_executable_sql_queries:
@@ -42,18 +65,21 @@ class QueryRefinementExecutor:
                     pipeline_context.generated_sql_queries.append(SQLQuery(
                         sql_exec_info=sql_exec_info,
                         schema_representation=original_query.schema_representation,
-                        model_key=original_query.model_key
+                        model_key=original_query.model_key,
+                        prompting="REFINEMENT"
                     ))
                     pipeline_context.fixed_sql_queries.append(SQLQuery(
                         sql_exec_info=sql_exec_info,
                         schema_representation=original_query.schema_representation,
-                        model_key=original_query.model_key
+                        model_key=original_query.model_key,
+                        prompting="REFINEMENT"
                     ))
                 else:
                     pipeline_context.non_executable_sql_queries.append(SQLQuery(
                         sql_exec_info=sql_exec_info,
                         schema_representation=original_query.schema_representation,
-                        model_key=original_query.model_key
+                        model_key=original_query.model_key,
+                        prompting=original_query.prompting
                     ))
         
         return refined_sql_queries
@@ -66,9 +92,10 @@ class QueryRefinementExecutor:
         return await asyncio.gather(*tasks)
 
     async def _get_refined_query(self, pipeline_context: PipelineContext, sql_query: SQLQuery):
+        schema = pipeline_context.schema_engine.mschema.to_mschema(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
         try:
             full_prompt = PROMPT.format(
-                DATABASE_SCHEMA=sql_query.schema_representation.schema,
+                DATABASE_SCHEMA=schema,
                 QUESTION=pipeline_context.user_query,
                 SQL_QUERY=sql_query.sql_exec_info.sql,
                 ERROR_MESSAGE=sql_query.sql_exec_info.error_message,

@@ -34,7 +34,6 @@ class InformationRetriever:
                 If None, the default reasoning model will be used.
         """
         # self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
-        # First 0.8
         self.api_model = ApiModelFacade(temperature=0.3)
 
         # Initialize ConfigurationHelper to load ChromaDB settings
@@ -89,7 +88,7 @@ class InformationRetriever:
         try:
             # Use the 'query' method from ReasoningModelFacade
             query_chain = self.api_model.get_chain()
-            response_text = self.api_model.invoke_chain(query_chain, {"user_prompt": formatted_prompt})
+            response_text = self.api_model.call(query_chain, {"user_prompt": formatted_prompt})
             print(f"LLM Unparsed Response for keyword extraction: {response_text}")
             # Expecting the LLM to output a JSON string representing a dictionary.
             if "```json" in response_text:
@@ -139,8 +138,13 @@ class InformationRetriever:
         final_results = {}
 
         for phrase in phrases:
-            similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase)
-            
+            if len(phrase) <= 3:
+                similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase, 300)
+            elif len(phrase) >= 4 and len(phrase) <=10:
+                similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase, 150)
+            else:
+                similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase, 100)
+
             all_candidates = []
             for table_name, columns in similar_values.items():
                 for column_name, values in columns.items():
@@ -157,7 +161,6 @@ class InformationRetriever:
 
             # 1. Pre-filter with absolute thresholds
             edit_filtered_candidates = EditDistanceUtil.get_similar_by_threshold_loose(phrase, all_candidates, threshold=0.3)
-            
             if not edit_filtered_candidates:
                 continue
 
@@ -179,7 +182,6 @@ class InformationRetriever:
             filtered_candidates = [
                 c for c in final_edit_filtered if c['embedding_similarity'] >= 0.8 * max_embedding_similarity
             ]
-            
             # 3. Structure the results
             for candidate in filtered_candidates:
                 table = candidate['table_name']
@@ -252,7 +254,6 @@ class InformationRetriever:
                                 "type": metadata.get('type')
                             })
 
-                print(f"chroma contexts {chroma_contexts}")
                 # Rerank using BM25
                 if chroma_contexts:
                     bm25_results = bm25_retriever.get_relevant_documents(keyword)

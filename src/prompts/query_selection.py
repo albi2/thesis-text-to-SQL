@@ -1,18 +1,17 @@
 PROMPT = """
 You are an expert SQL evaluator. 
-Your goal is to analyze multiple SQL queries and their outputs for a given question, then select the best query which accurately fulfills the Evaluation Criteria.
+Your goal is to analyze multiple SQL queries and their outputs for a given question, then select the best queries which accurately fulfill the Evaluation Criteria.
 
 ## Database admin instructions
 
-Query Evaluation Steps:
+Queries Evaluation Steps:
   1. Analyse all of the conditions in the Evaluation Criteria section below as the source of truth for your evaluation.
   2. Eliminate the queries that do not follow the Evaluation Criteria.
-  3. Eliminate the queries that contain extra filtering conditions / information not required by the Evaluation Criteria. This is non-negotioable.
-  4. If there are multiple queries that fulfill the Evaluation Criteria, choose the simplest one but make sure it fully answers the question.
+  3. Eliminate the queries that contain extra filtering conditions / information not required by the Evaluation Criteria.
 
 Tips:
 - Sometimes a single condition on the Evaluation Criteria can translate to multiple conditions in the queries(E.g location -> multiple possible fields that have location).
-  In this cases where the question is not clear which column to use, try to give priority to the model that covers more cases.
+  In this cases where the question is not clear which column to use, try to give priority to the queries that cover more cases.
 
 ## Input Format
 
@@ -37,7 +36,7 @@ Where:
 - <query_indices> is a JSON array of 0-based indices of the selected queries that meet the criteria.
 
 **************************
-Given the following information perform the analysis and choose the best query to answer the question.
+Given the following information perform the analysis and choose the best queries to answer the question.
 
 ** DATABASE SCHEMA **  
 {DATABASE_SCHEMA}

@@ -3,7 +3,7 @@ import json
 from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
-from prompts.query_scoring import QUERY_SCORING_PROMPT
+from prompts.query_scoring import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
 from prompts.query_comparison import QUERY_COMPARISON_PROMPT
 from util.db.execute import SQLExecInfo, compare_sqls_outcomes
 from util.constants import DatabaseConstants, Text2SQLModelKeys
@@ -15,7 +15,7 @@ class QuerySelectionExecutor:
     MAX_QUERIES_PER_GROUP = 3
 
     def __init__(self):
-        self.api_model = ApiModelFacade()
+        self.api_model = ApiModelFacade(model_name="gemini-2.5-flash-lite")
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         if not relevant_entities:
@@ -24,7 +24,7 @@ class QuerySelectionExecutor:
             entity["phrase"]: entities_by_phrase.get(entity["phrase"], []) + [f"- {table}.{column} = {entity['value']}"]
             for table, columns in relevant_entities.items()
             for column, entities in columns.items()
-            for entity in entities
+            for entity in entities[:5]
         }
         return "\n\n".join([f"'{phrase}':\n" + "\n".join(entities) for phrase, entities in entities_by_phrase.items()]) + "\n\n"
 
@@ -33,22 +33,24 @@ class QuerySelectionExecutor:
 
         # Score and select top 5 queries
         scored_queries = self._score_queries(pipeline_context, generated_queries)
-        
+        pipeline_context.scoring = scored_queries
+
         # Sort by score and take the top 5
         sorted_queries = sorted(scored_queries, key=lambda x: x[0], reverse=True)
         top_queries = [query for score, query in sorted_queries[:5]]
 
         # Cluster the top 5 queries
         clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context)
-
+        print(f"CLUSTERS AFTER SCORING {clusters}")
         # Run tournament
         winning_query = self._run_tournament(clusters, pipeline_context)
+        print(f"WINNER {winning_query}")
 
         return winning_query
 
-
     def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLExecInfo]) -> List[tuple[int, SQLExecInfo]]:
-        queries_str = "\n".join([q.sql_exec_info.sql for q in queries])
+        # Format queries with numbering (1., 2., 3., etc.)
+        queries_str = "\n".join([f"{i+1}. {q.sql_exec_info.sql}" for i, q in enumerate(queries)])
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
 
         prompt_args = {
@@ -56,32 +58,68 @@ class QuerySelectionExecutor:
             "QUESTION": pipeline_context.user_query,
             "HINT": getattr(pipeline_context, 'hint', ''),
             "QUERIES": queries_str,
+            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES
         }
 
         full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
 
         for attempt in range(self.MAX_RETRIES):
-            model_response = self.api_model.invoke_chain(self.api_model.get_chain(), {"user_prompt": full_prompt})
+            model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
+            print(f"SCORING MODEL RESPONSE {model_response}")
             try:
+                # Extract JSON from code blocks if present
+                json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    # Try to parse the entire response as JSON
+                    json_str = model_response.strip()
+                
+                # Parse JSON
+                parsed_response = json.loads(json_str)
+                
+                # Validate structure
+                if "scores" not in parsed_response or not isinstance(parsed_response["scores"], list):
+                    print(f"Attempt {attempt + 1}: Invalid JSON structure - missing 'scores' array")
+                    continue
+                
                 scored_queries = []
-                for line in model_response.strip().split('\n'):
-                    parts = line.split('|', 1)
-                    if len(parts) == 2:
-                        score = int(parts[0].strip())
-                        query_sql = parts[1].strip()
-                        # Find the corresponding SQLExecInfo object
-                        for query_info in queries:
-                            if query_info.sql_exec_info.sql == query_sql:
-                                scored_queries.append((score, query_info))
-                                break
-                return scored_queries
-            except (ValueError, IndexError) as e:
-                print(f"Attempt {attempt + 1} failed: Could not parse scores from model response: {e}")
+                for idx, score_obj in enumerate(parsed_response["scores"]):
+                    if "query" not in score_obj or "score" not in score_obj:
+                        continue
+                    
+                    score = int(score_obj["score"])
+                    query_sql = score_obj["query"].strip()
+                    
+                    # Remove the numbering prefix from the query if present (e.g., "1. SELECT..." -> "SELECT...")
+                    query_sql = re.sub(r'^\d+\.\s*', '', query_sql)
+                    
+                    # Find the corresponding SQLExecInfo object
+                    if(idx >= len(queries)):
+                        break;
 
+                    scored_queries.append((score, queries[idx]))
+                    # for query_info in queries:
+                    #     if query_info.sql_exec_info.sql == query_sql:
+                    #         scored_queries.append((score, query_info))
+                    #         break
+                
+                # Only return if we successfully parsed scores for all queries
+                return scored_queries
+            except json.JSONDecodeError as e:
+                print(f"Attempt {attempt + 1} failed: Could not parse JSON from model response: {e}")
+            except (ValueError, KeyError) as e:
+                print(f"Attempt {attempt + 1} failed: Error processing scores: {e}")
+
+        # If all retries fail, return empty list
+        print("All retry attempts exhausted. Returning empty scored queries list.")
         return []
 
     def _run_tournament(self, clusters: List[List[SQLExecInfo]], pipeline_context: PipelineContext) -> SQLExecInfo:
         # Trim clusters to a maximum of two queries
+        if len(clusters) == 0:
+            return None
+        
         for i in range(len(clusters)):
             clusters[i] = clusters[i][:2]
 
@@ -127,9 +165,9 @@ class QuerySelectionExecutor:
         full_prompt = QUERY_COMPARISON_PROMPT.format(**prompt_args)
 
         for attempt in range(self.MAX_RETRIES):
-            model_response = self.api_model.invoke_chain(self.api_model.get_chain(), {"user_prompt": full_prompt})
+            model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
             try:
-                match = re.search(r"reasoning:(.*?)winner:\s*(\d+)", model_response, re.DOTALL)
+                match = re.search(r"reasoning:(.*?)\s*winner:\s*(\d+)", model_response, re.DOTALL)
                 if match:
                     reasoning, winner = match.groups()
                     pipeline_context.query_comparison_reasoning = reasoning.strip()

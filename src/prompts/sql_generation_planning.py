@@ -22,7 +22,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -40,6 +43,8 @@ Database admin instructions (violating any of the following will result is punis
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
     - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
 ## Relevant Information
 

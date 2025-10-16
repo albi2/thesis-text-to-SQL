@@ -20,7 +20,7 @@ def main():
     """
     # load_comments()
 
-    dataset_path = "/var/tmp/ge62nok/thesis/dataset/dev/dev.json"
+    dataset_path = "/var/tmp/ge62nok/thesis/dataset/dev/bird_subset.json"
     manager = RunningManager(dataset_path)
     manager.load_tasks()
     manager.run_evaluation()

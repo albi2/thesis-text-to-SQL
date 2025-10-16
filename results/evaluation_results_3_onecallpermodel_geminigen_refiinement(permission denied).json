@@ -212,7 +212,7 @@
         "evidence": "label = '+' mean molecules are carcinogenic; label = '-' means molecules are non-carcinogenic; double bond refers to bond_type = ' = ';",
         "generated_sql": "SELECT COUNT(b.bond_type) AS number_of_double_bonds, m.label AS carcinogenic_label FROM bond b JOIN molecule m ON b.molecule_id = m.molecule_id WHERE b.molecule_id = 'TR006' AND b.bond_type = '=' GROUP BY m.label;",
         "gold_sql": "SELECT COUNT(T1.bond_id), T2.label FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '=' AND T2.molecule_id = 'TR006' GROUP BY T2.label",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {
@@ -228,7 +228,7 @@
         "evidence": "",
         "generated_sql": "SELECT T1.atom_id, (SELECT COUNT(DISTINCT T2.bond_type) FROM bond AS T2 WHERE T2.molecule_id = 'TR346') AS bond_type_count FROM atom AS T1 WHERE T1.molecule_id = 'TR346'\n",
         "gold_sql": "SELECT T1.atom_id, COUNT(DISTINCT T2.bond_type) FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.molecule_id = 'TR346' GROUP BY T1.atom_id, T2.bond_type",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {

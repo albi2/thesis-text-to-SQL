@@ -11,6 +11,7 @@ from util.constants import DatabaseConstants, HuggingFaceModelConstants, Text2SQ
 from pipeline.steps.models.sql_query import SQLQuery
 from pipeline.steps.models.schema_representation import SchemaRepresentation, SchemaFormat, SchemaType
 from components.models.api_model_facade import ApiModelFacade
+from util.constants import ApiModelConstants
 
 class SQLGenerationExecutor:
 
@@ -18,7 +19,8 @@ class SQLGenerationExecutor:
         self.text2sql_model_facade = Text2SQLModelFacade()
         self.omni_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
-        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash", temperature=0.2)
+        self.api_model_gemini_default = ApiModelFacade(temperature=0.2)
+        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.2)
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         """
@@ -30,7 +32,7 @@ class SQLGenerationExecutor:
         entities_by_phrase = {}
         for table, columns in relevant_entities.items():
             for column, entities in columns.items():
-                for entity in entities:
+                for entity in entities[:5]:
                     phrase = entity["phrase"]
                     if phrase not in entities_by_phrase:
                         entities_by_phrase[phrase] = []
@@ -56,10 +58,9 @@ class SQLGenerationExecutor:
         
         sql_queries = loop.run_until_complete(gemini_tasks)
         # sql_queries.extend(sql_queries_small_models)
-
-        print(f"SQL QUERIES {sql_queries}")
         
         self._execute_queries_async(pipeline_context, sql_queries)
+    
 
         pipeline_context.generated_sql_queries = [query for query in sql_queries if query.sql_exec_info.status == SQLExecStatus.CORRECT_SYNTAX]
         pipeline_context.non_executable_sql_queries = [query for query in sql_queries if query.sql_exec_info.status != SQLExecStatus.CORRECT_SYNTAX]
@@ -74,7 +75,10 @@ class SQLGenerationExecutor:
         if len(pipeline_context.schema_engine.get_table_names()) <= 7:
             schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
             ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
-
+        else:
+            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
+            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names), format=SchemaFormat.DDL, type=SchemaType.FULL))    
+        
         if selected_schemas:
             for selected_schema in selected_schemas:
                 reasoning = selected_schema.get('chain_of_thought_reasoning')
@@ -120,7 +124,7 @@ class SQLGenerationExecutor:
             hint = getattr(pipeline_context, 'hint', '')
             
             full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
-            tasks.append(self._get_sql_from_model(query_chain, full_prompt, mschema))
+            tasks.append(self._get_sql_from_model(query_chain, full_prompt, mschema, "DECOMPOSITION"))
 
             full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
                 DATABASE_SCHEMA=ddl_schema.schema,
@@ -128,11 +132,11 @@ class SQLGenerationExecutor:
                 HINT=hint,
                 RELEVANT_ENTITIES=relevant_entities_str
             )
-            tasks.append(self._get_sql_from_model(query_chain, full_prompt_ddl, ddl_schema))
+            tasks.append(self._get_sql_from_model(query_chain, full_prompt_ddl, ddl_schema, "PLANNING"))
 
-        return asyncio.gather(*tasks)
+        return await asyncio.gather(*tasks)
 
-    async def _get_sql_from_model(self, chain, prompt, schema_rep):
+    async def _get_sql_from_model(self, chain, prompt, schema_rep, prompting):
         model_response = await self.api_model_gemini.acall(chain, {"user_prompt": prompt})
         
         print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
@@ -146,7 +150,8 @@ class SQLGenerationExecutor:
         return SQLQuery(
             sql_exec_info=SQLExecInfo(sql=query),
             schema_representation=schema_rep,
-            model_key=Text2SQLModelKeys.GEMINI
+            model_key=Text2SQLModelKeys.GEMINI,
+            prompting=prompting
         )
 
     def _generate_sql_for_small_models(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
@@ -212,7 +217,8 @@ class SQLGenerationExecutor:
                         sql_queries.append(SQLQuery(
                             sql_exec_info=SQLExecInfo(sql=query),
                             schema_representation=schema_rep,
-                            model_key=model_key
+                            model_key=model_key,
+                            prompting="DECOMPOSITION"
                         ))
                     except Exception as e:
                         print(f"Could not parse response from {model_key}: {e}")

@@ -7,6 +7,7 @@ Your task is to re-evaluate these queries and select only those that are equival
 
 The following queries were selected in a previous step, but they did not all produce the same result.
 Please review them, but use the indices from the "QUERIES AND THEIR EXECUTION RESULTS" section below to make your final selection.
+This is only to highlight your previous mistake.
 
 {PREVIOUS_SELECTION}
 
@@ -39,7 +40,7 @@ Where:
 - <query_indices> is a JSON array of 0-based indices of the selected queries that meet the criteria and are equivalent.
 
 **************************
-Given the following information perform the analysis and choose the best query to answer the question.
+Given the following information perform the analysis and choose the best queries to answer the question.
 
 ** DATABASE SCHEMA **
 {DATABASE_SCHEMA}

@@ -21,7 +21,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -34,12 +37,15 @@ Database admin instructions (violating any of the following will result is punis
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-15. **Always put column names between quotation marks"
+15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
-16. ** Relevant Entities For Disambiguation **
-    - If a value appears in multiple columns as a relevant entity and you determined you only need one of those columns, you can pick the column with the broader meaning — unless the question clearly asks for something more specific.
-    - You can refer to these as hints when choosing the correct columns for the query.
-
+16. **Handling similar columns for filtering**
+    - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
+    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
+18. **Literals From Question Only**
+    - Only use the literals provided from the question and the relevant entities for query conditions. Do not use example values from the database schema, only use them as reference on what the literals should look like.
 
 ## Output Format:
 In your answer, please enclose the generated SQL query in a code block:

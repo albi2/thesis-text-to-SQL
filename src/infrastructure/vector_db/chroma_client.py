@@ -182,5 +182,4 @@ class ChromaClient:
             n_results=n_results,
             include=['metadatas', 'documents', 'distances'] # Ensure we get these back
         )
-        logger.info(f"Query results: {results}")
         return results

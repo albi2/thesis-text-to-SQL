@@ -201,9 +201,6 @@ Please respond with a JSON object structured exactly as shown below:
 }}
 ```
 
-## Examples
-{FEWSHOT_EXAMPLES}
-
 **************************
 Based on the database schema, question, hint,  your task is to identify all  the columns that are essential for crafting a final, correct SQL query.
 For each of the selected columns, explain why exactly it is necessary for answering the question. Your reasoning should be concise and clear, demonstrating a logical connection between the columns and the question asked.

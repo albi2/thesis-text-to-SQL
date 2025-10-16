@@ -21,7 +21,7 @@ class CriteriaGenerationStep(PipelineStep[PipelineContext, CriteriaGenerationSte
         )
         
         query_chain = self.api_model.get_chain()
-        criteria_response = self.api_model.invoke_chain(query_chain, {"user_prompt": criteria_prompt})
+        criteria_response = self.api_model.call(query_chain, {"user_prompt": criteria_prompt})
         
         try:
             match = re.search(r"<CRITERIA>(.*)</CRITERIA>", criteria_response, re.DOTALL)

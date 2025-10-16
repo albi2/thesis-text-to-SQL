@@ -788,7 +788,7 @@
         "evidence": "name of the league refers to League.name; league with highest matches of all time refers to MAX(COUNT(league_id));",
         "generated_sql": "SELECT l.name, COUNT(m.league_id) AS total_matches FROM League l JOIN Match m ON l.id = m.league_id GROUP BY l.name ORDER BY total_matches DESC NULLS LAST LIMIT 1;",
         "gold_sql": "SELECT t2.name, COUNT(t1.id) FROM Match AS t1 INNER JOIN League AS t2 ON t1.league_id = t2.id GROUP BY t2.name ORDER BY COUNT(t1.id) DESC LIMIT 1",
-        "comparison_status": 0,
+        "comparison_status": 1,
         "execution_status": "CORRECT_SYNTAX"
     },
     {

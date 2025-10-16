@@ -32,8 +32,8 @@ def test_lsh():
     Initializes the RunningManager and starts the evaluation process.
     """
     # load_comments()
-    db_id = "california_schools"
-    keyword = "Riverside"
+    db_id = "student_club"
+    keyword = "Sacha Harrison"
     lsh = LSHUtil.load_lsh_index(db_id)
     minhashes = LSHUtil.load_minhashes(db_id)
     
@@ -44,13 +44,13 @@ def test_lsh():
     print(similar_values)
 
 def main():
-    # information_retriever = InformationRetriever()
-    # keywords = ["grade"]
-    # task = Task(question_id="1", db_id="california_schools", question="In which city can you find the school in the state of California with the lowest latitude coordinates and what is its lowest grade? Indicate the school name.")
+    information_retriever = InformationRetriever()
+    keywords = ["grade"]
+    task = Task(question_id="1", db_id="california_schools", question="In which city can you find the school in the state of California with the lowest latitude coordinates and what is its lowest grade? Indicate the school name.")
     # retrieved_schema = information_retriever.retrieve_context(keywords, task)
-    # # retrieved_entities = information_retriever.retrieve_entities(db_id="california_schools", phrases=["Riverside"])
-    # print(f"RETRIEVED SCHEMA : {retrieved_schema}")
-    test_lsh()
+    retrieved_entities = information_retriever.retrieve_entities(db_id="student_club", phrases=["Sacha Harrison"])
+    print(f"RETRIEVED SCHEMA : {retrieved_entities}")
+    # test_lsh()
 
 if __name__ == "__main__":
     main()
