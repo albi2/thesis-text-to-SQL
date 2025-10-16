@@ -106,14 +106,14 @@ class SchemaFilterExecutor:
 
         if not pipeline_context.relevant_entities:
             # Generate and execute preliminary SQL
-            sql_exec_info = asyncio.run(self._generate_and_execute_preliminary_sql(pipeline_context, mschema_representation))
+            sql_exec_info = loop.run_until_complete(self._generate_and_execute_preliminary_sql(pipeline_context, mschema_representation))
             preliminary_sql = sql_exec_info.sql
             pipeline_context.preliminary_sql = preliminary_sql
 
 
             # Extract components from SQL and re-run information retrieval
-            sql_components = asyncio.run(self._extract_sql_components(preliminary_sql))
-            if sql_components is not None: 
+            sql_components = loop.run_until_complete(self._extract_sql_components(preliminary_sql))
+            if sql_components is not None:
                 keywords = sql_components.get("columns", [])
                 phrases = sql_components.get("literals", [])
 
@@ -125,7 +125,7 @@ class SchemaFilterExecutor:
 
             # Re-generate unique table and column names
             unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
-            unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+            unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_.values() for col_info in kw_context))
 
             if pipeline_context.relevant_entities:
                 for table_name, columns in pipeline_context.relevant_entities.items():
