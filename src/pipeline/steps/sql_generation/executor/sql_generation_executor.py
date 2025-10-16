@@ -49,9 +49,13 @@ class SQLGenerationExecutor:
             return []
 
         schema_representations, ddl_schema_representations = self._generate_schema_representations(pipeline_context)
+        gemini_tasks = self._generate_sql_for_gemini(pipeline_context, schema_representations, ddl_schema_representations)        
+        loop = asyncio.get_event_loop()
         
-        sql_queries = self._generate_sql_for_gemini(pipeline_context, schema_representations, ddl_schema_representations)
-        # sql_queries.extend(self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations))
+        # sql_queries_small_models = self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations)
+        
+        sql_queries = loop.run_until_complete(gemini_tasks)
+        # sql_queries.extend(sql_queries_small_models)
 
         print(f"SQL QUERIES {sql_queries}")
         
@@ -107,58 +111,43 @@ class SQLGenerationExecutor:
 
         return schema_representations, ddl_schema_representations
 
-    def _generate_sql_for_gemini(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
-        sql_queries: list[SQLQuery] = []
+    async def _generate_sql_for_gemini(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        tasks = []
+        query_chain = self.api_model_gemini.get_chain()
 
         for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
-            try:
-                hint = getattr(pipeline_context, 'hint', '')
-                
-                full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
-                query_chain = self.api_model_gemini.get_chain()
-                model_response_mschema = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt})
+            hint = getattr(pipeline_context, 'hint', '')
+            
+            full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
+            tasks.append(self._get_sql_from_model(query_chain, full_prompt, mschema))
 
-                print('SQL GENERATION MODEL RESPONSE (GEMINI M-SCHEMA)', model_response_mschema)
-                if "```sql" in model_response_mschema:
-                    query = re.sub(r"^\s+", "", model_response_mschema.split("```sql")[1].split("```")[0])
-                elif "```" in model_response_mschema:
-                    query = model_response_mschema.split(";")[0].split("```")[0].strip() + ";"
-                else:
-                    query = model_response_mschema
-                
-                sql_queries.append(SQLQuery(
-                    sql_exec_info=SQLExecInfo(sql=query),
-                    schema_representation=mschema,
-                    model_key=Text2SQLModelKeys.GEMINI
-                ))
+            full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
+                DATABASE_SCHEMA=ddl_schema.schema,
+                QUESTION=pipeline_context.user_query,
+                HINT=hint,
+                RELEVANT_ENTITIES=relevant_entities_str
+            )
+            tasks.append(self._get_sql_from_model(query_chain, full_prompt_ddl, ddl_schema))
 
-                # DDL Schema call with planning prompt
-                relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
-                full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
-                    DATABASE_SCHEMA=ddl_schema.schema,
-                    QUESTION=pipeline_context.user_query,
-                    HINT=hint,
-                    RELEVANT_ENTITIES=relevant_entities_str
-                )
-                model_response_ddl = self.api_model_gemini.invoke_chain(query_chain, {"user_prompt": full_prompt_ddl})
+        return asyncio.gather(*tasks)
 
-                print('SQL GENERATION MODEL RESPONSE (GEMINI DDL)', model_response_ddl)
-                if "```sql" in model_response_ddl:
-                    query = re.sub(r"^\s+", "", model_response_ddl.split("```sql")[1].split("```")[0])
-                elif "```" in model_response_ddl:
-                    query = model_response_ddl.split(";")[0].split("```")[0].strip() + ";"
-                else:
-                    query = model_response_ddl
-
-                sql_queries.append(SQLQuery(
-                    sql_exec_info=SQLExecInfo(sql=query),
-                    schema_representation=ddl_schema,
-                    model_key=Text2SQLModelKeys.GEMINI
-                ))
-            except Exception as e:
-                print(f"Could not parse response from Gemini: {e}")
-        return sql_queries
+    async def _get_sql_from_model(self, chain, prompt, schema_rep):
+        model_response = await self.api_model_gemini.acall(chain, {"user_prompt": prompt})
+        
+        print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
+        if "```sql" in model_response:
+            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
+        elif "```" in model_response:
+            query = model_response.split(";")[0].split("```")[0].strip() + ";"
+        else:
+            query = model_response
+        
+        return SQLQuery(
+            sql_exec_info=SQLExecInfo(sql=query),
+            schema_representation=schema_rep,
+            model_key=Text2SQLModelKeys.GEMINI
+        )
 
     def _generate_sql_for_small_models(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         sql_queries: list[SQLQuery] = []

@@ -55,11 +55,18 @@ class ApiModelFacade:
         return prompt_template | self.llm | StrOutputParser()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    def invoke_chain(self, chain: Runnable, prompt: dict) -> str:
+    def call(self, chain: Runnable, prompt: dict) -> str:
         """
         Invokes a chain with retry logic.
         """
         return chain.invoke(prompt)
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    async def acall(self, chain: Runnable, prompt: dict) -> str:
+        """
+        Invokes a chain with retry logic.
+        """
+        return await chain.ainvoke(prompt)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
