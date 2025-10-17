@@ -8,6 +8,7 @@ from prompts.query_comparison import QUERY_COMPARISON_PROMPT
 from util.db.execute import SQLExecInfo, compare_sqls_outcomes
 from util.constants import DatabaseConstants, Text2SQLModelKeys
 from components.models.api_model_facade import ApiModelFacade
+from pipeline.steps.models.sql_query import SQLQuery
 
 class QuerySelectionExecutor:
     MAJORITY_THRESHOLD = 0.5
@@ -54,7 +55,7 @@ class QuerySelectionExecutor:
 
         return winning_query
 
-    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLExecInfo]) -> List[tuple[int, SQLExecInfo]]:
+    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[tuple[int, SQLQuery]]:
         # Format queries with numbering (1., 2., 3., etc.)
         queries_str = "\n".join([f"{i+1}. {q.sql_exec_info.sql}" for i, q in enumerate(queries)])
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
@@ -64,12 +65,15 @@ class QuerySelectionExecutor:
             "QUESTION": pipeline_context.user_query,
             "HINT": getattr(pipeline_context, 'hint', ''),
             "QUERIES": queries_str,
-            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES
+            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
+            "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria
         }
 
-        full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
-
+        
+        prompt_args["PREVIOUS_PARSING_RESPONSE"] = ""
         for attempt in range(self.MAX_RETRIES):
+            full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
+
             model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
             print(f"SCORING MODEL RESPONSE {model_response}")
             try:
@@ -114,14 +118,16 @@ class QuerySelectionExecutor:
                 return scored_queries
             except json.JSONDecodeError as e:
                 print(f"Attempt {attempt + 1} failed: Could not parse JSON from model response: {e}")
+                prompt_args["PREVIOUS_PARSING_RESPONSE"] = f"{e}"
             except (ValueError, KeyError) as e:
                 print(f"Attempt {attempt + 1} failed: Error processing scores: {e}")
+                prompt_args["PREVIOUS_PARSING_RESPONSE"] = f"{e}"
 
         # If all retries fail, return empty list
         print("All retry attempts exhausted. Returning empty scored queries list.")
         return []
 
-    def _run_tournament(self, clusters: List[List[SQLExecInfo]], pipeline_context: PipelineContext) -> SQLExecInfo:
+    def _run_tournament(self, clusters: List[List[SQLQuery]], pipeline_context: PipelineContext) -> SQLQuery:
         if not clusters:
             return None
 
@@ -148,7 +154,7 @@ class QuerySelectionExecutor:
         winner_index = max(scores, key=scores.get)
         return representatives[winner_index]
 
-    def _compare_queries(self, query1: SQLExecInfo, query2: SQLExecInfo, pipeline_context: PipelineContext) -> int:
+    def _compare_queries(self, query1: SQLQuery, query2: SQLQuery, pipeline_context: PipelineContext) -> int:
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
         
         prompt_args = {
@@ -160,9 +166,10 @@ class QuerySelectionExecutor:
             "QUERY_2": query2.sql_exec_info.sql,
         }
 
-        full_prompt = QUERY_COMPARISON_PROMPT.format(**prompt_args)
 
         for attempt in range(self.MAX_RETRIES):
+            full_prompt = QUERY_COMPARISON_PROMPT.format(**prompt_args)
+            
             model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
             try:
                 match = re.search(r"reasoning:(.*?)\s*winner:\s*(\d+)", model_response, re.DOTALL)
@@ -195,7 +202,7 @@ class QuerySelectionExecutor:
         
         return output_str
 
-    def _cluster_equivalent_queries_from_list(self, queries: List[SQLExecInfo], pipeline_context: PipelineContext) -> List[List[SQLExecInfo]]:
+    def _cluster_equivalent_queries_from_list(self, queries: List[SQLQuery], pipeline_context: PipelineContext) -> List[List[SQLQuery]]:
         clusters = []
         visited = [False] * len(queries)
 
