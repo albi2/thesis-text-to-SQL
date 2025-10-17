@@ -29,7 +29,7 @@ class QuerySelectionExecutor:
         }
         return "\n\n".join([f"'{phrase}':\n" + "\n".join(entities) for phrase, entities in entities_by_phrase.items()]) + "\n\n"
 
-    def execute(self, pipeline_context: PipelineContext) -> SQLExecInfo:
+    def execute(self, pipeline_context: PipelineContext) -> SQLQuery:
         generated_queries = pipeline_context.generated_sql_queries
 
         # Score and select top 5 queries
@@ -38,14 +38,15 @@ class QuerySelectionExecutor:
 
         if scored_queries:
             # Sort by score and take the top 5
-            sorted_queries = sorted(scored_queries, key=lambda x: x[0], reverse=True)
-            top_queries = [query for score, query in sorted_queries[:5]]
+            sorted_queries = sorted(scored_queries, key=lambda x: x.score, reverse=True)
+            top_queries = sorted_queries[:5]
 
             # Cluster the top 5 queries
             clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context)
             print(f"CLUSTERS AFTER SCORING {clusters}")
         else:
             # If scoring fails, cluster all generated queries
+            print(f"GENERATED QUERIES {generated_queries}")
             clusters = self._cluster_equivalent_queries_from_list(generated_queries, pipeline_context)
             print(f"CLUSTERS AFTER FAILED SCORING {clusters}")
 
@@ -55,8 +56,7 @@ class QuerySelectionExecutor:
 
         return winning_query
 
-    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[tuple[int, SQLQuery]]:
-        # Format queries with numbering (1., 2., 3., etc.)
+    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
         queries_str = "\n".join([f"{i+1}. {q.sql_exec_info.sql}" for i, q in enumerate(queries)])
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
 
@@ -93,29 +93,16 @@ class QuerySelectionExecutor:
                     print(f"Attempt {attempt + 1}: Invalid JSON structure - missing 'scores' array")
                     continue
                 
-                scored_queries = []
                 for idx, score_obj in enumerate(parsed_response["scores"]):
-                    if "query" not in score_obj or "score" not in score_obj:
+                    if "score" not in score_obj:
                         continue
                     
-                    score = int(score_obj["score"])
-                    query_sql = score_obj["query"].strip()
-                    
-                    # Remove the numbering prefix from the query if present (e.g., "1. SELECT..." -> "SELECT...")
-                    query_sql = re.sub(r'^\d+\.\s*', '', query_sql)
-                    
-                    # Find the corresponding SQLExecInfo object
                     if(idx >= len(queries)):
-                        break;
+                        break
 
-                    scored_queries.append((score, queries[idx]))
-                    # for query_info in queries:
-                    #     if query_info.sql_exec_info.sql == query_sql:
-                    #         scored_queries.append((score, query_info))
-                    #         break
+                    queries[idx].score = int(score_obj["score"])
                 
-                # Only return if we successfully parsed scores for all queries
-                return scored_queries
+                return queries
             except json.JSONDecodeError as e:
                 print(f"Attempt {attempt + 1} failed: Could not parse JSON from model response: {e}")
                 prompt_args["PREVIOUS_PARSING_RESPONSE"] = f"{e}"
@@ -127,11 +114,27 @@ class QuerySelectionExecutor:
         print("All retry attempts exhausted. Returning empty scored queries list.")
         return []
 
+    def _convert_score_to_elo(self, score: int) -> float:
+        return float((score + 1) * 100)
+
+    def _update_elo(self, elo1: float, elo2: float, result: int, k: int = 64) -> tuple[float, float]:
+        e1 = 1 / (1 + 10**((elo2 - elo1) / 400))
+        e2 = 1 - e1
+        
+        if result == 1:
+            s1, s2 = 1, 0
+        else:
+            s1, s2 = 0, 1
+            
+        new_elo1 = elo1 + k * (s1 - e1)
+        new_elo2 = elo2 + k * (s2 - e2)
+        
+        return new_elo1, new_elo2
+
     def _run_tournament(self, clusters: List[List[SQLQuery]], pipeline_context: PipelineContext) -> SQLQuery:
         if not clusters:
             return None
 
-        # Take the first query from each cluster as a representative
         representatives = [cluster[0] for cluster in clusters if cluster]
         
         if not representatives:
@@ -140,18 +143,19 @@ class QuerySelectionExecutor:
         if len(representatives) == 1:
             return representatives[0]
 
-        scores = {i: 0 for i in range(len(representatives))}
+        # Initialize Elo ratings for each representative
+        elos = {i: self._convert_score_to_elo(rep.score) for i, rep in enumerate(representatives)}
 
+        # Round-robin tournament
         for i in range(len(representatives)):
             for j in range(i + 1, len(representatives)):
                 winner = self._compare_queries(representatives[i], representatives[j], pipeline_context)
-                if winner == 1:
-                    scores[i] += 1
-                else:
-                    scores[j] += 1
-        
-        # Find the query with the highest score
-        winner_index = max(scores, key=scores.get)
+                
+                # Update Elo ratings based on the match outcome
+                elos[i], elos[j] = self._update_elo(elos[i], elos[j], winner)
+
+        # Find the query with the highest Elo rating
+        winner_index = max(elos, key=elos.get)
         return representatives[winner_index]
 
     def _compare_queries(self, query1: SQLQuery, query2: SQLQuery, pipeline_context: PipelineContext) -> int:
