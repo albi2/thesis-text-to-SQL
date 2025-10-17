@@ -51,7 +51,7 @@ class QuerySelectionExecutor:
             print(f"CLUSTERS AFTER FAILED SCORING {clusters}")
 
         # Run tournament
-        winning_query = self._run_tournament(clusters, pipeline_context)
+        winning_query = self._run_elo_tournament(clusters, pipeline_context)
         print(f"WINNER {winning_query}")
 
         return winning_query
@@ -131,7 +131,32 @@ class QuerySelectionExecutor:
         
         return new_elo1, new_elo2
 
-    def _run_tournament(self, clusters: List[List[SQLQuery]], pipeline_context: PipelineContext) -> SQLQuery:
+    def _run_point_tournament(self, clusters: List[List[SQLQuery]], pipeline_context: PipelineContext) -> SQLQuery:
+        if not clusters:
+            return None
+
+        representatives = [cluster[0] for cluster in clusters if cluster]
+        
+        if not representatives:
+            return None
+        
+        if len(representatives) == 1:
+            return representatives[0]
+
+        scores = {i: 0 for i in range(len(representatives))}
+
+        for i in range(len(representatives)):
+            for j in range(i + 1, len(representatives)):
+                winner = self._compare_queries(representatives[i], representatives[j], pipeline_context)
+                if winner == 1:
+                    scores[i] += 1
+                else:
+                    scores[j] += 1
+        
+        winner_index = max(scores, key=scores.get)
+        return representatives[winner_index]
+
+    def _run_elo_tournament(self, clusters: List[List[SQLQuery]], pipeline_context: PipelineContext) -> SQLQuery:
         if not clusters:
             return None
 
