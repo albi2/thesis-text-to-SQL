@@ -1,10 +1,11 @@
 import re
 import json
+import asyncio
 from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
-from prompts.query_scoring import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
-from prompts.query_comparison import QUERY_COMPARISON_PROMPT
+from prompts.query_scoring_single import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
+from prompts.query_comparison import QUERY_COMPARISON_PROMPT, QUERY_COMPARISON_FEWSHOTS, NOHINT_QUERY_COMPARISON_FEWSHOTS
 from util.db.execute import SQLExecInfo, compare_sqls_outcomes
 from util.constants import DatabaseConstants, Text2SQLModelKeys
 from components.models.api_model_facade import ApiModelFacade
@@ -34,7 +35,6 @@ class QuerySelectionExecutor:
 
         # Score and select top 5 queries
         scored_queries = self._score_queries(pipeline_context, generated_queries)
-        pipeline_context.scoring = scored_queries
 
         if scored_queries:
             # Sort by score and take the top 5
@@ -56,63 +56,54 @@ class QuerySelectionExecutor:
 
         return winning_query
 
-    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
-        queries_str = "\n".join([f"{i+1}. {q.sql_exec_info.sql}" for i, q in enumerate(queries)])
-        schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
-
+    async def _score_single_query(self, query: SQLQuery, pipeline_context: PipelineContext, schema: str):
         prompt_args = {
             "DATABASE_SCHEMA": schema,
             "QUESTION": pipeline_context.user_query,
             "HINT": getattr(pipeline_context, 'hint', ''),
-            "QUERIES": queries_str,
+            "QUERY": query.sql_exec_info.sql,
+            "QUERY_OUTPUT": query.sql_exec_info.result,
             "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
             "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria
         }
 
-        
-        prompt_args["PREVIOUS_PARSING_RESPONSE"] = ""
         for attempt in range(self.MAX_RETRIES):
-            full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
-
-            model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
-            print(f"SCORING MODEL RESPONSE {model_response}")
             try:
-                # Extract JSON from code blocks if present
+                full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
+                model_response = await self.api_model.acall(self.api_model.get_chain(), {"user_prompt": full_prompt})
+                
                 json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(1)
                 else:
-                    # Try to parse the entire response as JSON
                     json_str = model_response.strip()
                 
-                # Parse JSON
                 parsed_response = json.loads(json_str)
                 
-                # Validate structure
-                if "scores" not in parsed_response or not isinstance(parsed_response["scores"], list):
-                    print(f"Attempt {attempt + 1}: Invalid JSON structure - missing 'scores' array")
-                    continue
+                if "score" in parsed_response:
+                    query.score = int(parsed_response["score"])
+                if "chain_of_thought" in parsed_response:
+                    query.score_cot = parsed_response["chain_of_thought"]
                 
-                for idx, score_obj in enumerate(parsed_response["scores"]):
-                    if "score" not in score_obj:
-                        continue
-                    
-                    if(idx >= len(queries)):
-                        break
-
-                    queries[idx].score = int(score_obj["score"])
-                
-                return queries
+                return query
             except json.JSONDecodeError as e:
-                print(f"Attempt {attempt + 1} failed: Could not parse JSON from model response: {e}")
-                prompt_args["PREVIOUS_PARSING_RESPONSE"] = f"{e}"
+                print(f"Attempt {attempt + 1} for query failed: Could not parse JSON from model response: {e}")
             except (ValueError, KeyError) as e:
-                print(f"Attempt {attempt + 1} failed: Error processing scores: {e}")
-                prompt_args["PREVIOUS_PARSING_RESPONSE"] = f"{e}"
+                print(f"Attempt {attempt + 1} for query failed: Error processing score: {e}")
+            except Exception as e:
+                print(f"Attempt {attempt + 1} for query failed: Error generating score: {e}")
+        
+        query.score = 1
+        return query
 
-        # If all retries fail, return empty list
-        print("All retry attempts exhausted. Returning empty scored queries list.")
-        return []
+    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
+        schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
+        
+        loop = asyncio.get_event_loop()
+        tasks = [self._score_single_query(query, pipeline_context, schema) for query in queries]
+        scored_queries = loop.run_until_complete(asyncio.gather(*tasks))
+
+        return scored_queries
 
     def _convert_score_to_elo(self, score: int) -> float:
         return float((score + 1) * 100)
@@ -191,23 +182,32 @@ class QuerySelectionExecutor:
             "QUESTION": pipeline_context.user_query,
             "HINT": getattr(pipeline_context, 'hint', ''),
             "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria,
-            "QUERY_1": query1.sql_exec_info.sql,
-            "QUERY_2": query2.sql_exec_info.sql,
+            "QUERY_1": f"{query1.sql_exec_info.sql}",
+            "QUERY_1_OUTPUT": f"{query1.sql_exec_info.result}",
+            "QUERY_2": f"{query2.sql_exec_info.sql}",
+            "QUERY_2_OUTPUT": f"{query2.sql_exec_info.result}",
+            "FEWSHOT_EXAMPLES": QUERY_COMPARISON_FEWSHOTS
         }
 
-
         for attempt in range(self.MAX_RETRIES):
-            full_prompt = QUERY_COMPARISON_PROMPT.format(**prompt_args)
-            
-            model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
             try:
-                match = re.search(r"reasoning:(.*?)\s*winner:\s*(\d+)", model_response, re.DOTALL)
-                if match:
-                    reasoning, winner = match.groups()
-                    pipeline_context.query_comparison_reasoning = reasoning.strip()
-                    return int(winner)
-            except (ValueError, IndexError) as e:
+                full_prompt = QUERY_COMPARISON_PROMPT.format(**prompt_args)
+                model_response = self.api_model.call(self.api_model.get_chain(), {"user_prompt": full_prompt})
+
+                json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    json_str = model_response.strip()
+                
+                parsed_response = json.loads(json_str)
+                
+                if "winner" in parsed_response:
+                    return int(parsed_response["winner"])
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
                 print(f"Attempt {attempt + 1} failed: Could not parse winner from model response: {e}")
+            except Exception as e:
+                print(f"Attempt {attempt + 1} failed: Could not generate response: {e}")
         
         return 1 # Default to the first query in case of parsing failure
 
