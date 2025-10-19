@@ -5,9 +5,10 @@ from typing import List
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.query_scoring_single import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
-from prompts.query_comparison import QUERY_COMPARISON_PROMPT, QUERY_COMPARISON_FEWSHOTS, NOHINT_QUERY_COMPARISON_FEWSHOTS
-from util.db.execute import SQLExecInfo, compare_sqls_outcomes
-from util.constants import DatabaseConstants, Text2SQLModelKeys
+from prompts.query_comparison import QUERY_COMPARISON_PROMPT, NOCRITERIA_COMPARISON_FEWSHOTS
+from prompts.query_selection import PROMPT as QUERY_SELECTION_PROMPT
+from util.db.execute import compare_sqls_outcomes
+from util.constants import DatabaseConstants
 from components.models.api_model_facade import ApiModelFacade
 from pipeline.steps.models.sql_query import SQLQuery
 
@@ -31,10 +32,39 @@ class QuerySelectionExecutor:
         return "\n\n".join([f"'{phrase}':\n" + "\n".join(entities) for phrase, entities in entities_by_phrase.items()]) + "\n\n"
 
     def execute(self, pipeline_context: PipelineContext) -> SQLQuery:
-        generated_queries = pipeline_context.generated_sql_queries
+        loop = asyncio.get_event_loop()
+        tasks = [
+            self.select_by_scoring(pipeline_context),
+            self.select_by_singleprompt(pipeline_context)
+        ]
+        scoring_winner, singleprompt_winner = loop.run_until_complete(asyncio.gather(*tasks))
+
+        pipeline_context.winning_queries = [scoring_winner, singleprompt_winner]
+
+        if scoring_winner and singleprompt_winner:
+            are_equivalent = compare_sqls_outcomes(
+                sql_1=scoring_winner.sql_exec_info.sql,
+                sql_2=singleprompt_winner.sql_exec_info.sql,
+                db_path=DatabaseConstants.DB_PATH,
+                engine=pipeline_context.db_engine
+            )
+            if are_equivalent:
+                return scoring_winner
+            else:
+                return max([scoring_winner, singleprompt_winner], key=lambda query: query.cluster_size)
+        elif scoring_winner:
+            return scoring_winner
+        elif singleprompt_winner:
+            return singleprompt_winner
+        else:
+            return None
+
+    
+    async def select_by_scoring(self, pipeline_context: PipelineContext) -> SQLQuery:
+        queries = pipeline_context.generated_sql_queries + pipeline_context.fixed_sql_queries
 
         # Score and select top 5 queries
-        scored_queries = self._score_queries(pipeline_context, generated_queries)
+        scored_queries = await self._score_queries(pipeline_context, queries)
 
         if scored_queries:
             # Sort by score and take the top 5
@@ -46,15 +76,81 @@ class QuerySelectionExecutor:
             print(f"CLUSTERS AFTER SCORING {clusters}")
         else:
             # If scoring fails, cluster all generated queries
-            print(f"GENERATED QUERIES {generated_queries}")
-            clusters = self._cluster_equivalent_queries_from_list(generated_queries, pipeline_context)
+            print(f"GENERATED QUERIES {queries}")
+            clusters = self._cluster_equivalent_queries_from_list(queries, pipeline_context)
             print(f"CLUSTERS AFTER FAILED SCORING {clusters}")
 
         # Run tournament
         winning_query = self._run_elo_tournament(clusters, pipeline_context)
-        print(f"WINNER {winning_query}")
 
         return winning_query
+
+    async def select_by_singleprompt(self, pipeline_context: PipelineContext) -> SQLQuery:
+        queries = pipeline_context.generated_sql_queries + pipeline_context.fixed_sql_queries
+        clusters = self._cluster_equivalent_queries_from_list(queries, pipeline_context)
+        
+        # model_priority = {
+        #     model: config["priority"]
+        #     for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
+        # }
+        
+        selected_queries = []
+        for cluster in clusters:
+            # best_query_in_cluster = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
+            selected_queries.append(cluster[0])
+
+        queries_with_results = ""
+        for i, info in enumerate(selected_queries):
+            # cluster_size = len([q for q in queries if compare_sqls_outcomes(q.sql_exec_info.sql, info.sql_exec_info.sql, DatabaseConstants.DB_PATH, pipeline_context.db_engine)])
+            queries_with_results += f"{i}: {info.sql_exec_info.sql}\n"
+            queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
+            if info.sql_exec_info.result is not None:
+                queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
+            # queries_with_results += f"  Votes: {cluster_size}\n"
+
+        if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
+            raise ValueError("SchemaEngine not found in pipeline context.")
+
+        mschema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
+            selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names
+        )
+
+        filtered_schemas_str = self._prepare_filtered_schemas(pipeline_context.selected_schemas)
+        # relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        full_prompt = QUERY_SELECTION_PROMPT.format(
+            DATABASE_SCHEMA=mschema_string,
+            FILTERED_SCHEMAS=filtered_schemas_str,
+            QUESTION=pipeline_context.user_query,
+            HINT=getattr(pipeline_context, 'hint', ''),
+            CRITERIA=pipeline_context.query_evaluation_criteria,
+            QUERIES=queries_with_results
+            # RELEVANT_ENTITIES=relevant_entities_str
+        )
+        
+        query_chain = self.api_model.get_chain()
+        model_response = await self.api_model.acall(query_chain, {"user_prompt": full_prompt})
+
+        try:
+            match = re.search(r"reasoning:\s*(.*?)\s*query_index:\s*(\d+)", model_response, re.DOTALL)
+            if match:
+                reasoning = match.group(1).strip()
+                query_index = int(match.group(2))
+                pipeline_context.query_selection_reasoning = reasoning
+                return selected_queries[query_index]
+            else:
+                pipeline_context.query_selection_reasoning = model_response
+                print("Could not parse query index from selection response: {}", model_response)
+        except (ValueError, IndexError) as e:
+            print(f"Could not parse query index or reasoning from model response: {e}")
+            pipeline_context.query_selection_reasoning = model_response
+            if selected_queries:
+                return max(selected_queries, key=lambda query: query.cluster_size)
+        
+        if selected_queries:
+            return max(selected_queries, key=lambda query: query.cluster_size)
+        
+        return None
+
 
     async def _score_single_query(self, query: SQLQuery, pipeline_context: PipelineContext, schema: str):
         prompt_args = {
@@ -63,15 +159,19 @@ class QuerySelectionExecutor:
             "HINT": getattr(pipeline_context, 'hint', ''),
             "QUERY": query.sql_exec_info.sql,
             "QUERY_OUTPUT": query.sql_exec_info.result,
-            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
-            "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria
+            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES
+            # "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria
         }
 
         for attempt in range(self.MAX_RETRIES):
             try:
                 full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
-                model_response = await self.api_model.acall(self.api_model.get_chain(), {"user_prompt": full_prompt})
-                
+
+                chain = self.api_model.get_chain()
+                model_response = await self.api_model.acall(chain, {"user_prompt": full_prompt})
+
+                print(f"SCORING RESPONSE {model_response}")
+
                 json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(1)
@@ -96,12 +196,11 @@ class QuerySelectionExecutor:
         query.score = 1
         return query
 
-    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
+    async def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
-        
-        loop = asyncio.get_event_loop()
+        print(f"LEN OF QUERIES TO BE SCORED {len(queries)}")
         tasks = [self._score_single_query(query, pipeline_context, schema) for query in queries]
-        scored_queries = loop.run_until_complete(asyncio.gather(*tasks))
+        scored_queries = await asyncio.gather(*tasks)
 
         return scored_queries
 
@@ -171,8 +270,12 @@ class QuerySelectionExecutor:
                 elos[i], elos[j] = self._update_elo(elos[i], elos[j], winner)
 
         # Find the query with the highest Elo rating
-        winner_index = max(elos, key=elos.get)
-        return representatives[winner_index]
+        winner_index = max(elos, key=elos.get) if elos else -1
+
+        if winner_index != -1:
+            return representatives[winner_index]
+        else:
+            return max(representatives, key=lambda query: query.cluster_size)
 
     def _compare_queries(self, query1: SQLQuery, query2: SQLQuery, pipeline_context: PipelineContext) -> int:
         schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
@@ -181,12 +284,12 @@ class QuerySelectionExecutor:
             "DATABASE_SCHEMA": schema,
             "QUESTION": pipeline_context.user_query,
             "HINT": getattr(pipeline_context, 'hint', ''),
-            "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria,
+            # "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria,
             "QUERY_1": f"{query1.sql_exec_info.sql}",
             "QUERY_1_OUTPUT": f"{query1.sql_exec_info.result}",
             "QUERY_2": f"{query2.sql_exec_info.sql}",
             "QUERY_2_OUTPUT": f"{query2.sql_exec_info.result}",
-            "FEWSHOT_EXAMPLES": QUERY_COMPARISON_FEWSHOTS
+            "FEWSHOT_EXAMPLES": NOCRITERIA_COMPARISON_FEWSHOTS
         }
 
         for attempt in range(self.MAX_RETRIES):
@@ -201,6 +304,8 @@ class QuerySelectionExecutor:
                     json_str = model_response.strip()
                 
                 parsed_response = json.loads(json_str)
+
+                print(f"QUERY COMPARISON BETWEEN {query1.sql_exec_info.result} and {query2.sql_exec_info.result} yields {model_response}")
                 
                 if "winner" in parsed_response:
                     return int(parsed_response["winner"])
@@ -254,6 +359,8 @@ class QuerySelectionExecutor:
                         current_cluster.append(queries[j])
                         visited[j] = True
             
+            for query in current_cluster:
+                query.cluster_size = len(current_cluster)
             clusters.append(current_cluster)
             
         return clusters

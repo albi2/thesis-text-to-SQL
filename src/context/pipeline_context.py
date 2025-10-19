@@ -49,6 +49,7 @@ class PipelineContext(GenericContext):
         self.unique_table_names: List[str] = []
         self.unique_column_names: List[str] = []
         self.scoring: List[tuple[int, SQLExecInfo]] = []
+        self.winning_queries: List[SQLQuery] = []
 
 
     def set_last_executed_step(self, step: Any) -> None: # Use Any for type hint
@@ -86,7 +87,8 @@ class PipelineContext(GenericContext):
             "scoring": [(score, item.to_dict()) for score, item in self.scoring],
             "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None,
             "query_selection_reasoning": self.query_selection_reasoning,
-            "query_evaluation_criteria": self.query_evaluation_criteria
+            "query_evaluation_criteria": self.query_evaluation_criteria,
+            "winning_queries": [query.to_full_dict() for query in self.winning_queries]
         }
 
     def to_dict(self):
@@ -96,5 +98,6 @@ class PipelineContext(GenericContext):
             "selected_schema": self.selected_schema,
             "generated_sql_queries": [gen_sql.to_dict() for gen_sql in self.generated_sql_queries],
             "non_executable_sql_queries": [query.to_dict() for query in self.non_executable_sql_queries],
-            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None
+            "selected_sql_query": self.selected_sql_query.to_dict() if self.selected_sql_query else None,
+            "winning_queries": [query.to_dict() for query in self.winning_queries]
         }

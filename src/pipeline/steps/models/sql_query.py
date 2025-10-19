@@ -10,6 +10,7 @@ class SQLQuery:
     model_key: str
     prompting: str
     score: int = 0
+    cluster_size: int = 1
 
     def to_dict(self):
         return {
