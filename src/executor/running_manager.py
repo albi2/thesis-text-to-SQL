@@ -81,8 +81,8 @@ class RunningManager:
                 .add_step(CriteriaGenerationStep()) \
                 .add_step(SchemaFilterStep()) \
                 .add_step(SQLGenerationStep()) \
-                .add_step(QuerySelectionStep()) \
                 .add_step(QueryRefinementStep()) \
+                .add_step(QuerySelectionStep()) \
                 .add_step(EvaluationStep()) \
                 .add_step(PrintOutputStep()) \
                 .build()

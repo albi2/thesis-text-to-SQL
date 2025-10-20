@@ -129,7 +129,7 @@ class SchemaFilterExecutor:
 
             # Re-generate unique table and column names
             unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
-            unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_.values() for col_info in kw_context))
+            unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
 
             if pipeline_context.relevant_entities:
                 for table_name, columns in pipeline_context.relevant_entities.items():

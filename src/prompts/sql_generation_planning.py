@@ -14,7 +14,8 @@ Database admin instructions (violating any of the following will result is punis
 3. **ORDER BY with Distinct Values:**
     - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
 4. **Handling NULLs:**
-    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - If a column is NULLABLE and can contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - Use "ORDER BY <column> ASC|DESC NULLS LAST" in case you are sorting by a NULLABLE column
 5. **FROM/JOIN Clauses:**
     - Only include tables essential to answer the question.
 6. **Strictly Follow Hints:**
@@ -64,23 +65,23 @@ Here are some examples demonstrating this process, covering a wide range of SQL 
 ** DATABASE SCHEMA ** 
 CREATE TABLE generalinfo
 (
-	id_restaurant INTEGER not null primary key,
-	food_type TEXT null, -- examples: `thai`| `food type` description: the food type
-	city TEXT null, -- description: the city where the restaurant is located in
+	id_restaurant INTEGER NOT NULL primary key,
+	food_type TEXT, -- examples: `thai`| `food type` description: the food type
+	city TEXT, -- description: the city where the restaurant is located in
 );
 
 CREATE TABLE location
 (
-	id_restaurant INTEGER not null primary key,
-	street_name TEXT null, -- examples: `ave`, `san pablo ave`, `pablo ave`| `street name` description: the street name of the restaurant
-	city TEXT null, -- description: the city where the restaurant is located in
+	id_restaurant INTEGER NOT NULL primary key,
+	street_name TEXT, -- examples: `ave`, `san pablo ave`, `pablo ave`| `street name` description: the street name of the restaurant
+	city TEXT, -- description: the city where the restaurant is located in
 	foreign key (id_restaurant) references generalinfo (id_restaurant) on update cascade on delete cascade,
 );
 
 ** QUESTION ** 
 How many Thai restaurants can be found in San Pablo Ave, Albany? 
 
-** EVIDENCE ** 
+** HINT ** 
 Thai restaurant refers to food_type = 'thai'; San Pablo Ave Albany refers to street_name = 'san pablo ave' AND T1.city = 'albany'
 
 **************************
@@ -127,7 +128,7 @@ SELECT COUNT(T1."id_restaurant") FROM generalinfo AS T1 INNER JOIN location AS T
 
 ** DATABASE SCHEMA ** 
 CREATE TABLE account (
-    account_id INT PRIMARY KEY,
+    account_id INT PRIMARY KEY NOT NULL,
     district_id INT REFERENCES district(district_id),
     frequency VARCHAR(255) NOT NULL,
     date DATE NOT NULL
@@ -135,7 +136,7 @@ CREATE TABLE account (
 CREATE TABLE client (
     client_id INT PRIMARY KEY,
     gender CHAR(1) NOT NULL,
-    birth_date DATE NOT NULL,
+    birth_date DATE,
     district_id INT REFERENCES district(district_id)
 );
 CREATE TABLE district (
@@ -147,7 +148,7 @@ CREATE TABLE district (
 ** QUESTION ** 
 What is the gender of the youngest client who opened account in the lowest average salary branch?
 
-** EVIDENCE ** 
+** HINT ** 
 Given that Later birthdate refers to younger age; A11 refers to average salary
 
 **************************
@@ -219,7 +220,7 @@ CREATE TABLE games_city
 
 CREATE TABLE city
 (
-	id INTEGER not null primary key,
+	id INTEGER NOT NULL primary key,
 	city_name TEXT default NULL, -- examples: `London`
 );
 
@@ -338,7 +339,7 @@ CREATE TABLE Airports
 ** QUESTION **
 How many flights were there from San Diego International airport to Los Angeles International airport in the August of 2018? 
 
-** EVIDENCE **
+** HINT **
 flights from refers to ORIGIN; San Diego International airport refers to Description = 'San Diego, CA: San Diego International'; flights to refers to DEST; Los Angeles International airport refers to Description = 'Los Angeles, CA: Los Angeles International'; in the August of 2018 refers to FL_DATE like '2018/8%';
 
 
@@ -407,7 +408,7 @@ CREATE TABLE violations
 ** QUESTION **
 What are the names of the establishments that met all the required standards for 4 consecutive years? 
 
-** EVIDENCE **
+** HINT **
 establishment has the same meaning as business; score of 90 or more refers to score ≥ 90; year(date) = 2015; ; met all required standards for 4 consecutive years refers to COUNT(year(date)) = 4 where score = 100;
 
 **************************
@@ -465,7 +466,7 @@ Now, given the following database schema and question, generate the Query Plan a
 ** QUESTION **
 {QUESTION}
 
-** EVIDENCE ** 
+** HINT ** 
 {HINT}
 """
 

@@ -48,35 +48,55 @@ class DDLSchemaGenerator:
         for table_name, table_info in self.tables.items():
             if selected_tables is None or table_name.lower() in selected_tables:
                 output.append(f"CREATE TABLE {table_name} (")
-                
+
                 field_lines = []
                 primary_keys = []
-                
+
                 for field_name, field_info in table_info['fields'].items():
+                    # skip columns not in selection
                     if selected_columns is not None and f"{table_name}.{field_name}".lower() not in selected_columns:
                         continue
 
-                    field_line = f"    {field_name} {field_info['type']}"
-                    if field_info.get('primary_key', False):
-                        primary_keys.append(field_name)
-                    if field_info.get('autoincrement', False):
-                        if dialect == 'sqlite':
-                            # SQLite uses AUTOINCREMENT on the PRIMARY KEY for INTEGER columns
-                            pass
-                        elif dialect == 'postgresql':
-                            field_line = f"    {field_name} SERIAL"
-                        elif dialect == 'mysql':
-                            field_line += " AUTO_INCREMENT"
-                        elif dialect == 'mssql':
-                            field_line += " IDENTITY(1,1)"
-                    if not field_info.get('nullable', True):
-                        field_line += " NOT NULL"
-                    if field_info.get('unique', False):
-                        field_line += " UNIQUE"
-                    if field_info.get('default') is not None:
-                        field_line += f" DEFAULT {field_info['default']}"
-                    
+                    field_type = field_info['type']
+                    autoincrement = field_info.get('autoincrement', False)
+                    is_pk = field_info.get('primary_key', False)
+                    nullable = field_info.get('nullable', True)
+                    unique = field_info.get('unique', False)
+                    default = field_info.get('default')
                     comment = field_info.get('comment', '')
+
+                    # Handle autoincrement and primary key per dialect
+                    if autoincrement:
+                        if dialect == 'sqlite':
+                            # SQLite requires "INTEGER PRIMARY KEY AUTOINCREMENT"
+                            field_type = "INTEGER"
+                            is_pk = True  # enforce PK for autoincrement
+                        elif dialect == 'postgresql':
+                            field_type = "SERIAL"
+                        elif dialect == 'mysql':
+                            field_type += " AUTO_INCREMENT"
+                        elif dialect == 'mssql':
+                            field_type += " IDENTITY(1,1)"
+
+                    field_line = f"    {field_name} {field_type}"
+
+                    # Constraints
+                    if not nullable:
+                        field_line += " NOT NULL"
+                    if unique:
+                        field_line += " UNIQUE"
+                    if default is not None:
+                        field_line += f" DEFAULT {default}"
+
+                    # SQLite AUTOINCREMENT primary key inline declaration
+                    if dialect == 'sqlite' and is_pk and autoincrement:
+                        field_line = f"    {field_name} INTEGER PRIMARY KEY AUTOINCREMENT"
+                        # SQLite does not allow adding separate PRIMARY KEY clause for this column
+                        primary_keys = []  # handled inline
+                    elif is_pk:
+                        primary_keys.append(field_name)
+
+                    # Add column comments (for dialects that support comments)
                     if not comment and self.database_descriptor:
                         table_descriptor = self.database_descriptor.tables.get(table_name)
                         if table_descriptor:
@@ -91,17 +111,29 @@ class DDLSchemaGenerator:
 
                     field_lines.append(field_line)
 
+                # Add primary key constraint (skip for inline SQLite AUTOINCREMENT case)
                 if primary_keys:
                     field_lines.append(f"    PRIMARY KEY ({', '.join(primary_keys)})")
 
+                # Add foreign keys
                 for fk in self.foreign_keys:
                     table1, column1, _, table2, column2 = fk
                     if table1.lower() == table_name.lower():
-                         if selected_tables is None or \
-                            (table1.lower() in selected_tables and table2.lower() in selected_tables):
-                            field_lines.append(f"    CONSTRAINT fk_{table1}_{column1} FOREIGN KEY ({column1}) REFERENCES {table2} ({column2})")
+                        if selected_tables is None or \
+                        (table1.lower() in selected_tables and table2.lower() in selected_tables):
+                            fk_line = f"    CONSTRAINT fk_{table1}_{column1} FOREIGN KEY ({column1}) REFERENCES {table2} ({column2})"
+                            if dialect == 'sqlite':
+                                # SQLite supports FK syntax, but enforcement is runtime-configurable
+                                fk_line += " ON DELETE CASCADE"
+                            field_lines.append(fk_line)
 
                 output.append(',\n'.join(field_lines))
                 output.append(");")
 
-        return '\n\n'.join(output)
+        ddl = '\n\n'.join(output)
+
+        if dialect == 'sqlite':
+            # SQLite requires pragma to enable FK constraints
+            ddl = "PRAGMA foreign_keys = ON;\n\n" + ddl
+
+        return ddl

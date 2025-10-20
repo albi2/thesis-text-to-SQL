@@ -48,8 +48,9 @@ def main():
     keywords = ["grade"]
     task = Task(question_id="1", db_id="california_schools", question="In which city can you find the school in the state of California with the lowest latitude coordinates and what is its lowest grade? Indicate the school name.")
     # retrieved_schema = information_retriever.retrieve_context(keywords, task)
-    retrieved_entities = information_retriever.retrieve_entities(db_id="student_club", phrases=["Sacha Harrison"])
-    print(f"RETRIEVED SCHEMA : {retrieved_entities}")
+    # retrieved_entities = information_retriever.retrieve_entities(db_id="formula_1", phrases=["Australia"])
+    retrieved_keywords = information_retriever.extract_keywords(user_query="What is the city location of the high school level school with Lunch Provision 2 whose lowest grade is 9 and the highest grade is 12 in the county of Merced?", hint="")
+    print(f"RETRIEVED keywords : {retrieved_keywords}")
     # test_lsh()
 
 if __name__ == "__main__":

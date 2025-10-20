@@ -4,7 +4,7 @@ from util.db.execute import compare_sqls_outcomes
 from infrastructure.database.database_manager import DatabaseManager
 
 # --- Configuration ---
-generated_json_path = "../results/contexts_20_gemini_refinement_selection_criteria_noprelim_newdata.json"  # file with "generated_sql_queries"
+generated_json_path = "../results/contexts_20251020_153012.json"  # file with "generated_sql_queries"
 gold_json_path = "./dataset/dev/bird_subset.json"                 # file with "question", "SQL", etc.
 output_path = "./comparison_results.json"                         # where to save results
 

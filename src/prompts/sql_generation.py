@@ -27,9 +27,10 @@ Database admin instructions (violating any of the following will result is punis
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
 3. **ORDER BY with Distinct Values:**
-    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values. U
 4. **Handling NULLs:**
-    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - If a column is NULLABLE and can contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - Use "ORDER BY <column> ASC|DESC NULLS LAST" in case you are sorting by a NULLABLE column
 5. **FROM/JOIN Clauses:**
     - Only include tables essential to answer the question.
 6. **Strictly Follow Hints:**
@@ -80,14 +81,17 @@ Here are some examples to guide your query creation process.
 
 ** DATABASE SCHEMA **
 
-Table: generalinfo
+【DB_ID】 resturantdb
+
+【Schema】
+# Table: generalinfo
 [
 (id_restaurant:INTEGER, Primary Key, the unique identifier for the restaurant),
 (food_type:TEXT, the food type, Examples: [thai, italian, mexican]),
 (city:TEXT, the city where the restaurant is located in)
 ]
 
-Table: location
+# Table: location
 [
 (id_restaurant:INTEGER, Primary Key, the id of the restaurant, Maps to generalinfo(id_restaurant)),
 (street_name:TEXT, the street name of the restaurant, Examples: [ave, san pablo ave, pablo ave]),
@@ -100,7 +104,7 @@ location.id_restaurant = generalinfo.id_restaurant
 ** QUESTION **
 How many Thai restaurants can be found in San Pablo Ave, Albany? 
 
-** EVIDENCE **
+** HINT **
 Thai restaurant refers to food_type = 'thai'; San Pablo Ave Albany refers to street_name = 'san pablo ave' AND T1.city = 'albany'
 
 **************************
@@ -150,27 +154,30 @@ SELECT COUNT(T1.id_restaurant) FROM generalinfo AS T1 INNER JOIN location AS T2 
 
 ** DATABASE SCHEMA **
 
-Table: account
+【DB_ID】 Anonymous
+
+【Schema】
+# Table: account
 [
-(account_id:INT, Primary Key, the unique identifier for the account),
-(district_id:INT, the id of the district, Maps to district(district_id)),
-(frequency:VARCHAR(255), the frequency of issuance of statements),
-(date:DATE, the date of creation of the account)
+(account_id:INT, Primary Key, NOT NULLABLE, the unique identifier for the account),
+(district_id:INT, NOT NULLABLE, the id of the district, Maps to district(district_id)),
+(frequency:VARCHAR(255), NULLABLE, the frequency of issuance of statements),
+(date:DATE, NULLABLE, the date of creation of the account)
 ]
 
-Table: client
+# Table: client
 [
-(client_id:INT, Primary Key, the unique identifier for the client),
-(gender:CHAR(1), the gender of the client, Examples: [M, F]),
-(birth_date:DATE, the birth date of the client),
-(district_id:INT, the id of the district, Maps to district(district_id))
+(client_id:INT, Primary Key, NOT NULLABLE, the unique identifier for the client),
+(gender:CHAR(1), NULLABLE, the gender of the client, Examples: [M, F]),
+(birth_date:DATE, NULLABLE, the birth date of the client),
+(district_id:INT, NOT NULLABLE, the id of the district, Maps to district(district_id))
 ]
 
-Table: district
+# Table: district
 [
-(district_id:INT, Primary Key, the unique identifier for the district),
-(a4:VARCHAR(255), number of inhabitants in the district),
-(a11:VARCHAR(255), average salary in the district)
+(district_id:INT, Primary Key, NOT NULLABLE, the unique identifier for the district),
+(a4:VARCHAR(255), NOT NULLABLE, number of inhabitants in the district),
+(a11:VARCHAR(255), NOT NULLABLE, average salary in the district)
 ]
 
 【Foreign keys】
@@ -180,7 +187,7 @@ client.district_id = district.district_id
 ** QUESTION **
 What is the gender of the youngest client who opened account in the lowest average salary branch?
 
-** EVIDENCE **
+** HINT **
 Given that Later birthdate refers to younger age; A11 refers to average salary
 
 **************************
@@ -233,29 +240,30 @@ SELECT "T1"."gender"
 
 ** DATABASE SCHEMA **
 
-Table: games
+【DB_ID】 games
+
+【Schema】
+# Table: games
 [
-(id:INTEGER, Primary Key, the unique identifier for the game),
-(games_year:INTEGER, the year of the game)
+(id:INTEGER, Primary Key, NOT NULLABLE, Autoincrement, Description: The unique identifier for the game),
+(games_year:INTEGER, NOT NULLABLE, Description: The 4-digit year of the game, Examples: [2008, 2012, 2016])
 ]
 
-Table: games_city
+# Table: games_city
 [
-(games_id:INTEGER, the id of the game, Maps to games(id)),
-(city_id:INTEGER, the id of the city that held the game, Maps to city(id))
+(games_id:INTEGER, NOT NULLABLE, Description: The foreign key for the game, Maps to games(id)),
+(city_id:INTEGER, NOT NULLABLE, Description: The foreign key for the city, Maps to city(id))
 ]
 
-Table: city
+# Table: city
 [
-(id:INTEGER, Primary Key, the unique identifier for the city),
-(city_name:TEXT, the name of the city, Examples: [London])
+(id:INTEGER, Primary Key, NOT NULLABLE, Autoincrement, Description: The unique identifier for the city),
+(city_name:VARCHAR(100), NOT NULLABLE, Description: The name of the host city, Examples: [London, Beijing, Athens])
 ]
 
 【Foreign keys】
 games_city.city_id = city.id
 games_city.games_id = games.id
-
-**************************
 
 ** QUESTION **
 From 1900 to 1992, how many games did London host?
@@ -310,18 +318,22 @@ SELECT COUNT(T3.id) FROM games_city AS T1 INNER JOIN city AS T2 ON T1.city_id = 
 
 ** DATABASE SCHEMA **
 
-Table: student_programs
+【DB_ID】 Students
+
+【Schema】
+
+# Table: student_programs
 [
-(Program Type:TEXT, Program Type, Examples: ['Summer School', 'After School Program', 'Special Education']),
-(Participants (Ages 10-15):DOUBLE, Participants (Ages 10-15), Examples: [1250.0, 500.0, 75.0]),
-(Total Enrollment (Ages 10-15):DOUBLE, Total Enrollment (Ages 10-15), Examples: [500.0, 1800.0, 1000.0]),
-(School Category:TEXT, School Category, Examples: ['Charter Schools', 'Private Schools', 'Magnet Schools'])
+(Program Type:TEXT, NULLABLE, Program Type, Examples: ['Summer School', 'After School Program', 'Special Education']),
+(Participants (Ages 10-15):DOUBLE, NULLABLE, Participants (Ages 10-15), Examples: [1250.0, 500.0, 75.0]),
+(Total Enrollment (Ages 10-15):DOUBLE, NULLABLE, Total Enrollment (Ages 10-15), Examples: [500.0, 1800.0, 1000.0]),
+(School Category:TEXT, NULLABLE, School Category, Examples: ['Charter Schools', 'Private Schools', 'Magnet Schools'])
 ]
 
 ** QUESTION **
 Please list the lowest three participation rates for students aged 10-15 in online programs. 
 
-** EVIDENCE **
+** HINT **
 
 **************************
 
@@ -372,11 +384,13 @@ SELECT "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" FROM "stude
 
 ** DATABASE SCHEMA **
 
-Table: employees
+【DB_ID】 Employees
+【Schema】
+# Table: employees
 [
-(employee_id:INTEGER, Primary Key, the unique identifier of the employee, Examples: [100, 101, 102]),
-(department_id:INTEGER, the id of the department the employee belongs to, Examples: [10, 20, 30]),
-(salary:INTEGER, the salary of the employee, Examples: [50000, 75000, 90000])
+(employee_id:INTEGER, Primary Key, NOT NULLABLE, the unique identifier of the employee, Examples: [100, 101, 102]),
+(department_id:INTEGER, NULLABLE, the id of the department the employee belongs to, Examples: [10, 20, 30]),
+(salary:INTEGER, NULLABLE, the salary of the employee, Examples: [50000, 75000, 90000])
 ]
 
 ** QUESTION **
@@ -440,7 +454,7 @@ Airlines.DEST = Airports.Code
 ** QUESTION **
 How many flights were there from San Diego International airport to Los Angeles International airport in the August of 2018? 
 
-** EVIDENCE **
+** HINT **
 flights from refers to ORIGIN; San Diego International airport refers to Description = 'San Diego, CA: San Diego International'; flights to refers to DEST; Los Angeles International airport refers to Description = 'Los Angeles, CA: Los Angeles International'; in the August of 2018 refers to FL_DATE like '2018/8%';
 
 **************************
@@ -498,32 +512,31 @@ SELECT COUNT(FL_DATE) FROM Airlines WHERE FL_DATE LIKE '2018/8%' AND ORIGIN = ( 
 
 ** DATABASE SCHEMA **
 
-【DB_ID】 eatery_inspection
+【DB_ID】 airline
+
 【Schema】
-Table: businesses
+
+# Table: Airlines
 [
-(business_id:INTEGER, Primary Key, the unique identifier for the business, Examples: [10, 100, 1000]),
-(name:TEXT, the name of the eatery, Examples: [ACME, STARBUCKS, MCDONALDS])
+(FL_DATE:TEXT, NULLABLE, flight date, Examples: [2018-08-09, 2018-01-01, 2019-02-15]),
+(ORIGIN:TEXT, NULLABLE, airport of origin Maps to Airports(Code), Examples: [SAN, JFK, LAX]),
+(DEST:TEXT, NULLABLE, Destination airport Maps to Airports(Code), Examples: [JFK, LAX, SFO])
 ]
-Table: inspections
+
+# Table: Airports
 [
-(business_id:INTEGER, the unique id of the business Maps to businesses(business_id), Examples: [10, 100, 1000]),
-(score:INTEGER, the inspection score, Examples: [90, 95, 100]),
-(date:TEXT, the date of the inspection, Examples: [2014-01-24, 2015-08-11, 2017-03-09])
+(Code:TEXT, Primary Key, NOT NULLABLE, the unique code of the airport, Examples: [SAN, JFK, LAX]),
+(Description:TEXT, NULLABLE, the full name or description of the airport, Examples: [San Diego International Airport, John F. Kennedy International Airport, Los Angeles International Airport])
 ]
-Table: violations
-[
-(business_id:INTEGER, the unique id of the business Maps to businesses(business_id), Examples: [10, 100, 1000]),
-(date:TEXT, the date of the violation, Examples: [2016-05-03, 2014-01-24, 2015-02-18])
-]
+
 【Foreign keys】
-inspections.business_id = businesses.business_id
-violations.business_id = businesses.business_id
+Airlines.ORIGIN = Airports.Code
+Airlines.DEST = Airports.Code
 
 ** QUESTION **
 What are the names of the establishments that met all the required standards for 4 consecutive years? 
 
-** EVIDENCE **
+** HINT **
 establishment has the same meaning as business; score of 90 or more refers to score ≥ 90; year(date) = 2015; ; met all required standards for 4 consecutive years refers to COUNT(year(date)) = 4 where score = 100;
 
 **************************
@@ -600,7 +613,7 @@ Now, given the following database schema and question, generate the Divide-And-C
 ** QUESTION **
 {QUESTION}
 
-** EVIDENCE ** 
+** HINT ** 
 {HINT}
 """
 
@@ -626,9 +639,10 @@ Database admin instructions (violating any of the following will result is punis
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
 3. **ORDER BY with Distinct Values:**
-    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values. U
 4. **Handling NULLs:**
-    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - If a column is NULLABLE and can contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - Use "ORDER BY <column> ASC|DESC NULLS LAST" in case you are sorting by a NULLABLE column
 5. **FROM/JOIN Clauses:**
     - Only include tables essential to answer the question.
 6. **Strictly Follow Hints:**
@@ -636,7 +650,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -651,6 +668,11 @@ Database admin instructions (violating any of the following will result is punis
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
 15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+16. **Handling similar columns for filtering**
+    - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
+    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
 Here are some examples
 
@@ -846,9 +868,10 @@ Database admin instructions (violating any of the following will result is punis
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
 3. **ORDER BY with Distinct Values:**
-    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values. U
 4. **Handling NULLs:**
-    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - If a column is NULLABLE and can contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - Use "ORDER BY <column> ASC|DESC NULLS LAST" in case you are sorting by a NULLABLE column
 5. **FROM/JOIN Clauses:**
     - Only include tables essential to answer the question.
 6. **Strictly Follow Hints:**
@@ -856,7 +879,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -869,231 +895,14 @@ Database admin instructions (violating any of the following will result is punis
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-15. **Always put column names between quotation marks"
+15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+16. **Handling similar columns for filtering**
+    - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
+    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
-The following examples are for your reference.
-
-=========
-Example 1 
-
-[DB_ID] retalis 
-
-[Schema]
-
-Table: generalinfo
-[
-(id_restaurant:INTEGER, Primary Key, the unique identifier for the restaurant),
-(food_type:TEXT, the food type, Examples: [thai, italian, mexican]),
-(city:TEXT, the city where the restaurant is located in)
-]
-
-Table: location
-[
-(id_restaurant:INTEGER, Primary Key, the id of the restaurant, Maps to generalinfo(id_restaurant)),
-(street_name:TEXT, the street name of the restaurant, Examples: [ave, san pablo ave, pablo ave]),
-(city:TEXT, the city where the restaurant is located in)
-]
-
-【Foreign keys】
-location.id_restaurant = generalinfo.id_restaurant
-
-【Question】
-How many Thai restaurants can be found in San Pablo Ave, Albany? 
-
-【Evidence】
-Thai restaurant refers to food_type = 'thai'; San Pablo Ave Albany refers to street_name = 'san pablo ave' AND T1.city = 'albany'
-
-```sql
-SELECT COUNT(T1."id_restaurant") FROM generalinfo AS T1 INNER JOIN location AS T2 ON T1."id_restaurant" = T2."id_restaurant" WHERE T1."food_type" = 'thai' AND T1."city" = 'albany' AND T2."street_name" = 'san pablo ave'
-```
-===========
-Example 2
-**************************
-【Schema】
-
-Table: account
-[
-(account_id:INT, Primary Key, the unique identifier for the account),
-(district_id:INT, the id of the district, Maps to district(district_id)),
-(frequency:VARCHAR(255), the frequency of issuance of statements),
-(date:DATE, the date of creation of the account)
-]
-
-Table: client
-[
-(client_id:INT, Primary Key, the unique identifier for the client),
-(gender:CHAR(1), the gender of the client, Examples: [M, F]),
-(birth_date:DATE, the birth date of the client),
-(district_id:INT, the id of the district, Maps to district(district_id))
-]
-
-Table: district
-[
-(district_id:INT, Primary Key, the unique identifier for the district),
-(a4:VARCHAR(255), number of inhabitants in the district),
-(a11:VARCHAR(255), average salary in the district)
-]
-
-【Foreign keys】
-account.district_id = district.district_id
-client.district_id = district.district_id
-
-【Question】
-Question: What is the gender of the youngest client who opened account in the lowest average salary branch?
-
-【Evidence】
- Given that Later birthdate refers to younger age; A11 refers to average salary
-
-```sql
-SELECT T1."gender"
-  FROM client AS T1
-  INNER JOIN district AS T2
-  ON T1."district_id" = T2."district_id"
-  ORDER BY T2."A11" ASC, T1."birth_date" DESC NULLS LAST
-  LIMIT 1
-```
-===========
-Example 3 (dividing into two parallel sub-questions)
-
-【Schema】
-Table: games
-[
-(id:INTEGER, Primary Key, the unique identifier for the game),
-(games_year:INTEGER, the year of the game)
-]
-
-Table: games_city
-[
-(games_id:INTEGER, the id of the game, Maps to games(id)),
-(city_id:INTEGER, the id of the city that held the game, Maps to city(id))
-]
-
-Table: city
-[
-(id:INTEGER, Primary Key, the unique identifier for the city),
-(city_name:TEXT, the name of the city, Examples: [London])
-]
-
-【Foreign keys】
-games_city.city_id = city.id
-games_city.games_id = games.id
-
-【Question】
-From 1900 to 1992, how many games did London host?
-
-【Evidence】
-From 1900 to 1992 refers to games_year BETWEEN 1900 AND 1992; London refers to city_name = 'London'; games refer to games_name;
-
-```sql
-SELECT COUNT(T3."id") FROM games_city AS T1 INNER JOIN city AS T2 ON T1."city_id" = T2."id" INNER JOIN games AS T3 ON T1."games_id" = T3."id" WHERE T2."city_name" = 'London' AND T3."games_year" BETWEEN 1900 AND 1992
-```
-===========
-Example 4 (When it's not clear which column should be used for a string matching, use a loosen condition such as string LIKE and OR condition to cover multiple possible columns.)
-
-【Table creation statements】
-【Schema】
-
-Table: student_programs
-[
-(Program Type:TEXT, Program Type, Examples: ['Summer School', 'After School Program', 'Special Education']),
-(Participants (Ages 10-15):DOUBLE, Participants (Ages 10-15), Examples: [1250.0, 500.0, 75.0]),
-(Total Enrollment (Ages 10-15):DOUBLE, Total Enrollment (Ages 10-15), Examples: [500.0, 1800.0, 1000.0]),
-(School Category:TEXT, School Category, Examples: ['Charter Schools', 'Private Schools', 'Magnet Schools'])
-]
-
-【Question】
-Question: Please list the lowest three participation rates for students aged 10-15 in online programs. 
-
-【Evidence】
- Participation rate for students aged 10-15 = `Participants (Ages 10-15)` / `Total Enrollment (Ages 10-15)`
-
-```sql
-SELECT "Participants (Ages 10-15)" / "Total Enrollment (Ag"es 10-15)" FROM "student_programs"
-  WHERE LOWER("School Category") LIKE '%online%' OR LOWER("Program Type") LIKE '%online%'
-  AND "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" IS NOT NULL 
-  ORDER BY "Participants (Ages 10-15)" / "Total Enrollment (Ages 10-15)" ASC NULLS LAST LIMIT 3;
-```
-=============
-Example 5
-
-【Schema】
-Table: employees
-[
-(employee_id:INTEGER, Primary Key, the unique identifier of the employee, Examples: [100, 101, 102]),
-(department_id:INTEGER, the id of the department the employee belongs to, Examples: [10, 20, 30]),
-(salary:INTEGER, the salary of the employee, Examples: [50000, 75000, 90000])
-]
-**************************
-【Question】
-Question: How many employees earn over $100,000?
-
-```sql
-SELECT COUNT(*) FROM employees WHERE "salary" > 100000;
-```
-
-====== Example 6 =======
-【DB_ID】 airline
-【Schema】
-Table: Airlines
-[
-(FL_DATE:TEXT, flight date, Examples: [2018-08-09, 2018-01-01, 2019-02-15]),
-(ORIGIN:TEXT, airport of origin Maps to Airports(Code), Examples: [SAN, JFK, LAX]),
-(DEST:TEXT, Destination airport Maps to Airports(Code), Examples: [JFK, LAX, SFO])
-]
-Table: Airports
-[
-(Code:TEXT, Primary Key, the unique code of the airport, Examples: [SAN, JFK, LAX]),
-(Description:TEXT, the full name or description of the airport, Examples: [San Diego International Airport, John F. Kennedy International Airport, Los Angeles International Airport])
-]
-【Foreign keys】
-Airlines.ORIGIN = Airports.Code
-Airlines.DEST = Airports.Code
-
-【Question】
-How many flights were there from San Diego International airport to Los Angeles International airport in the August of 2018? 
-
-【Evidence】
-flights from refers to ORIGIN; San Diego International airport refers to Description = 'San Diego, CA: San Diego International'; flights to refers to DEST; Los Angeles International airport refers to Description = 'Los Angeles, CA: Los Angeles International'; in the August of 2018 refers to FL_DATE like '2018/8%';
-
-```sql
-SELECT COUNT(FL_DATE) FROM Airlines WHERE FL_DATE LIKE '2018/8%' AND ORIGIN = ( SELECT T2.ORIGIN FROM Airports AS T1 INNER JOIN Airlines AS T2 ON T1.Code = T2.ORIGIN WHERE T1.Description = 'San Diego, CA: San Diego International' ) AND DEST = ( SELECT T4.DEST FROM Airports AS T3 INNER JOIN Airlines AS T4 ON T3.Code = T4.DEST WHERE T3.Description = 'Los Angeles, CA: Los Angeles International' )
-```
-
-===== Example 6 ========
-【DB_ID】 eatery_inspection
-【Schema】
-Table: businesses
-[
-(business_id:INTEGER, Primary Key, the unique identifier for the business, Examples: [10, 100, 1000]),
-(name:TEXT, the name of the eatery, Examples: [ACME, STARBUCKS, MCDONALDS])
-]
-Table: inspections
-[
-(business_id:INTEGER, the unique id of the business Maps to businesses(business_id), Examples: [10, 100, 1000]),
-(score:INTEGER, the inspection score, Examples: [90, 95, 100]),
-(date:TEXT, the date of the inspection, Examples: [2014-01-24, 2015-08-11, 2017-03-09])
-]
-Table: violations
-[
-(business_id:INTEGER, the unique id of the business Maps to businesses(business_id), Examples: [10, 100, 1000]),
-(date:TEXT, the date of the violation, Examples: [2016-05-03, 2014-01-24, 2015-02-18])
-]
-【Foreign keys】
-inspections.business_id = businesses.business_id
-violations.business_id = businesses.business_id
-
-【Question】
-What are the names of the establishments that met all the required standards for 4 consecutive years? 
-
-【Evidence】:
-establishment has the same meaning as business; score of 90 or more refers to score ≥ 90; year(date) = 2015; ; met all required standards for 4 consecutive years refers to COUNT(year(date)) = 4 where score = 100;
-
-```sql
-SELECT DISTINCT T4."name" FROM ( SELECT T3."name", T3."years", row_number() OVER (PARTITION BY T3."name" ORDER BY T3."years") AS rowNumber FROM ( SELECT DISTINCT "name", STRFTIME('%Y', "date") AS years FROM inspections AS T1 INNER JOIN businesses AS T2 ON T1."business_id" = T2."business_id" WHERE T1."score" = 100 ) AS T3 ) AS T4 GROUP BY T4."name", date(T4."years" || '-01-01', '-' || (T4."rowNumber" - 1) || ' years') HAVING COUNT(T4."years") = 4
-```
-----
-
 Now is the real question:
 
 【User Question】
@@ -1121,9 +930,10 @@ Database admin instructions (violating any of the following will result is punis
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
 3. **ORDER BY with Distinct Values:**
-    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values. U
 4. **Handling NULLs:**
-    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - If a column is NULLABLE and can contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - Use "ORDER BY <column> ASC|DESC NULLS LAST" in case you are sorting by a NULLABLE column
 5. **FROM/JOIN Clauses:**
     - Only include tables essential to answer the question.
 6. **Strictly Follow Hints:**
@@ -1131,7 +941,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -1144,8 +957,13 @@ Database admin instructions (violating any of the following will result is punis
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-15. **Always put column names between quotation marks"
+15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+16. **Handling similar columns for filtering**
+    - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
+    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
 Database Engine:
 SQLite
@@ -1186,9 +1004,10 @@ Database admin instructions (violating any of the following will result is punis
 2. **Aggregation (MAX/MIN):**
     - Always perform JOINs before using MAX() or MIN().
 3. **ORDER BY with Distinct Values:**
-    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values.
+    - Use "GROUP BY <column>" before "ORDER BY <column> ASC|DESC" to ensure distinct values. U
 4. **Handling NULLs:**
-    - If a column may contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - If a column is NULLABLE and can contain NULL values (indicated by "None" in value examples or explicitly), use "JOIN" or "WHERE <column> IS NOT NULL".
+    - Use "ORDER BY <column> ASC|DESC NULLS LAST" in case you are sorting by a NULLABLE column
 5. **FROM/JOIN Clauses:**
     - Only include tables essential to answer the question.
 6. **Strictly Follow Hints:**
@@ -1196,7 +1015,10 @@ Database admin instructions (violating any of the following will result is punis
 7. **Thorough Question Analysis:**
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
-    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs) or if there is a possibility of duplication due to multiple joins. 
+    - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
+    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
+    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
+    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -1209,8 +1031,13 @@ Database admin instructions (violating any of the following will result is punis
     - Utilize "STRFTIME()" for date manipulation (e.g., "STRFTIME('%Y', SOMETIME)" to extract the year).
 14. **Only utilize columns from schema**
     - Do not ABSOLUTELY use any column name inside the query that does not appear in the provided schema. Only answer using the column names in the schema.
-15. **Always put column names between quotation marks"
+15. **Always put column names between quotation marks**
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
+16. **Handling similar columns for filtering**
+    - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
+    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
+17. **Answering YES/NO or Status Related Questions**
+    - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
 Database Engine:
 SQLite

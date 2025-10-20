@@ -11,6 +11,8 @@ from util.db.execute import compare_sqls_outcomes
 from util.constants import DatabaseConstants
 from components.models.api_model_facade import ApiModelFacade
 from pipeline.steps.models.sql_query import SQLQuery
+from pipeline.steps.models.schema_representation import SchemaRepresentation, SchemaFormat, SchemaType
+import copy
 
 class QuerySelectionExecutor:
     MAJORITY_THRESHOLD = 0.5
@@ -21,21 +23,37 @@ class QuerySelectionExecutor:
         self.api_model = ApiModelFacade(model_name="gemini-2.5-flash-lite")
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
+        """
+        Formats the relevant entities into a readable string, limiting them to 3 per phrase.
+        """
         if not relevant_entities:
             return ""
-        entities_by_phrase = {
-            entity["phrase"]: entities_by_phrase.get(entity["phrase"], []) + [f"- {table}.{column} = {entity['value']}"]
-            for table, columns in relevant_entities.items()
-            for column, entities in columns.items()
-            for entity in entities[:5]
-        }
-        return "\n\n".join([f"'{phrase}':\n" + "\n".join(entities) for phrase, entities in entities_by_phrase.items()]) + "\n\n"
+
+        entities_by_phrase = {}
+        for table, columns in relevant_entities.items():
+            for column, entities in columns.items():
+                for entity in entities[:3]:
+                    phrase = entity["phrase"]
+                    if phrase not in entities_by_phrase:
+                        entities_by_phrase[phrase] = []
+                    entities_by_phrase[phrase].append(f"- {table}.{column} = {entity['value']}")
+
+        output_str = ""
+        for phrase, entities in entities_by_phrase.items():
+            output_str += f"'{phrase}':\n"
+            output_str += "\n".join(entities)
+            output_str += "\n\n"
+        
+        return output_str
 
     def execute(self, pipeline_context: PipelineContext) -> SQLQuery:
+        queries = pipeline_context.generated_sql_queries
+        clusters = self._cluster_equivalent_queries_from_list(queries, pipeline_context)
+
         loop = asyncio.get_event_loop()
         tasks = [
-            self.select_by_scoring(pipeline_context),
-            self.select_by_singleprompt(pipeline_context)
+            self.select_by_scoring(pipeline_context, clusters),
+            self.select_by_singleprompt(pipeline_context, clusters)
         ]
         scoring_winner, singleprompt_winner = loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -50,8 +68,16 @@ class QuerySelectionExecutor:
             )
             if are_equivalent:
                 return scoring_winner
+            # else:
+            #     winner = self._compare_queries(scoring_winner, singleprompt_winner, pipeline_context)
+            #     if winner == 1:
+            #         return scoring_winner
+                
+            #     return singleprompt_winner
             else:
                 return max([scoring_winner, singleprompt_winner], key=lambda query: query.cluster_size)
+            # else:
+            #     return return max([scoring_winner, singleprompt_winner], key=lambda query: query.score)
         elif scoring_winner:
             return scoring_winner
         elif singleprompt_winner:
@@ -59,36 +85,7 @@ class QuerySelectionExecutor:
         else:
             return None
 
-    
-    async def select_by_scoring(self, pipeline_context: PipelineContext) -> SQLQuery:
-        queries = pipeline_context.generated_sql_queries + pipeline_context.fixed_sql_queries
-
-        # Score and select top 5 queries
-        scored_queries = await self._score_queries(pipeline_context, queries)
-
-        if scored_queries:
-            # Sort by score and take the top 5
-            sorted_queries = sorted(scored_queries, key=lambda x: x.score, reverse=True)
-            top_queries = sorted_queries[:5]
-
-            # Cluster the top 5 queries
-            clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context)
-            print(f"CLUSTERS AFTER SCORING {clusters}")
-        else:
-            # If scoring fails, cluster all generated queries
-            print(f"GENERATED QUERIES {queries}")
-            clusters = self._cluster_equivalent_queries_from_list(queries, pipeline_context)
-            print(f"CLUSTERS AFTER FAILED SCORING {clusters}")
-
-        # Run tournament
-        winning_query = self._run_elo_tournament(clusters, pipeline_context)
-
-        return winning_query
-
-    async def select_by_singleprompt(self, pipeline_context: PipelineContext) -> SQLQuery:
-        queries = pipeline_context.generated_sql_queries + pipeline_context.fixed_sql_queries
-        clusters = self._cluster_equivalent_queries_from_list(queries, pipeline_context)
-        
+    async def select_by_singleprompt(self, pipeline_context: PipelineContext, clusters: List[List[SQLQuery]]) -> SQLQuery:
         # model_priority = {
         #     model: config["priority"]
         #     for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
@@ -116,15 +113,15 @@ class QuerySelectionExecutor:
         )
 
         filtered_schemas_str = self._prepare_filtered_schemas(pipeline_context.selected_schemas)
-        # relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         full_prompt = QUERY_SELECTION_PROMPT.format(
             DATABASE_SCHEMA=mschema_string,
             FILTERED_SCHEMAS=filtered_schemas_str,
             QUESTION=pipeline_context.user_query,
             HINT=getattr(pipeline_context, 'hint', ''),
             CRITERIA=pipeline_context.query_evaluation_criteria,
-            QUERIES=queries_with_results
-            # RELEVANT_ENTITIES=relevant_entities_str
+            QUERIES=queries_with_results,
+            RELEVANT_ENTITIES=relevant_entities_str
         )
         
         query_chain = self.api_model.get_chain()
@@ -139,7 +136,7 @@ class QuerySelectionExecutor:
                 return selected_queries[query_index]
             else:
                 pipeline_context.query_selection_reasoning = model_response
-                print("Could not parse query index from selection response: {}", model_response)
+                print(f"Could not parse query index from selection response: {model_response}")
         except (ValueError, IndexError) as e:
             print(f"Could not parse query index or reasoning from model response: {e}")
             pipeline_context.query_selection_reasoning = model_response
@@ -151,15 +148,43 @@ class QuerySelectionExecutor:
         
         return None
 
+    async def select_by_scoring(self, pipeline_context: PipelineContext, clusters: List[List[SQLQuery]]) -> SQLQuery:
+        scored_queries = await self._score_queries(pipeline_context, pipeline_context.generated_sql_queries)
 
-    async def _score_single_query(self, query: SQLQuery, pipeline_context: PipelineContext, schema: str):
+        selected_queries = []
+        for cluster in clusters:
+            best_query_in_cluster = min(cluster, key=lambda query: query.score)
+            selected_queries.append(best_query_in_cluster)
+
+        if scored_queries:
+            # Sort by score and take the top 5
+            sorted_queries = sorted(selected_queries, key=lambda x: x.score, reverse=True)
+            top_queries = sorted_queries[:5]
+
+            # Cluster the top 5 queries
+            narrowed_down_clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context, update_context_size=False)
+            print(f"CLUSTERS AFTER SCORING {narrowed_down_clusters}")
+        else:
+            # If scoring fails, cluster all generated queries
+            print(f"GENERATED QUERIES FROM EACH CLUSTER {selected_queries}")
+            narrowed_down_clusters = self._cluster_equivalent_queries_from_list(selected_queries, pipeline_context, update_context_size=False)
+            print(f"CLUSTERS AFTER FAILED SCORING {narrowed_down_clusters}")
+
+        # Run tournament
+        winning_query = self._run_elo_tournament(narrowed_down_clusters, pipeline_context)
+
+        return winning_query
+
+    async def _score_single_query(self, query: SQLQuery, pipeline_context: PipelineContext):
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         prompt_args = {
-            "DATABASE_SCHEMA": schema,
+            "DATABASE_SCHEMA": query.schema_representation.schema,
             "QUESTION": pipeline_context.user_query,
             "HINT": getattr(pipeline_context, 'hint', ''),
             "QUERY": query.sql_exec_info.sql,
             "QUERY_OUTPUT": query.sql_exec_info.result,
-            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES
+            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
+            "RELEVANT_ENTITIES": relevant_entities_str
             # "EVALUATION_CRITERIA": pipeline_context.query_evaluation_criteria
         }
 
@@ -197,9 +222,8 @@ class QuerySelectionExecutor:
         return query
 
     async def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
-        schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
         print(f"LEN OF QUERIES TO BE SCORED {len(queries)}")
-        tasks = [self._score_single_query(query, pipeline_context, schema) for query in queries]
+        tasks = [self._score_single_query(query, pipeline_context) for query in queries]
         scored_queries = await asyncio.gather(*tasks)
 
         return scored_queries
@@ -250,7 +274,7 @@ class QuerySelectionExecutor:
         if not clusters:
             return None
 
-        representatives = [cluster[0] for cluster in clusters if cluster]
+        representatives = [cluster[0] for cluster in clusters]
         
         if not representatives:
             return None
@@ -270,16 +294,19 @@ class QuerySelectionExecutor:
                 elos[i], elos[j] = self._update_elo(elos[i], elos[j], winner)
 
         # Find the query with the highest Elo rating
-        winner_index = max(elos, key=elos.get) if elos else -1
+        max_elo = max(elos.values())
+        top_indices = [i for i, e in elos.items() if e == max_elo]
 
-        if winner_index != -1:
-            return representatives[winner_index]
+        if len(top_indices) == 1:
+            return representatives[top_indices[0]]
         else:
-            return max(representatives, key=lambda query: query.cluster_size)
+            # tie → pick by cluster size
+            return max((representatives[i] for i in top_indices), key=lambda q: q.cluster_size)
 
     def _compare_queries(self, query1: SQLQuery, query2: SQLQuery, pipeline_context: PipelineContext) -> int:
-        schema = pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names)
-        
+        schema = self._merge_schemas(query1.schema_representation, query2.schema_representation, pipeline_context)
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+
         prompt_args = {
             "DATABASE_SCHEMA": schema,
             "QUESTION": pipeline_context.user_query,
@@ -289,7 +316,8 @@ class QuerySelectionExecutor:
             "QUERY_1_OUTPUT": f"{query1.sql_exec_info.result}",
             "QUERY_2": f"{query2.sql_exec_info.sql}",
             "QUERY_2_OUTPUT": f"{query2.sql_exec_info.result}",
-            "FEWSHOT_EXAMPLES": NOCRITERIA_COMPARISON_FEWSHOTS
+            "FEWSHOT_EXAMPLES": NOCRITERIA_COMPARISON_FEWSHOTS,
+            "RELEVANT_ENTITIES": relevant_entities_str
         }
 
         for attempt in range(self.MAX_RETRIES):
@@ -336,7 +364,7 @@ class QuerySelectionExecutor:
         
         return output_str
 
-    def _cluster_equivalent_queries_from_list(self, queries: List[SQLQuery], pipeline_context: PipelineContext) -> List[List[SQLQuery]]:
+    def _cluster_equivalent_queries_from_list(self, queries: List[SQLQuery], pipeline_context: PipelineContext, update_context_size: bool = True) -> List[List[SQLQuery]]:
         clusters = []
         visited = [False] * len(queries)
 
@@ -359,8 +387,21 @@ class QuerySelectionExecutor:
                         current_cluster.append(queries[j])
                         visited[j] = True
             
-            for query in current_cluster:
-                query.cluster_size = len(current_cluster)
+            if update_context_size:
+                for query in current_cluster:
+                    query.cluster_size = len(current_cluster)
             clusters.append(current_cluster)
             
         return clusters
+
+    def _merge_schemas(self, schema1: SchemaRepresentation, schema2: SchemaRepresentation, pipeline_context: PipelineContext):
+        schema1_tables = set(schema1.selected_tables)
+        schema1_columns = set(schema1.selected_columns)
+
+        schema2_tables = set(schema2.selected_tables)
+        schema2_columns = set(schema2.selected_columns)
+
+        merged_tables = schema1_tables.union(schema2_tables)
+        merged_columns = schema1_columns.union(schema2_columns)
+
+        return pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=merged_tables, selected_columns=merged_columns)

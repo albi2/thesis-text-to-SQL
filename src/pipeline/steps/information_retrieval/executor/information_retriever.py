@@ -18,6 +18,9 @@ from util.similarity_measures.edit import EditDistanceUtil
 from components.models.api_model_facade import ApiModelFacade
 from util.similarity_measures.bm25 import BM25Util
 from components.models.reranker_facade import Reranker
+from gliner import GLiNER
+import torch
+import traceback
 
 class InformationRetriever:
     """
@@ -34,7 +37,11 @@ class InformationRetriever:
                 If None, the default reasoning model will be used.
         """
         # self.reasoning_model = ReasoningModelFacade(model_name=reasoning_model_name)
-        self.api_model = ApiModelFacade(temperature=0.3)
+        self.api_model = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.3)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.ner_model = GLiNER.from_pretrained(
+            "urchade/gliner_large-v2.1"  
+        )
 
         # Initialize ConfigurationHelper to load ChromaDB settings
         self.config_helper = ConfigurationHelper()
@@ -80,6 +87,7 @@ class InformationRetriever:
             Returns an empty dict with empty lists if extraction or parsing fails.
         """
         # Inject the dictionary-output examples into the original prompt
+
         formatted_prompt = PROMPT.format(FEWSHOT_EXAMPLES=FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR, QUESTION=user_query, HINT=hint if hint else "No hint provided.")
 
         keywords_list: List[str] = []
@@ -118,7 +126,83 @@ class InformationRetriever:
             print(f"ERROR: Error parsing the json: {str(e)}")
         except Exception as e:
             print(f"Error extracting the keywords: {str(e)}" )
+
+        # for i in range(3):
+        #     try:
+        #         extracted_entities = self.extract_entities_with_gliner(user_query + " " + hint)
+        #         for entity in extracted_entities:
+        #             if entity not in phrases_list:
+        #                 phrases_list.append(entity)
+        #         break
+        #     except Exception as e:
+        #         traceback.print_exc()
+        #         print(f"ERROR: Something went wrong with gliner attempt {i+1}: {e}")
+
         return {"keywords": keywords_list, "phrases": phrases_list}
+    
+    def extract_entities_with_gliner(self, text: str) -> List[str]:
+        """
+        Extracts entities from text using GLiNER.
+
+        Args:
+            text: The text to extract entities from.
+
+        Returns:
+            A list of extracted entities.
+        """
+        ner_entity_types = [
+            "person",
+            "organization",
+            "event",
+            "date",
+            "time",
+            "product",
+            "award",
+            "competition",
+            "team",
+            "subject",
+            "city",
+            "country",
+            "element",
+            "title",
+            "forename",
+            "surname",
+            "currency",
+            "scientific term",       # e.g., "Quantum Entanglement", "CRISPR-Cas9"
+            "disease",               # e.g., "Diabetes Mellitus", "COVID-19"
+            "chemical_compound",     # e.g., "Sodium Chloride", "C6H12O6"
+            "gene",                  # e.g., "BRCA1", "TP53"
+            "software",              # e.g., "TensorFlow", "Photoshop"
+            "programming_language",  # e.g., "Python", "Rust"
+            "social_media_handle",   # e.g., "@elonmusk"
+            "website_url",           # e.g., "www.openai.com"
+            "phone_number",          # e.g., "+1-800-123-4567"
+            "email_address",         # e.g., "user@example.com"
+            "isbn",                  # e.g., "978-3-16-148410-0"
+            "vehicle",               # e.g., "Tesla Model S", "Boeing 747"
+            "ship",                  # e.g., "Titanic", "USS Enterprise"
+            "aircraft",              # e.g., "F-22 Raptor", "Airbus A320"
+            "landmark",              # e.g., "Eiffel Tower", "Mount Rushmore"
+            "film",                  # e.g., "Inception", "The Godfather"
+            "book",                  # e.g., "1984", "Harry Potter"
+            "song",                  # e.g., "Bohemian Rhapsody", "Imagine"
+            "artist",                # e.g., "Picasso", "Beyoncé"
+            "musical_group",         # e.g., "The Beatles", "Coldplay"
+            "political_party",       # e.g., "Democratic Party", "BJP"
+            "religion",              # e.g., "Buddhism", "Christianity"
+            "mythical_figure",       # e.g., "Zeus", "Thor"
+            "currency_symbol",       # e.g., "$", "€", "¥"
+            "unit_of_measurement",   # e.g., "kilogram", "mile", "liter"
+            "academic_degree",       # e.g., "PhD", "MBA"
+            "military_rank",         # e.g., "Captain", "General"
+            "law",                   # e.g., "First Amendment", "Civil Rights Act"
+            "program_name",          # e.g., "NASA Artemis", "EU Horizon 2020"
+        ]
+        
+        entities = self.ner_model.predict_entities(text, ner_entity_types)
+        print(f"entities {entities}")
+        
+        return [entity["text"] for entity in entities]
 
     def retrieve_entities(self, db_id: str, phrases: List[str]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """
@@ -159,12 +243,16 @@ class InformationRetriever:
             if not all_candidates:
                 continue
 
+            print(f"LSH RESULTS {all_candidates}")
+
             # 1. Pre-filter with absolute thresholds
-            edit_filtered_candidates = EditDistanceUtil.get_similar_by_threshold_loose(phrase, all_candidates, threshold=0.3)
+            edit_filtered_candidates = EditDistanceUtil.get_similar_by_threshold(phrase, all_candidates, threshold=0.3)
             if not edit_filtered_candidates:
                 continue
 
+
             semantic_filtered_candidates = self.semantic_similarity_util.get_similar_by_threshold(phrase, edit_filtered_candidates, threshold=0.6)
+            print(f"SEMANTIC FILTERED RESULTS {semantic_filtered_candidates}")
 
             if not semantic_filtered_candidates:
                 continue
@@ -174,6 +262,8 @@ class InformationRetriever:
             final_edit_filtered = [
                 c for c in semantic_filtered_candidates if c['distance'] >= 0.7 * max_edit_similarity
             ]
+
+            print(f"MAX EDIT FILTERED RESULTS {final_edit_filtered}")
 
             if not final_edit_filtered:
                 continue

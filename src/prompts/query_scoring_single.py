@@ -378,29 +378,30 @@ SELECT Title, Revenue FROM movie LIMIT 5
 
 
 QUERY_SCORING_PROMPT = """
-You are an expert in text-to-SQL. Your task is to evaluate a SQL query based on a given question, database schema, a hint and a set of evaluation criteria. You must assign a score from 0 to 4 to the query, where 4 is the best score.
+You are an expert Data Scientist with an heavy expertise on SQL. Your task is to evaluate a SQL query based on a given question, database schema, a hint and a set of evaluation criteria. You must assign a score from 0 to 4 to the query, where 4 is the best score.
 
-**Scoring Criteria (1-4):**
+**Scoring Points (1-4):**
 - **4 (Excellent):** The query directly and completely answers the question, and makes optimal use of the provided schema and hint.
 - **3 (Good):** The query answers the question well, but might have minor issues like not fully utilizing the hint or having a slightly inefficient structure.
 - **2 (Fair):** The query only partially answers the question or has significant inefficiencies.
 - **1 (Poor):** The query does not answer the question in any meaningful way.
 
-**Non-exhaustive list of score deduction criteria:
+**Non-exhaustive list of score reducing criteria:
 1. **Column Selection:**
     - The SQL is selecting more columns than required in the criteria.
-    - The SQL is formatting columns in the response that provide state information for better readability when it's not required in the hint or question.
+    - The SQL is WRONGFULLY formatting columns in the response that provide state information for better readability when it's not required in the hint or question.(e.g., returning 'Yes' or 'No' instead of a column indicating the requested state)
 
 2. **Table Relationships:**
     - The SQL is joining more tables than necessary or is not joining all the required tables to answer the question.
+    - The SQL is not using the correct foreign keys when joining the tables(provided in the schema)
 
 3. **Filtering Conditions:**
     - The SQL is not correctly filtering based on all the conditions provided in the question and evaluation criteria.
     - The SQL query is filtering based on extra conditions not provided in the question and evaluation criteria.
     - The SQL query uses incorrect comparison operators or incorrect aggregation operators('<' instead of '=' or 'COUNT' instead of 'AVG' or calculating average through division).
     - The SQL query uses incorrect literal values for filtering out the results (e.g filters for movies after 2013 when query asks for movies after 2012).
-    - The SQL query does not handle NULL values properly when they can affect the results.
-t
+    - The SQL query does not handle NULL values properly when they can affect the results(e.g ordering by NULL values, selectin NULL values etc). NULLABLE in the schema indicates a column's value can be null.
+
 4. **Data Grouping:**
     - The SQL output has duplicates query is not using DISTINCT or GROUP BY.
     - The SQL query does not group results based on a specific column when it is required in the question or evaluation criteria(e.g number of employees per department, schools per district etc).
@@ -420,26 +421,28 @@ t
 8. **Hint Interpretation:**
     - The SQL query blindly does what is provided in the hint without questioning whether it is correct.
 
+9. **Output affirmation**
+    - The SQL query is completely correct, however the output might not be correct(e.g., None response from a field when a valid value is expected).
+
 **Instructions:**
 1.  Carefully analyze the question, schema, and hint.
-2.  Evaluate the correctness and relevance of the query using the list of score deduction criteria.
-3.  Assign a score from 0 to 4 based on the scoring criteria. If a query does not have any of the issues in the criteria it is a strong candidate for a 4.
-4.  Provide a step-by-step reasoning for your score for the query.
+2.  Evaluate the correctness and relevance of the query using the list of score reduction criteria provided above. 
+3.  The “Relevant Entities” section lists database columns that match literals from the question or hint. It does not mean all of them are relevant to answering this question.
+    You can refer to these as hints to understand what are some of the correct columns for filtering in the query based on a given literal from the question or hint.
+4.  Assign a score from 1 to 4 based on how many of the violations in the scoring criteria apply.
+4.  Provide a short reasoning for your scoring.
 
 **Output Format**
 Provide the output in the following format:
 ```json
 {{
-  "chain_of_thought": "<reasoning logic for scoring>",
+  "chain_of_thought": "<2-4 sentences explaining the scoring>",
   "score": <score number 0-4>
 }}
 ```
 
 Here are some examples:
 {FEWSHOT_EXAMPLES}
-
-To understand the question requirements better, below are some evaluation criteria:
-{EVALUATION_CRITERIA}
 
 Given the following information, score the provided query.
 
@@ -452,8 +455,14 @@ Given the following information, score the provided query.
 **Schema:**
 {DATABASE_SCHEMA}
 
+** Relevant Entities **
+{RELEVANT_ENTITIES}
+
 **Query:**
 {QUERY}
+
+**Result**:
+{QUERY_OUTPUT}
 
 **Output:**
 """

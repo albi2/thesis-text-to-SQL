@@ -53,6 +53,7 @@ class QueryRefinementExecutor:
         refined_sql_queries = [item[0] for item in refined_queries_and_originals]
         original_sql_queries = [item[1] for item in refined_queries_and_originals]
 
+        new_refined_sql_queries = []
         if refined_sql_queries:
             pipeline_context.non_executable_sql_queries = []
             
@@ -62,13 +63,13 @@ class QueryRefinementExecutor:
 
             for original_query, sql_exec_info in zip(original_sql_queries, executable_sql_infos):
                 if sql_exec_info.status == SQLExecStatus.CORRECT_SYNTAX:
-                    pipeline_context.generated_sql_queries.append(SQLQuery(
+                    new_refined_sql_queries.append(SQLQuery(
                         sql_exec_info=sql_exec_info,
                         schema_representation=original_query.schema_representation,
                         model_key=original_query.model_key,
                         prompting="REFINEMENT"
                     ))
-                    pipeline_context.fixed_sql_queries.append(SQLQuery(
+                    new_refined_sql_queries.append(SQLQuery(
                         sql_exec_info=sql_exec_info,
                         schema_representation=original_query.schema_representation,
                         model_key=original_query.model_key,
@@ -82,7 +83,9 @@ class QueryRefinementExecutor:
                         prompting=original_query.prompting
                     ))
         
-        return refined_sql_queries
+        pipeline_context.fixed_sql_queries = new_refined_sql_queries
+        pipeline_context.generated_sql_queries.extend(new_refined_sql_queries)
+        return new_refined_sql_queries
 
     async def _refine_queries_concurrently(self, pipeline_context: PipelineContext):
         tasks = []

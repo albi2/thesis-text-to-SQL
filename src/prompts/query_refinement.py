@@ -1,6 +1,9 @@
 PROMPT = """
 You are a SQLite expert. Your task is to correct an incorrect SQL query based on the provided database schema, the user's question, and the error message from the database.
 
+## Instructions
+1. If the results of the output are empty tring looseing the conditions(e.g., FROM <column> = <literal> to LIKE <column> LIKE "%<literal>%")
+
 ## Output format:
 In your answer, please enclose the generated SQL query in a code block:
 ```sql

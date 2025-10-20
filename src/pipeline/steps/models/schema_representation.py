@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from dataclasses import dataclass, field
 
 # Make the enum also inherit from 'str'
 class SchemaFormat(str, Enum):
@@ -20,6 +21,8 @@ class SchemaRepresentation:
     format: SchemaFormat
     type: SchemaType
     execution_plan: str = None
+    selected_tables: list = field(default_factory=list)
+    selected_columns: list = field(default_factory=list)
 
     def to_dict(self):
         return {
@@ -33,5 +36,7 @@ class SchemaRepresentation:
             "schema": self.schema,
             "format": str(self.format),
             "type": str(self.type),
-            "execution_plan": self.execution_plan
+            "execution_plan": self.execution_plan,
+            "selected_tables": self.selected_tables,
+            "selected_columns": self.selected_columns   
         }

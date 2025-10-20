@@ -76,7 +76,7 @@ class LSHConstants:
     """
     DEFAULT_NUM_PERM: int = 128
     DEFAULT_N_GRAM_SIZE: int = 3
-    DEFAULT_THRESHOLD: float = 0.5
+    DEFAULT_THRESHOLD: float = 0.2
 
 
 class Text2SQLModelKeys:

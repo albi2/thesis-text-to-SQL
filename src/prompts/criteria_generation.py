@@ -101,7 +101,7 @@ EVALUATION CRITERIA:
    - MUST identify the branch with the LOWEST average salary
    - Within that specific branch, MUST identify the YOUNGEST client
    - Must be a client who has opened an account
-   - Must handle NULL values appropriately during comparisons
+   - Must handle NULL values appropriately during ordering / comparison
 
 3. **Required Operations:**
    - Finding minimum average salary across branches

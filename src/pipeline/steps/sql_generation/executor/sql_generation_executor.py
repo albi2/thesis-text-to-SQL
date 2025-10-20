@@ -73,11 +73,35 @@ class SQLGenerationExecutor:
         selected_schemas = pipeline_context.selected_schemas
 
         if len(pipeline_context.schema_engine.get_table_names()) <= 7:
-            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
-            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(), format=SchemaFormat.DDL, type=SchemaType.FULL))
+            schema_representations.append(SchemaRepresentation(
+                schema=pipeline_context.schema_engine.mschema.to_mschema(), 
+                format=SchemaFormat.M_SCHEMA, 
+                type=SchemaType.FULL,
+                selected_tables=pipeline_context.unique_table_names, 
+                selected_columns=pipeline_context.unique_column_names
+                ))
+            ddl_schema_representations.append(SchemaRepresentation(
+                schema=pipeline_context.schema_engine.ddl_schema.to_ddl(),
+                format=SchemaFormat.DDL, 
+                type=SchemaType.FULL,
+                selected_tables=pipeline_context.unique_table_names, 
+                selected_columns=pipeline_context.unique_column_names
+            ))
         else:
-            schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names), format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL))
-            ddl_schema_representations.append(SchemaRepresentation(schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names), format=SchemaFormat.DDL, type=SchemaType.FULL))    
+            schema_representations.append(SchemaRepresentation(
+                schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names), 
+                format=SchemaFormat.M_SCHEMA, 
+                type=SchemaType.FULL,
+                selected_tables=pipeline_context.unique_table_names, 
+                selected_columns=pipeline_context.unique_column_names
+            ))
+            ddl_schema_representations.append(SchemaRepresentation(
+                schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names),
+                format=SchemaFormat.DDL, 
+                type=SchemaType.FULL,
+                selected_tables=pipeline_context.unique_table_names, 
+                selected_columns=pipeline_context.unique_column_names
+            ))    
         
         if selected_schemas:
             for selected_schema in selected_schemas:
@@ -91,26 +115,34 @@ class SQLGenerationExecutor:
                     schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables),
                     format=SchemaFormat.M_SCHEMA,
                     type=SchemaType.FILTERED_TABLES,
-                    execution_plan=execution_plan
+                    execution_plan=execution_plan,
+                    selected_tables=selected_tables,
+                    selected_columns=selected_columns
                 ))
                 ddl_schema_representations.append(SchemaRepresentation(
                     schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables),
                     format=SchemaFormat.DDL,
                     type=SchemaType.FILTERED_TABLES,
-                    execution_plan=execution_plan
+                    execution_plan=execution_plan,
+                    selected_tables=selected_tables,
+                    selected_columns=selected_columns
                 ))
 
                 schema_representations.append(SchemaRepresentation(
                     schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns),
                     format=SchemaFormat.M_SCHEMA,
                     type=SchemaType.FILTERED_TABLES_AND_COLUMNS,
-                    execution_plan=execution_plan
+                    execution_plan=execution_plan,
+                    selected_tables=selected_tables,
+                    selected_columns=selected_columns
                 ))
                 ddl_schema_representations.append(SchemaRepresentation(
                     schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables, selected_columns=selected_columns),
                     format=SchemaFormat.DDL,
                     type=SchemaType.FILTERED_TABLES_AND_COLUMNS,
-                    execution_plan=execution_plan
+                    execution_plan=execution_plan,
+                    selected_tables=selected_tables,
+                    selected_columns=selected_columns
                 ))
 
         return schema_representations, ddl_schema_representations
@@ -141,11 +173,11 @@ class SQLGenerationExecutor:
         
         print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
         if "```sql" in model_response:
-            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
+            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
         elif "```" in model_response:
-            query = model_response.split(";")[0].split("```")[0].strip() + ";"
+            query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
         else:
-            query = model_response
+            query = model_response.replace('\n', ' ').replace('"', '`')
         
         return SQLQuery(
             sql_exec_info=SQLExecInfo(sql=query),
@@ -159,7 +191,7 @@ class SQLGenerationExecutor:
         
         model_prompts = {
             Text2SQLModelKeys.XIYAN: [],
-            Text2SQLModelKeys.DEFOG: [],
+            # Text2SQLModelKeys.DEFOG: [],
             Text2SQLModelKeys.OMNI: []
         }
 
@@ -180,15 +212,15 @@ class SQLGenerationExecutor:
             #     "prompt": DEFOG_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
             #     "schema_rep": ddl_schema
             # })
-            # model_prompts[Text2SQLModelKeys.OMNI].append({
-            #     "prompt": OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
-            #     "schema_rep": ddl_schema
-            # })
+            model_prompts[Text2SQLModelKeys.OMNI].append({
+                "prompt": OMNI_PROMPT.format(DATABASE_SCHEMA=ddl_schema.schema, QUESTION=pipeline_context.user_query, HINT=hint),
+                "schema_rep": ddl_schema
+            })
 
         model_facades = {
-            Text2SQLModelKeys.XIYAN: self.text2sql_model_facade
+            Text2SQLModelKeys.XIYAN: self.text2sql_model_facade,
             # Text2SQLModelKeys.DEFOG: self.defog_text2sql_model_facade,
-            # Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade
+            Text2SQLModelKeys.OMNI: self.omni_text2sql_model_facade
         }
 
         for model_key, prompts_with_schemas in model_prompts.items():
@@ -208,11 +240,11 @@ class SQLGenerationExecutor:
                         print(f'SQL GENERATION MODEL RESPONSE ({model_key})', model_response)
                         
                         if "```sql" in model_response:
-                            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0])
+                            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
                         elif "```" in model_response:
-                            query = model_response.split(";")[0].split("```")[0].strip() + ";"
+                            query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
                         else:
-                            query = model_response
+                            query = model_response.replace('\n', ' ').replace('"', '`')
                         
                         sql_queries.append(SQLQuery(
                             sql_exec_info=SQLExecInfo(sql=query),

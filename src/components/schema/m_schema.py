@@ -61,7 +61,7 @@ class MSchemaGenerator:
             return {}
 
     def single_table_mschema(self, table_name: str, selected_columns: List = None,
-                             example_num=5, show_type_detail=False) -> str:
+                             example_num=5, show_type_detail=True) -> str:
         table_info = self.tables.get(table_name, {})
         output = []
         table_comment = table_info.get('comment', '')
@@ -78,12 +78,41 @@ class MSchemaGenerator:
 
         field_lines = []
         
+        # Define keys that are handled in a specific order or format
+        # We'll iterate over unknown keys later
+        handled_keys = {'type', 'primary_key', 'nullable', 'default', 
+                        'autoincrement', 'comment', 'examples'}
+
         for field_name, field_info in table_info['fields'].items():
             if selected_columns is not None and field_name.lower() not in selected_columns:
                 continue
 
+            # 1. Type
             raw_type = self.get_field_type(field_info['type'], not show_type_detail)
             field_line = f"({field_name}:{raw_type.upper()}"
+            
+            # 3. Primary Key
+            is_primary_key = field_info.get('primary_key', False)
+            if is_primary_key:
+                field_line += f", Primary Key"
+
+            # 4. Nullable (Show only if NOT NULL)
+            if field_info.get('nullable', True): # Default is True, so only show if False
+                field_line += f", NULLABLE"
+            else:
+                field_line += f", NOT NULLABLE"
+
+            # 5. Autoincrement
+            if field_info.get('autoincrement', False):
+                field_line += f", Autoincrement"
+
+            # 6. Default
+            default_val = field_info.get('default')
+            if default_val is not None:
+                # The value is already string-formatted by add_field
+                field_line += f", Default: {default_val}"
+
+            # 7. Other custom attributes (from **kwargs in add_field)
             comment = field_info.get('comment', '')
             if not comment and self.database_descriptor:
                 table_descriptor = self.database_descriptor.tables.get(table_name)
@@ -94,15 +123,12 @@ class MSchemaGenerator:
                             comment += f"Description: {column_definition.column_description}"
                         if column_definition.value_description:
                             comment += f" Value Explanation: {column_definition.value_description}"
-                            
             
             if comment:
                 field_line += f", {comment.strip()}"
 
-            is_primary_key = field_info.get('primary_key', False)
-            if is_primary_key:
-                field_line += f", Primary Key"
 
+            # 8. Examples
             if len(field_info.get('examples', [])) > 0 and example_num > 0:
                 examples = field_info['examples']
                 examples = [s for s in examples if s is not None]
@@ -111,9 +137,12 @@ class MSchemaGenerator:
                     examples = examples[:example_num]
 
                 if raw_type in ['DATE', 'TIME', 'DATETIME', 'TIMESTAMP']:
-                    examples = [examples[0]]
-                elif len(examples) > 0 and max([len(s) for s in examples]) > 20:
-                    if max([len(s) for s in examples]) > 50:
+                    if examples:
+                        examples = [examples[0]]
+                    else:
+                        examples = []
+                elif len(examples) > 0 and max([len(str(s)) for s in examples]) > 20:
+                    if max([len(str(s)) for s in examples]) > 50:
                         examples = []
                     else:
                         examples = [examples[0]]
@@ -126,9 +155,10 @@ class MSchemaGenerator:
                     pass
             else:
                 field_line += ""
+            
             field_line += ")"
-
             field_lines.append(field_line)
+
         output.append('[')
         output.append(',\n'.join(field_lines))
         output.append(']')
@@ -136,7 +166,7 @@ class MSchemaGenerator:
         return '\n'.join(output)
 
     def to_mschema(self, selected_tables: List = None, selected_columns: List = None,
-                   example_num=5, show_type_detail=False) -> str:
+                   example_num=5, show_type_detail=True) -> str:
         """
         convert to a MSchema string.
         selected_tables: Selected tables to be included in the MSchema
