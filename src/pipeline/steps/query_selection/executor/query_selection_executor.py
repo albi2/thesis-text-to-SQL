@@ -1,10 +1,12 @@
 import re
 import json
 import asyncio
+import random
+import numpy as np
 from typing import List, Any
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
-from prompts.query_scoring_single import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
+from prompts.query_scoring import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
 from prompts.query_comparison import QUERY_COMPARISON_PROMPT, NOCRITERIA_COMPARISON_FEWSHOTS
 from prompts.query_selection import PROMPT as QUERY_SELECTION_PROMPT
 from util.db.execute import compare_sqls_outcomes
@@ -53,7 +55,7 @@ class QuerySelectionExecutor:
         loop = asyncio.get_event_loop()
 
         # Score queries before selection tasks
-        scored_queries = loop.run_until_complete(self._score_queries(pipeline_context, pipeline_context.generated_sql_queries))
+        scored_queries = loop.run_until_complete(self._shuffle_batched_scoring(pipeline_context, pipeline_context.generated_sql_queries))
 
         # Run selection tasks
         tasks = [
@@ -221,6 +223,72 @@ class QuerySelectionExecutor:
         
         query.score = 1
         return query
+
+    async def _shuffle_batched_scoring(self, pipeline_context: PipelineContext, queries: List[SQLQuery], m: int = 10, k: int = 7) -> List[SQLQuery]:
+        query_scores = {query.sql_exec_info.sql: [] for query in queries}
+
+        for _ in range(m):
+            random.shuffle(queries)
+            batches = [queries[i:i + k] for i in range(0, len(queries), k)]
+
+            for batch in batches:
+                batch_queries_str = ""
+                for i, query in enumerate(batch):
+                    batch_queries_str += f"{i}: {query.sql_exec_info.sql}\n"
+                    if query.sql_exec_info.result is not None:
+                        batch_queries_str += f"  Query Output:\n {str(query.sql_exec_info.result)}\n"
+
+                schema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
+                    selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names
+                )
+
+                merged_schema = self._merge_schemas_for_batch(batch, pipeline_context)
+                relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+                prompt_args = {
+                    "DATABASE_SCHEMA": merged_schema,
+                    "QUESTION": pipeline_context.user_query,
+                    "HINT": getattr(pipeline_context, 'hint', ''),
+                    "QUERIES": batch_queries_str,
+                    "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
+                    "RELEVANT_ENTITIES": relevant_entities_str
+                }
+
+                full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
+
+                for attempt in range(self.MAX_RETRIES):
+                    try:
+                        chain = self.api_model.get_chain()
+                        model_response = await self.api_model.acall(chain, {"user_prompt": full_prompt})
+
+                        json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
+                        if json_match:
+                            json_str = json_match.group(1)
+                        else:
+                            json_str = model_response.strip()
+
+                        parsed_scores = json.loads(json_str)
+
+                        # Ensure the number of scores matches the number of queries in the batch
+                        if len(parsed_scores) != len(batch):
+                            print(f"Attempt {attempt + 1} for batch failed: Number of scores ({len(parsed_scores)}) does not match batch size ({len(batch)}).")
+                            continue
+
+                        for i, score_info in enumerate(parsed_scores):
+                            sql = batch[i].sql_exec_info.sql
+                            query_scores[sql].append(int(score_info.get("score", 0)))
+                        break  # Success, exit retry loop
+                    except (json.JSONDecodeError, ValueError, KeyError) as e:
+                        print(f"Attempt {attempt + 1} for batch failed: Error parsing scores: {e}")
+                    except Exception as e:
+                        print(f"Attempt {attempt + 1} for batch failed: Error generating scores: {e}")
+
+        for query in queries:
+            scores = query_scores[query.sql_exec_info.sql]
+            if scores:
+                query.score = np.mean(scores)
+            else:
+                query.score = 0.0
+        return queries
 
     def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[Any]:
         print(f"LEN OF QUERIES TO BE SCORED {len(queries)}")
@@ -392,6 +460,16 @@ class QuerySelectionExecutor:
             clusters.append(current_cluster)
             
         return clusters
+
+    def _merge_schemas_for_batch(self, batch: List[SQLQuery], pipeline_context: PipelineContext) -> str:
+        merged_tables = set()
+        merged_columns = set()
+
+        for query in batch:
+            merged_tables.update(query.schema_representation.selected_tables)
+            merged_columns.update(query.schema_representation.selected_columns)
+
+        return pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=list(merged_tables), selected_columns=list(merged_columns))
 
     def _merge_schemas(self, schema1: SchemaRepresentation, schema2: SchemaRepresentation, pipeline_context: PipelineContext):
         schema1_tables = set(schema1.selected_tables)
