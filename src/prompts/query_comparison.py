@@ -875,14 +875,16 @@ QUERY_COMPARISON_PROMPT = """
 You are an expert in text-to-SQL. Your task is to compare two SQL queries based on a given question, database schema, and hint, and determine which one is better.
 
 **Instructions:**
-1.  Carefully analyze the question, schema, evaluation criteria and hint.
+1.  Carefully analyze the question, schema and hint.
 2.  Evaluate both queries based on correctness and completeness as described below.
-3.  The query that better answers the question is the winner.
-4.  If both queries fulfill the criteria, choose based on these criteria:
-    - If the results are the same choose the one with the best output(e.g., JOINS are more performant than subqueries)
-5.  Provide a step-by-step reasoning for your choice.
+3.  The “Relevant Entities” section lists database columns that match literals from the question or hint. It does not mean all of them are relevant to answering this question.
+    You can refer to these as hints to understand what are some of the correct columns for filtering in the query based on a given literal from the question or hint.
+4.  The query that provides the best answers according to the criteria below  is the winner.
+5.  Consider the output of the query as an indicator to its correctness.
+6.  If both queries fulfill the criteria, choose the one with the performance:
+    - Choose the one with the best perofrmance(e.g., JOINS are more performant than subqueries)
 
-**Non-exhaustive list of query correctnes and completeness questions when evaluating:**
+**Non-exhaustive list of questions to verify if a query fulfills completeness and correctness checks:**
 1. **Column Selection:**
     - Does the SQL select only the columns required by the question?
     - Does the SQL avoid formatting columns for readability when it's not required in the hint or question?(The query should not format the state / status related columns into Y / N answer when not requested)
@@ -963,6 +965,9 @@ Now it is your turn to choose the best query.
 
 **Schema:**
 {DATABASE_SCHEMA}
+
+** Relevant Entities **
+{RELEVANT_ENTITIES}
 
 **Query 1:**
 ```sql

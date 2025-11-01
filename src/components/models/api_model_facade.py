@@ -6,6 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from components.config.model_configurations import get_model_configurations
 from util.constants import ApiModelConstants
 from tenacity import retry, stop_after_attempt, wait_exponential
+import asyncio
 
 class ApiModelFacade:
     """
@@ -66,7 +67,11 @@ class ApiModelFacade:
         """
         Invokes a chain with retry logic.
         """
-        return await chain.ainvoke(prompt)
+        try:
+            return await asyncio.wait_for(chain.ainvoke(prompt), timeout=180)
+        except asyncio.TimeoutError:
+            # Handle timeout gracefully
+            return "empty"
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def embed_documents(self, texts: list[str]) -> list[list[float]]:

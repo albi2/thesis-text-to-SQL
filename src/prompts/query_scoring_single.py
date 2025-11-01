@@ -421,7 +421,7 @@ You are an expert Data Scientist with an heavy expertise on SQL. Your task is to
 8. **Hint Interpretation:**
     - The SQL query blindly does what is provided in the hint without questioning whether it is correct.
 
-9. **Output affirmation**
+9. **Output verification**
     - The SQL query is completely correct, however the output might not be correct(e.g., None response from a field when a valid value is expected).
 
 **Instructions:**
@@ -429,8 +429,8 @@ You are an expert Data Scientist with an heavy expertise on SQL. Your task is to
 2.  Evaluate the correctness and relevance of the query using the list of score reduction criteria provided above. 
 3.  The “Relevant Entities” section lists database columns that match literals from the question or hint. It does not mean all of them are relevant to answering this question.
     You can refer to these as hints to understand what are some of the correct columns for filtering in the query based on a given literal from the question or hint.
-4.  Assign a score from 1 to 4 based on how many of the violations in the scoring criteria apply.
-4.  Provide a short reasoning for your scoring.
+4.  Assign a score from 1 to 4 based on how many of the violations in the scoring criteria apply. If the query does not fulfiill a specific criteria, that should be reflected on its score.
+5.  Provide a short reasoning for your scoring.
 
 **Output Format**
 Provide the output in the following format:

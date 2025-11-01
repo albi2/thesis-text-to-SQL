@@ -1,7 +1,7 @@
 import re
 import json
 import asyncio
-from typing import List
+from typing import List, Any
 from components.models.reasoning_model_facade import ReasoningModelFacade
 from context.pipeline_context import PipelineContext
 from prompts.query_scoring_single import QUERY_SCORING_PROMPT, FEWSHOT_EXAMPLES
@@ -51,8 +51,13 @@ class QuerySelectionExecutor:
         clusters = self._cluster_equivalent_queries_from_list(queries, pipeline_context)
 
         loop = asyncio.get_event_loop()
+
+        # Score queries before selection tasks
+        scored_queries = loop.run_until_complete(self._score_queries(pipeline_context, pipeline_context.generated_sql_queries))
+
+        # Run selection tasks
         tasks = [
-            self.select_by_scoring(pipeline_context, clusters),
+            self.select_by_scoring(pipeline_context, clusters, scored_queries),
             self.select_by_singleprompt(pipeline_context, clusters)
         ]
         scoring_winner, singleprompt_winner = loop.run_until_complete(asyncio.gather(*tasks))
@@ -90,11 +95,11 @@ class QuerySelectionExecutor:
         #     model: config["priority"]
         #     for model, config in Text2SQLModelKeys.TEXT2SQL_MODEL_CONFIGS.items()
         # }
-        
         selected_queries = []
         for cluster in clusters:
-            # best_query_in_cluster = min(cluster, key=lambda query: model_priority.get(query.model_key, 99))
-            selected_queries.append(cluster[0])
+            best_query_in_cluster = max(cluster, key=lambda query: query.score)
+            selected_queries.append(best_query_in_cluster)
+            # selected_queries.append(cluster[0])
 
         queries_with_results = ""
         for i, info in enumerate(selected_queries):
@@ -148,21 +153,17 @@ class QuerySelectionExecutor:
         
         return None
 
-    async def select_by_scoring(self, pipeline_context: PipelineContext, clusters: List[List[SQLQuery]]) -> SQLQuery:
-        scored_queries = await self._score_queries(pipeline_context, pipeline_context.generated_sql_queries)
+    async def select_by_scoring(self, pipeline_context: PipelineContext, clusters: List[List[SQLQuery]], scored_queries: List[SQLQuery]) -> SQLQuery:
 
         selected_queries = []
         for cluster in clusters:
-            best_query_in_cluster = min(cluster, key=lambda query: query.score)
+            # best_query_in_cluster = max(cluster, key=lambda query: query.score)
+            best_query_in_cluster = max(cluster, key=lambda query: query.score)
             selected_queries.append(best_query_in_cluster)
-
+            # selected_queries.append(cluster[0])
         if scored_queries:
-            # Sort by score and take the top 5
-            sorted_queries = sorted(selected_queries, key=lambda x: x.score, reverse=True)
-            top_queries = sorted_queries[:5]
-
             # Cluster the top 5 queries
-            narrowed_down_clusters = self._cluster_equivalent_queries_from_list(top_queries, pipeline_context, update_context_size=False)
+            narrowed_down_clusters = self._cluster_equivalent_queries_from_list(selected_queries, pipeline_context, update_context_size=False)
             print(f"CLUSTERS AFTER SCORING {narrowed_down_clusters}")
         else:
             # If scoring fails, cluster all generated queries
@@ -221,12 +222,10 @@ class QuerySelectionExecutor:
         query.score = 1
         return query
 
-    async def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[SQLQuery]:
+    def _score_queries(self, pipeline_context: PipelineContext, queries: List[SQLQuery]) -> List[Any]:
         print(f"LEN OF QUERIES TO BE SCORED {len(queries)}")
         tasks = [self._score_single_query(query, pipeline_context) for query in queries]
-        scored_queries = await asyncio.gather(*tasks)
-
-        return scored_queries
+        return asyncio.gather(*tasks)
 
     def _convert_score_to_elo(self, score: int) -> float:
         return float((score + 1) * 100)

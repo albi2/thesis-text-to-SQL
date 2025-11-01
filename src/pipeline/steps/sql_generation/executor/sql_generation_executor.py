@@ -7,6 +7,7 @@ from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT, DEFOG_PROMPT, OMNI_PROMPT, ORIGINAL_PROMPT
 from prompts.sql_generation_planning import PROMPT as SQL_GENERATION_PLANNING_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo, SQLExecStatus
+from util.db.sql_analyzer import calculate_sql_cost
 from util.constants import DatabaseConstants, HuggingFaceModelConstants, Text2SQLModelKeys
 from pipeline.steps.models.sql_query import SQLQuery
 from pipeline.steps.models.schema_representation import SchemaRepresentation, SchemaFormat, SchemaType
@@ -19,7 +20,7 @@ class SQLGenerationExecutor:
         self.text2sql_model_facade = Text2SQLModelFacade()
         self.omni_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
-        self.api_model_gemini_default = ApiModelFacade(temperature=0.2)
+        self.api_model_gemini_default = ApiModelFacade(model_name="gemini-2.5-flash",temperature=0.2)
         self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.2)
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
@@ -51,28 +52,27 @@ class SQLGenerationExecutor:
             return []
 
         schema_representations, ddl_schema_representations = self._generate_schema_representations(pipeline_context)
-        gemini_tasks = self._generate_sql_for_gemini(pipeline_context, schema_representations, ddl_schema_representations)        
+        gemini_tasks = self._generate_sql_for_gemini(pipeline_context, schema_representations, ddl_schema_representations)
+        small_model_task = self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations)        
+
         loop = asyncio.get_event_loop()
-        
-        # sql_queries_small_models = self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations)
-        
-        sql_queries = loop.run_until_complete(gemini_tasks)
-        # sql_queries.extend(sql_queries_small_models)
-        
+        gemini_results, small_model_results = loop.run_until_complete(asyncio.gather(gemini_tasks, small_model_task))
+        sql_queries = gemini_results + small_model_results
+
         self._execute_queries_async(pipeline_context, sql_queries)
-    
 
         pipeline_context.generated_sql_queries = [query for query in sql_queries if query.sql_exec_info.status == SQLExecStatus.CORRECT_SYNTAX]
         pipeline_context.non_executable_sql_queries = [query for query in sql_queries if query.sql_exec_info.status != SQLExecStatus.CORRECT_SYNTAX]
 
         return pipeline_context.generated_sql_queries
 
+
     def _generate_schema_representations(self, pipeline_context: PipelineContext) -> Tuple[List[SchemaRepresentation], List[SchemaRepresentation]]:
         schema_representations: list[SchemaRepresentation] = []
         ddl_schema_representations: list[SchemaRepresentation] = []
         selected_schemas = pipeline_context.selected_schemas
 
-        if len(pipeline_context.schema_engine.get_table_names()) <= 7:
+        if len(pipeline_context.schema_engine.get_table_names()) <= 7 and pipeline_context.schema_engine.count_total_columns() < 60:
             schema_representations.append(SchemaRepresentation(
                 schema=pipeline_context.schema_engine.mschema.to_mschema(), 
                 format=SchemaFormat.M_SCHEMA, 
@@ -117,7 +117,7 @@ class SQLGenerationExecutor:
                     type=SchemaType.FILTERED_TABLES,
                     execution_plan=execution_plan,
                     selected_tables=selected_tables,
-                    selected_columns=selected_columns
+                    selected_columns=[col for table_name in selected_tables for col in pipeline_context.schema_engine.get_column_names(table_name)]
                 ))
                 ddl_schema_representations.append(SchemaRepresentation(
                     schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables),
@@ -125,7 +125,7 @@ class SQLGenerationExecutor:
                     type=SchemaType.FILTERED_TABLES,
                     execution_plan=execution_plan,
                     selected_tables=selected_tables,
-                    selected_columns=selected_columns
+                    selected_columns=[col for table_name in selected_tables for col in pipeline_context.schema_engine.get_column_names(table_name)]
                 ))
 
                 schema_representations.append(SchemaRepresentation(
@@ -146,17 +146,30 @@ class SQLGenerationExecutor:
                 ))
 
         return schema_representations, ddl_schema_representations
+    
+    def _get_column_names_for_tables(self, pipeline_context: PipelineContext, selected_tables: list, selected_columns: list):
+        final_column_names = set()
+        column_names = list(map(lambda name: name.split(".")[1], selected_columns))
+
+        for table_name in selected_tables:
+            columns_for_table = pipeline_context.schema_engine.get_column_names(table_name)
+            final_column_names.update(columns_for_table)
+
+        if len(final_column_names) > 50:
+            return list(final_column_names.intersection(column_names))
+
+        return list(final_column_names)
+
 
     async def _generate_sql_for_gemini(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
         tasks = []
-        query_chain = self.api_model_gemini.get_chain()
 
         for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
             hint = getattr(pipeline_context, 'hint', '')
             
             full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
-            tasks.append(self._get_sql_from_model(query_chain, full_prompt, mschema, "DECOMPOSITION"))
+            tasks.append(self._get_sql_from_model(full_prompt, mschema, "DECOMPOSITION", pipeline_context, mschema.type))
 
             full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
                 DATABASE_SCHEMA=ddl_schema.schema,
@@ -164,29 +177,56 @@ class SQLGenerationExecutor:
                 HINT=hint,
                 RELEVANT_ENTITIES=relevant_entities_str
             )
-            tasks.append(self._get_sql_from_model(query_chain, full_prompt_ddl, ddl_schema, "PLANNING"))
+            tasks.append(self._get_sql_from_model(full_prompt_ddl, ddl_schema, "PLANNING", pipeline_context, ddl_schema.type))
 
         return await asyncio.gather(*tasks)
 
-    async def _get_sql_from_model(self, chain, prompt, schema_rep, prompting):
-        model_response = await self.api_model_gemini.acall(chain, {"user_prompt": prompt})
-        
-        print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
-        if "```sql" in model_response:
-            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
-        elif "```" in model_response:
-            query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
-        else:
-            query = model_response.replace('\n', ' ').replace('"', '`')
-        
-        return SQLQuery(
-            sql_exec_info=SQLExecInfo(sql=query),
-            schema_representation=schema_rep,
-            model_key=Text2SQLModelKeys.GEMINI,
-            prompting=prompting
-        )
+    async def _get_sql_from_model(self, prompt, schema_rep, prompting, pipeline_context: PipelineContext, schemaType: SchemaType):
+        try:
+            query_chain = self.api_model_gemini.get_chain()
+            model_response = await self.api_model_gemini.acall(query_chain, {"user_prompt": prompt})
+            
+            print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
+            
+            if "```sql" in model_response:
+                query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
+            elif "```" in model_response:
+                query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
+            else:
+                query = "empty"
 
-    def _generate_sql_for_small_models(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
+            return SQLQuery(
+                sql_exec_info=SQLExecInfo(sql=query),
+                schema_representation=schema_rep,
+                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
+                prompting=prompting
+            )
+        except asyncio.TimeoutError:
+            print(f'Timeout error: Model failed to respond after retries (>180s)')
+            return SQLQuery(
+                sql_exec_info=SQLExecInfo(sql="empty"),
+                schema_representation=schema_rep,
+                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
+                prompting=prompting
+            )
+        except IndexError as e:
+            print(f'Error parsing SQL from model response: {e}')
+            return SQLQuery(
+                sql_exec_info=SQLExecInfo(sql="empty"),
+                schema_representation=schema_rep,
+                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
+                prompting=prompting
+            )
+        except Exception as e:
+            print(f'Unexpected error in _get_sql_from_model: {type(e).__name__}: {e}')
+            return SQLQuery(
+                sql_exec_info=SQLExecInfo(sql="empty"),
+                schema_representation=schema_rep,
+                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
+                prompting=prompting
+            )
+
+    async def _generate_sql_for_small_models(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         sql_queries: list[SQLQuery] = []
         
         model_prompts = {
@@ -263,12 +303,7 @@ class SQLGenerationExecutor:
         return sql_queries
 
     def _execute_queries_async(self, pipeline_context: PipelineContext, sql_queries: List[SQLQuery]):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
+        loop = asyncio.get_event_loop()
         raw_queries = [sql_query.sql_exec_info.sql for sql_query in sql_queries]
         
         executable_sql_infos = loop.run_until_complete(

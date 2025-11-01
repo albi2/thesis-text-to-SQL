@@ -7,6 +7,7 @@ from util.constants import DatabaseConstants
 from components.models.api_model_facade import ApiModelFacade
 from pipeline.steps.models.sql_query import SQLQuery
 from util.db.execute import execute_sql_queries_async, SQLExecStatus
+from util.db.sql_analyzer import calculate_sql_cost
 
 class QueryRefinementExecutor:
     def __init__(self):
@@ -63,12 +64,6 @@ class QueryRefinementExecutor:
 
             for original_query, sql_exec_info in zip(original_sql_queries, executable_sql_infos):
                 if sql_exec_info.status == SQLExecStatus.CORRECT_SYNTAX:
-                    new_refined_sql_queries.append(SQLQuery(
-                        sql_exec_info=sql_exec_info,
-                        schema_representation=original_query.schema_representation,
-                        model_key=original_query.model_key,
-                        prompting="REFINEMENT"
-                    ))
                     new_refined_sql_queries.append(SQLQuery(
                         sql_exec_info=sql_exec_info,
                         schema_representation=original_query.schema_representation,

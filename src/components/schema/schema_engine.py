@@ -159,6 +159,44 @@ class SchemaEngine(SQLDatabase):
                     values.append(value[0])
         return values
 
+    def get_column_names(self, table_name: str) -> List[str]:
+        """
+        Retrieves all column names for a given table.
+
+        Args:
+            table_name: The name of the table.
+
+        Returns:
+            A list of column names as strings.
+            Returns an empty list if the table is not found or has no columns.
+        """
+        schema_name = self._tables_schemas.get(table_name)
+        
+        try:
+            columns_info = self._inspector.get_columns(table_name, schema=schema_name)
+            return [col_info['name'] for col_info in columns_info]
+        except Exception:
+            # Table might not exist or other inspector error
+            return []
+
+    def count_total_columns(self) -> int:
+        """
+        Counts the total number of columns across all usable tables in the database.
+
+        Returns:
+            The total count of columns in all tables.
+        """
+        total_columns = 0
+        for table_name in self._usable_tables:
+            schema_name = self._tables_schemas.get(table_name)
+            try:
+                columns_info = self._inspector.get_columns(table_name, schema=schema_name)
+                total_columns += len(columns_info)
+            except Exception:
+                # Skip tables that cause errors
+                continue
+        return total_columns
+
     def init_mschema(self):
         for table_name in self._usable_tables:
             table_comment = self.get_table_comment(table_name)

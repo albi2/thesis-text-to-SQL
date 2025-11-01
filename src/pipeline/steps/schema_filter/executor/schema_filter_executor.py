@@ -17,8 +17,8 @@ from pipeline.steps.information_retrieval.executor.information_retriever import 
 class SchemaFilterExecutor:
     def __init__(self):
         # self.reasoning_model_facade = ReasoningModelFacade()
-        self.api_model_default = ApiModelFacade(temperature=0.5)
-        self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.3)
+        self.api_model_default = ApiModelFacade(temperature=0.2)
+        self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.2)
         self.information_retriever = InformationRetriever()
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:

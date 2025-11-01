@@ -43,7 +43,12 @@ class SQLExecInfo:
     #         return self._execution_results
 
 
-async def execute_sql_query_async(query: str, db_path: str, engine: Engine, timeout: int = 60) -> SQLExecInfo:
+async def execute_sql_query_async(
+    query: str,
+    db_path: str,
+    engine: Engine,
+    timeout: int = 60
+) -> SQLExecInfo:
     """
     Executes a SQL query asynchronously against the provided database engine.
 
@@ -57,28 +62,39 @@ async def execute_sql_query_async(query: str, db_path: str, engine: Engine, time
         SQLExecInfo: An object containing the SQL query, status, and result/error.
     """
     try:
-        # SQLAlchemy's execute is synchronous, so we run it in a thread pool executor
-        # to simulate non-blocking behavior for the async context.
-        # For true async DB operations, an async driver like asyncpg or aiomysql would be needed.
-
-        # TODO: Inlcude the timeout here
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, # Use default ThreadPoolExecutor
-            lambda: _sync_execute_sql(query, engine, db_path)
+        # ✅ Use asyncio.wait_for + asyncio.to_thread to enforce timeout cleanly
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_sync_execute_sql, query, engine, db_path),
+            timeout=timeout
         )
 
         if len(result) == 0:
-            return SQLExecInfo(sql=query, status=SQLExecStatus.EMPTY_RESULT, result=result)
-        
-        return SQLExecInfo(sql=query, status=SQLExecStatus.CORRECT_SYNTAX, result=result)
-        
+            return SQLExecInfo(
+                sql=query,
+                status=SQLExecStatus.EMPTY_RESULT,
+                result=result
+            )
+
+        return SQLExecInfo(
+            sql=query,
+            status=SQLExecStatus.CORRECT_SYNTAX,
+            result=result
+        )
+
     except asyncio.TimeoutError:
-        logging.info(f"SQL query execution timed out after {timeout} seconds: {query}")
-        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX, error_message="Query execution timed out.")
+        logging.warning(f"SQL query execution timed out after {timeout}s: {query}")
+        return SQLExecInfo(
+            sql=query,
+            status=SQLExecStatus.INCORRECT_SYNTAX,
+            error_message="Query execution timed out."
+        )
     except Exception as e:
-        logging.info(f"SQL query execution failed: {query}. Error: {e}")
-        return SQLExecInfo(sql=query, status=SQLExecStatus.INCORRECT_SYNTAX, error_message=str(e))
+        logging.error(f"SQL query execution failed: {query}. Error: {e}")
+        return SQLExecInfo(
+            sql=query,
+            status=SQLExecStatus.INCORRECT_SYNTAX,
+            error_message=str(e)
+        )
     
 
 
@@ -130,8 +146,12 @@ async def execute_sql_queries_async(queries: List[str], db_path: str, engine: En
     Returns:
         List[SQLExecInfo]: A list of SQLExecInfo objects for each query.
     """
-    tasks = [execute_sql_query_async(query, db_path, engine, timeout) for query in queries]
-    return await asyncio.gather(*tasks)
+    sem = asyncio.Semaphore(5)
+
+
+    async with sem:
+        tasks = [execute_sql_query_async(query, db_path, engine, timeout) for query in queries]
+        return await asyncio.gather(*tasks)
 
 def compare_sqls_outcomes(sql_1: str, sql_2: str, db_path: str, engine: Engine) -> int:
     """

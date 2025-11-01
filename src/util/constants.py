@@ -87,10 +87,18 @@ class Text2SQLModelKeys:
     OMNI = "omni"
     DEFOG = "defog"
     GEMINI = "gemini"
+    GEMINI_2_0_FL = "gemini-2.0-flash-lite"
+    GEMINI_2_5_FL = "gemini-2.5-flash-lite"
 
     TEXT2SQL_MODEL_CONFIGS = {
         GEMINI: {
             "priority": 0
+        },
+        GEMINI_2_5_FL: {
+            "priority": 0
+        },
+        GEMINI_2_0_FL: {
+            "priority": 1
         },
         XIYAN: {
             "priority": 1

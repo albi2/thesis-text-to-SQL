@@ -13,10 +13,10 @@ def analyze_results(results_dir: str):
             filepath = os.path.join(results_dir, filename)
             with open(filepath, "r") as f:
                 results_data = json.load(f)
-
             total_tasks = len(results_data)
             if total_tasks == 0:
                 continue
+            print(f"TOTAL {total_tasks}")
 
             executable_queries = sum(1 for r in results_data if r['execution_status'] != "INCORRECT_SYNTAX" and r["generated_sql"] is not None)
             correct_queries = sum(1 for r in results_data if r['comparison_status'] == 1)

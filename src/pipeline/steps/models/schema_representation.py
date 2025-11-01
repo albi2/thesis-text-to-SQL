@@ -36,7 +36,7 @@ class SchemaRepresentation:
             "schema": self.schema,
             "format": str(self.format),
             "type": str(self.type),
-            "execution_plan": self.execution_plan,
-            "selected_tables": self.selected_tables,
-            "selected_columns": self.selected_columns   
+            "execution_plan": self.execution_plan
+            # "selected_tables": self.selected_tables,
+            # "selected_columns": self.selected_columns   
         }

@@ -11,6 +11,7 @@ class SQLQuery:
     score: int = 0
     cluster_size: int = 1
     score_cot: str = ''
+    cost: int = 0
 
     def to_dict(self):
         return {
@@ -19,7 +20,8 @@ class SQLQuery:
             "model_key": self.model_key,
             "prompting": self.prompting,
             "score": self.score,
-            "score_cot": self.score_cot
+            "score_cot": self.score_cot,
+            "cost": self.cost
         }
     
     def to_full_dict(self):
@@ -29,5 +31,6 @@ class SQLQuery:
             "model_key": self.model_key,
             "prompting": self.prompting,
             "score": self.score,
-            "score_cot": self.score_cot
+            "score_cot": self.score_cot,
+            "cost": self.cost
         }
