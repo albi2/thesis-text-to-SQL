@@ -238,10 +238,6 @@ class QuerySelectionExecutor:
                     if query.sql_exec_info.result is not None:
                         batch_queries_str += f"  Query Output:\n {str(query.sql_exec_info.result)}\n"
 
-                schema_string: str = pipeline_context.schema_engine.mschema.to_mschema(
-                    selected_tables=pipeline_context.unique_table_names, selected_columns=pipeline_context.unique_column_names
-                )
-
                 merged_schema = self._merge_schemas_for_batch(batch, pipeline_context)
                 relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
                 prompt_args = {

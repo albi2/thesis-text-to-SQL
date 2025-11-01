@@ -615,14 +615,14 @@ You are an expert in text-to-SQL. Your task is to evaluate a list of SQL queries
 - Provide the output in the following JSON format, with one entry for each query in the batch:
   ```json
   [
-      {
+      {{
         "chain_of_thought": "<SHORT reasoning logic for scoring query 1>",
         "score": <score number 0-4 for query 1>
-      },
-      {
+      }},
+      {{
         "chain_of_thought": "<SHORT reasoning logic for scoring query 2>",
         "score": <score number 0-4 for query 2>
-      }
+      }}
   ]
   ```
 - Make sure to not use double quotes inside double quotes because it causes problems with the parsing.
@@ -632,7 +632,8 @@ Here are some examples:
 
 Given the following information, score the list of queries.
 
-**Question:** "{QUESTION}"
+**Question:** 
+{QUESTION}
 
 **Hint:**
 {HINT}

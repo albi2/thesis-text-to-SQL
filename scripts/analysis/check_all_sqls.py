@@ -208,8 +208,8 @@ def voting_among_methods(methods: List[Tuple[str, str]], gold_sql: str, db_path:
 
 
 # --- Configuration ---
-generated_json_path = "./results/full/contexts_bird_dev_full_doublemodels.json"
-gold_json_path = "./dataset/dev/dev.json"
+generated_json_path = "../results/contexts_20251027_111435.json"
+gold_json_path = "./dataset/dev/bird_subset.json"
 output_path = "./comparison_results.json"
 
 # --- Load data ---
