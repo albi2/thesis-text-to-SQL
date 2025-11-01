@@ -224,59 +224,71 @@ class QuerySelectionExecutor:
         query.score = 1
         return query
 
+    async def _score_batch(self, batch: List[SQLQuery], pipeline_context: PipelineContext) -> List[tuple[str, int]]:
+        batch_queries_str = ""
+        for i, query in enumerate(batch):
+            batch_queries_str += f"{i}: {query.sql_exec_info.sql}\n"
+            if query.sql_exec_info.result is not None:
+                batch_queries_str += f"  Query Output:\n {str(query.sql_exec_info.result)}\n"
+
+        merged_schema = self._merge_schemas_for_batch(batch, pipeline_context)
+        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+        prompt_args = {
+            "DATABASE_SCHEMA": merged_schema,
+            "QUESTION": pipeline_context.user_query,
+            "HINT": getattr(pipeline_context, 'hint', ''),
+            "QUERIES": batch_queries_str,
+            "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
+            "RELEVANT_ENTITIES": relevant_entities_str
+        }
+
+        full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
+        batch_scores = []
+
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                chain = self.api_model.get_chain()
+                model_response = await self.api_model.acall(chain, {"user_prompt": full_prompt})
+
+                json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    json_str = model_response.strip()
+
+                parsed_scores = json.loads(json_str)
+
+                if len(parsed_scores) != len(batch):
+                    print(f"Attempt {attempt + 1} for batch failed: Number of scores ({len(parsed_scores)}) does not match batch size ({len(batch)}).")
+                    continue
+
+                for i, score_info in enumerate(parsed_scores):
+                    sql = batch[i].sql_exec_info.sql
+                    score = int(score_info.get("score", 0))
+                    batch_scores.append((sql, score))
+                return batch_scores
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                print(f"Attempt {attempt + 1} for batch failed: Error parsing scores: {e}")
+            except Exception as e:
+                print(f"Attempt {attempt + 1} for batch failed: Error generating scores: {e}")
+        return []
+
     async def _shuffle_batched_scoring(self, pipeline_context: PipelineContext, queries: List[SQLQuery], m: int = 10, k: int = 7) -> List[SQLQuery]:
         query_scores = {query.sql_exec_info.sql: [] for query in queries}
-
+        
+        tasks = []
         for _ in range(m):
             random.shuffle(queries)
             batches = [queries[i:i + k] for i in range(0, len(queries), k)]
-
             for batch in batches:
-                batch_queries_str = ""
-                for i, query in enumerate(batch):
-                    batch_queries_str += f"{i}: {query.sql_exec_info.sql}\n"
-                    if query.sql_exec_info.result is not None:
-                        batch_queries_str += f"  Query Output:\n {str(query.sql_exec_info.result)}\n"
+                tasks.append(self._score_batch(batch, pipeline_context))
 
-                merged_schema = self._merge_schemas_for_batch(batch, pipeline_context)
-                relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
-                prompt_args = {
-                    "DATABASE_SCHEMA": merged_schema,
-                    "QUESTION": pipeline_context.user_query,
-                    "HINT": getattr(pipeline_context, 'hint', ''),
-                    "QUERIES": batch_queries_str,
-                    "FEWSHOT_EXAMPLES": FEWSHOT_EXAMPLES,
-                    "RELEVANT_ENTITIES": relevant_entities_str
-                }
+        results = await asyncio.gather(*tasks)
 
-                full_prompt = QUERY_SCORING_PROMPT.format(**prompt_args)
-
-                for attempt in range(self.MAX_RETRIES):
-                    try:
-                        chain = self.api_model.get_chain()
-                        model_response = await self.api_model.acall(chain, {"user_prompt": full_prompt})
-
-                        json_match = re.search(r'```json\s*(.*?)\s*```', model_response, re.DOTALL)
-                        if json_match:
-                            json_str = json_match.group(1)
-                        else:
-                            json_str = model_response.strip()
-
-                        parsed_scores = json.loads(json_str)
-
-                        # Ensure the number of scores matches the number of queries in the batch
-                        if len(parsed_scores) != len(batch):
-                            print(f"Attempt {attempt + 1} for batch failed: Number of scores ({len(parsed_scores)}) does not match batch size ({len(batch)}).")
-                            continue
-
-                        for i, score_info in enumerate(parsed_scores):
-                            sql = batch[i].sql_exec_info.sql
-                            query_scores[sql].append(int(score_info.get("score", 0)))
-                        break  # Success, exit retry loop
-                    except (json.JSONDecodeError, ValueError, KeyError) as e:
-                        print(f"Attempt {attempt + 1} for batch failed: Error parsing scores: {e}")
-                    except Exception as e:
-                        print(f"Attempt {attempt + 1} for batch failed: Error generating scores: {e}")
+        for batch_result in results:
+            for sql, score in batch_result:
+                if sql in query_scores:
+                    query_scores[sql].append(score)
 
         for query in queries:
             scores = query_scores[query.sql_exec_info.sql]
