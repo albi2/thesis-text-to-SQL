@@ -21,7 +21,7 @@ class SQLGenerationExecutor:
         self.omni_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.OMNI_TEXT2SQL_MODEL_REPO)
         self.defog_text2sql_model_facade = Text2SQLModelFacade(model_name = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_PATH, model_repo = HuggingFaceModelConstants.DEFOG_TEXT2SQL_MODEL_REPO)
         self.api_model_gemini_default = ApiModelFacade(model_name="gemini-2.5-flash",temperature=0.2)
-        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.2)
+        self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.7, top_p=0.95, n=3)
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         """
@@ -57,7 +57,11 @@ class SQLGenerationExecutor:
 
         loop = asyncio.get_event_loop()
         gemini_results, small_model_results = loop.run_until_complete(asyncio.gather(gemini_tasks, small_model_task))
-        sql_queries = gemini_results + small_model_results
+        
+        # Flatten the list of lists from gemini_results
+        flattened_gemini_results = [item for sublist in gemini_results for item in sublist]
+        
+        sql_queries = flattened_gemini_results + small_model_results
 
         self._execute_queries_async(pipeline_context, sql_queries)
 
@@ -182,49 +186,44 @@ class SQLGenerationExecutor:
         return await asyncio.gather(*tasks)
 
     async def _get_sql_from_model(self, prompt, schema_rep, prompting, pipeline_context: PipelineContext, schemaType: SchemaType):
+        sql_queries = []
         try:
             query_chain = self.api_model_gemini.get_chain()
-            model_response = await self.api_model_gemini.acall(query_chain, {"user_prompt": prompt})
-            
-            print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
-            
-            if "```sql" in model_response:
-                query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
-            elif "```" in model_response:
-                query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
-            else:
-                query = "empty"
+            model_responses = await self.api_model_gemini.acall(query_chain, {"user_prompt": prompt})
 
-            return SQLQuery(
-                sql_exec_info=SQLExecInfo(sql=query),
-                schema_representation=schema_rep,
-                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
-                prompting=prompting
-            )
+            if not isinstance(model_responses, list):
+                model_responses = [model_responses]
+
+            for model_response in model_responses:
+                print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
+                
+                if "```sql" in model_response:
+                    query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
+                elif "```" in model_response:
+                    query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
+                else:
+                    query = "empty"
+
+                sql_queries.append(SQLQuery(
+                    sql_exec_info=SQLExecInfo(sql=query),
+                    schema_representation=schema_rep,
+                    model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
+                    prompting=prompting
+                ))
+            return sql_queries
         except asyncio.TimeoutError:
             print(f'Timeout error: Model failed to respond after retries (>180s)')
-            return SQLQuery(
-                sql_exec_info=SQLExecInfo(sql="empty"),
-                schema_representation=schema_rep,
-                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
-                prompting=prompting
-            )
         except IndexError as e:
             print(f'Error parsing SQL from model response: {e}')
-            return SQLQuery(
-                sql_exec_info=SQLExecInfo(sql="empty"),
-                schema_representation=schema_rep,
-                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
-                prompting=prompting
-            )
         except Exception as e:
             print(f'Unexpected error in _get_sql_from_model: {type(e).__name__}: {e}')
-            return SQLQuery(
-                sql_exec_info=SQLExecInfo(sql="empty"),
-                schema_representation=schema_rep,
-                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
-                prompting=prompting
-            )
+        
+        return [SQLQuery(
+            sql_exec_info=SQLExecInfo(sql="empty"),
+            schema_representation=schema_rep,
+            model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
+            prompting=prompting
+        )]
 
     async def _generate_sql_for_small_models(self, pipeline_context: PipelineContext, schema_representations: List[SchemaRepresentation], ddl_schema_representations: List[SchemaRepresentation]) -> List[SQLQuery]:
         sql_queries: list[SQLQuery] = []
@@ -276,22 +275,26 @@ class SQLGenerationExecutor:
                     schema_rep = item["schema_rep"]
                     
                     try:
-                        model_response = model_facade.query(prompt)
-                        print(f'SQL GENERATION MODEL RESPONSE ({model_key})', model_response)
-                        
-                        if "```sql" in model_response:
-                            query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
-                        elif "```" in model_response:
-                            query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
-                        else:
-                            query = model_response.replace('\n', ' ').replace('"', '`')
-                        
-                        sql_queries.append(SQLQuery(
-                            sql_exec_info=SQLExecInfo(sql=query),
-                            schema_representation=schema_rep,
-                            model_key=model_key,
-                            prompting="DECOMPOSITION"
-                        ))
+                        model_responses = model_facade.query(prompt, num_return_sequences=2)
+                        if not isinstance(model_responses, list):
+                            model_responses = [model_responses]
+
+                        for model_response in model_responses:
+                            print(f'SQL GENERATION MODEL RESPONSE ({model_key})', model_response)
+                            
+                            if "```sql" in model_response:
+                                query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
+                            elif "```" in model_response:
+                                query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
+                            else:
+                                query = model_response.replace('\n', ' ').replace('"', '`')
+                            
+                            sql_queries.append(SQLQuery(
+                                sql_exec_info=SQLExecInfo(sql=query),
+                                schema_representation=schema_rep,
+                                model_key=model_key,
+                                prompting="DECOMPOSITION"
+                            ))
                     except Exception as e:
                         print(f"Could not parse response from {model_key}: {e}")
             

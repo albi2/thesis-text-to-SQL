@@ -36,11 +36,10 @@ class Text2SQLModelFacade(BaseHuggingFaceFacade):
         Returns task-specific default generation parameters for Text2SQL.
         """
         return {
-            # "temperature": 0.1,
-            # "do_sample": True,
-            # "top_p": 0.8, 
+            "temperature": 0.8,
+            "do_sample": True,
+            "top_p": 0.95,
             "max_new_tokens": 1024
-            # top_p is already handled by base defaults or instance override
         }
 
     def query(self, prompt: str, system_prompt: str = None, **generation_kwargs) -> str | list[str]:

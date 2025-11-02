@@ -12,7 +12,7 @@ class ApiModelFacade:
     """
     Facade for creating and managing API-based models using LangChain.
     """
-    def __init__(self, model_name: str = None, model_type: str = "generative", api_key: str = None, temperature: float = None):
+    def __init__(self, model_name: str = None, model_type: str = "generative", api_key: str = None, temperature: float = None, top_p: float = None, n: int = 1):
         if model_name is None:
             if model_type == "generative":
                 model_name = ApiModelConstants.DEFAULT_GENERATIVE_MODEL
@@ -23,6 +23,8 @@ class ApiModelFacade:
         self.model_type = model_type
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.temperature = temperature
+        self.top_p = top_p
+        self.n = n
         
         if not self.api_key:
             raise ValueError(f"API key for {self.model_name} is not provided or set in environment variables.")
@@ -44,6 +46,10 @@ class ApiModelFacade:
         params["google_api_key"] = self.api_key
         if self.temperature is not None:
             params["temperature"] = self.temperature
+        if self.top_p is not None:
+            params["top_p"] = self.top_p
+        if self.n is not None:
+            params["n"] = self.n
         return constructor(**params)
 
     def get_chain(self) -> Runnable:
@@ -53,7 +59,11 @@ class ApiModelFacade:
         prompt_template = ChatPromptTemplate.from_messages(
             [("human", "{user_prompt}")]
         )
-        return prompt_template | self.llm | StrOutputParser()
+        
+        if self.n > 1:
+            return prompt_template | self.llm
+        else:
+            return prompt_template | self.llm | StrOutputParser()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def call(self, chain: Runnable, prompt: dict) -> str:
@@ -63,15 +73,26 @@ class ApiModelFacade:
         return chain.invoke(prompt)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    async def acall(self, chain: Runnable, prompt: dict) -> str:
+    async def acall(self, chain: Runnable, prompt: dict) -> str | List[str]:
         """
         Invokes a chain with retry logic.
         """
         try:
-            return await asyncio.wait_for(chain.ainvoke(prompt), timeout=180)
+            response = await asyncio.wait_for(chain.ainvoke(prompt), timeout=180)
+            if self.n > 1:
+                if isinstance(response.content, list):
+                    return [item if isinstance(item, str) else str(item) for item in response.content]
+                elif hasattr(response, 'response_metadata') and 'candidates' in response.response_metadata:
+                    return [candidate['content'] for candidate in response.response_metadata['candidates']]
+                else:
+                    return [response.content] if hasattr(response, 'content') else ["empty"]
+            return response
         except asyncio.TimeoutError:
             # Handle timeout gracefully
-            return "empty"
+            return ["empty"] if self.n > 1 else "empty"
+        except Exception as e:
+            print(f"An error occurred during acall: {e}")
+            return ["empty"] if self.n > 1 else "empty"
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
