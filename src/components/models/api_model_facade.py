@@ -7,6 +7,7 @@ from components.config.model_configurations import get_model_configurations
 from util.constants import ApiModelConstants
 from tenacity import retry, stop_after_attempt, wait_exponential
 import asyncio
+from typing import List
 
 class ApiModelFacade:
     """
