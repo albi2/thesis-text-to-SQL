@@ -227,9 +227,11 @@ class QuerySelectionExecutor:
     async def _score_batch(self, batch: List[SQLQuery], pipeline_context: PipelineContext) -> List[tuple[str, int]]:
         batch_queries_str = ""
         for i, query in enumerate(batch):
-            batch_queries_str += f"{i}: {query.sql_exec_info.sql}\n"
+            batch_queries_str += f"{i+1}: {query.sql_exec_info.sql}\n"
             if query.sql_exec_info.result is not None:
-                batch_queries_str += f"  Query Output:\n {str(query.sql_exec_info.result)}\n"
+                batch_queries_str += f"Output:\n {str(query.sql_exec_info.result)}\n"
+            else:
+                batch_queries_str += f"Output:\n[]\n"
 
         merged_schema = self._merge_schemas_for_batch(batch, pipeline_context)
         relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
@@ -273,7 +275,7 @@ class QuerySelectionExecutor:
                 print(f"Attempt {attempt + 1} for batch failed: Error generating scores: {e}")
         return []
 
-    async def _shuffle_batched_scoring(self, pipeline_context: PipelineContext, queries: List[SQLQuery], m: int = 10, k: int = 7) -> List[SQLQuery]:
+    async def _shuffle_batched_scoring(self, pipeline_context: PipelineContext, queries: List[SQLQuery], m: int = 10, k: int = 14) -> List[SQLQuery]:
         query_scores = {query.sql_exec_info.sql: [] for query in queries}
         
         tasks = []

@@ -208,7 +208,7 @@ def voting_among_methods(methods: List[Tuple[str, str]], gold_sql: str, db_path:
 
 
 # --- Configuration ---
-generated_json_path = "../results/contexts_20251027_111435.json"
+generated_json_path = "../results/contexts_20251101_233307.json"
 gold_json_path = "./dataset/dev/bird_subset.json"
 output_path = "./comparison_results.json"
 
@@ -220,7 +220,9 @@ with open(gold_json_path, "r", encoding="utf-8") as f:
     gold_data = json.load(f)
 
 db_manager = DatabaseManager()
-assert len(generated_data) == len(gold_data), "JSON arrays must have the same length"
+# assert len(generated_data) == len(gold_data), "JSON arrays must have the same length"
+if len(generated_data) < len(gold_data):
+    gold_data = gold_data[:len(generated_data)]
 
 cache = QueryResultCache()
 

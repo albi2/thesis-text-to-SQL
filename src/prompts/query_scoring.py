@@ -610,6 +610,7 @@ You are an expert in text-to-SQL. Your task is to evaluate a list of SQL queries
     You can refer to these as hints to understand what are some of the correct columns for filtering in the query based on a given literal from the question or hint.
 4.  Assign a score from 1 to 4 for each query based on how many of the violations in the scoring criteria apply.
 5.  Provide a short reasoning for your scoring for each query.
+6.  Make sure the number of provided items in the output matches exactly the number of queries. Every provided query needs to be scored.
 
 **Output Format**
 - Provide the output in the following JSON format, with one entry for each query in the batch:
@@ -625,7 +626,6 @@ You are an expert in text-to-SQL. Your task is to evaluate a list of SQL queries
       }}
   ]
   ```
-- Make sure to not use double quotes inside double quotes because it causes problems with the parsing.
 
 Here are some examples:
 {FEWSHOT_EXAMPLES}
