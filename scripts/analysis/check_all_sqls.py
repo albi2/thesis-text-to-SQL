@@ -5,6 +5,7 @@ from infrastructure.database.database_manager import DatabaseManager
 from typing import List, Dict, Tuple, Optional
 import hashlib
 from collections import Counter
+from sql_optimizer import SQLOptimizer
 
 class QueryResultCache:
     """Cache for SQL query comparison results to avoid redundant database calls."""
@@ -206,9 +207,40 @@ def voting_among_methods(methods: List[Tuple[str, str]], gold_sql: str, db_path:
     
     return selected_sql, num_votes, matches
 
+def apply_post_optimization(
+    chosen_sql: str,
+    method_name: str,
+    all_queries: List[Dict],
+    db_id: str,
+    optimizer: SQLOptimizer,
+    cache,
+    gold_sql: str,
+    db_path: str,
+    engine
+) -> Tuple[str, bool, Optional[str], float]:
+    """
+    Apply post-optimization to a chosen query.
+    Returns (final_sql, was_optimized, optimization_reason, score)
+    """
+    result = optimizer.find_better_alternative(
+        chosen_sql, all_queries, db_id, cache, gold_sql, db_path, engine
+    )
+    
+    if result:
+        better_sql, reason, score = result
+        return better_sql, True, reason, score
+    
+    # Return original with its score
+    original_score = float('-inf')
+    for query in all_queries:
+        if query.get("sql_exec_info", {}).get("sql") == chosen_sql:
+            original_score = query.get("score", float('-inf'))
+            break
+    
+    return chosen_sql, False, None, original_score
 
 # --- Configuration ---
-generated_json_path = "./results/full/contexts_bird_dev_full_doublemodels.json"
+generated_json_path = "../results/full/contexts_bird_dev_full_doublemodels.json"
 gold_json_path = "./dataset/dev/dev.json"
 output_path = "./comparison_results.json"
 
@@ -223,6 +255,8 @@ db_manager = DatabaseManager()
 assert len(generated_data) == len(gold_data), "JSON arrays must have the same length"
 
 cache = QueryResultCache()
+optimizer = SQLOptimizer(db_manager)
+
 
 # --- Stats trackers ---
 stats = {
@@ -299,6 +333,14 @@ stats = {
     "vote_usc_hybrid_self": 0,
     "vote_usc_best_score_self": 0,
     "vote_hybrid_best_score_self": 0,
+    #Optimized
+    "best_score_optimized": 0,
+    "best_score_optimized_matched": 0,
+    "best_score_opt_better": 0,
+    "best_score_opt_worse": 0,
+    "best_score_opt_distinct": 0,
+    "best_score_opt_nulls": 0,
+    "best_score_min_nulls": 0,
 }
 
 results = []
@@ -382,6 +424,53 @@ for gen_item, gold_item in tqdm(zip(generated_data, gold_data), total=len(gold_d
         elif max_score_queries:
             best_score_sql = max_score_queries[0].get("sql_exec_info", {}).get("sql")
         best_score_score = max_score
+
+    # Optimizations
+    if hybrid_sql:
+        best_score_sql_opt, was_opt, opt_reason, opt_score = apply_post_optimization(
+            hybrid_sql,
+            "best_score",
+            generated_sql_queries,
+            db_id,
+            optimizer,
+            cache,
+            gold_sql,
+            "public",
+            database_engine
+        )
+        
+        if was_opt:
+            stats["best_score_optimized"] += 1
+            if "DISTINCT" in opt_reason:
+                stats["best_score_opt_distinct"] += 1
+            if "NULLS LAST" in opt_reason:
+                stats["best_score_opt_nulls"] += 1
+            if "MIN" in opt_reason:
+                stats["best_score_min_nulls"] += 1
+        
+            
+            best_score_opt_match = check_match(best_score_sql_opt)
+            hybrid_match = check_match(hybrid_sql)
+            if best_score_opt_match:
+                stats["best_score_optimized_matched"] += 1
+                if not hybrid_match:
+                    stats["best_score_opt_better"] += 1
+                    print(f"  ✨ [{db_id}] Optimization fixed: {opt_reason}")
+            
+            if hybrid_match:
+                if not best_score_opt_match:
+                    stats["best_score_opt_worse"] += 1
+                    print(f"  ❌ [{db_id}] Optimization broke: {opt_reason}")
+            
+            # result_entry["best_score_optimization"] = opt_reason
+            # result_entry["best_score_sql_original"] = best_score_sql
+            # result_entry["best_score_sql_optimized"] = best_score_sql_opt
+            # result_entry["best_score_opt_score"] = opt_score
+            
+            # IMPORTANT: Use optimized version going forward
+            hybrid_sql = best_score_sql_opt
+            hybrid_score = opt_score
+
 
     # Self-consistency
     # MODIFICATION: Capture the original score of the selected query
@@ -715,6 +804,17 @@ print(f"  USC + Hybrid + Self         : {stats['vote_usc_hybrid_self']:4d} ({cal
 print(f"  USC + BestScore + Self      : {stats['vote_usc_best_score_self']:4d} ({calc_acc('vote_usc_best_score_self'):.2f}%)")
 print(f"  Hybrid + BestScore + Self   : {stats['vote_hybrid_best_score_self']:4d} ({calc_acc('vote_hybrid_best_score_self'):.2f}%)")
 
+# Print stats:
+print("\n" + "="*60)
+print("POST-OPTIMIZATION RESULTS")
+print("="*60)
+print(f"Queries optimized          : {stats['best_score_optimized']:4d}")
+print(f"  - Added DISTINCT         : {stats['best_score_opt_distinct']:4d}")
+print(f"  - Added NULLS LAST       : {stats['best_score_opt_nulls']:4d}")
+print(f"  - Added NULLS CHECK FOR MIN      : {stats['best_score_min_nulls']:4d}")
+print(f"Optimized queries matched  : {stats['best_score_optimized_matched']:4d} ({calc_acc('best_score_optimized_matched'):.2f}%)")
+print(f"Optimization fixed errors  : {stats['best_score_opt_better']:4d}")
+print(f"Optimization added errors  : {stats['best_score_opt_worse']:4d}")
 
 print(f"\n{'='*60}")
 print(f"✅ Detailed results saved to: {output_path}")
