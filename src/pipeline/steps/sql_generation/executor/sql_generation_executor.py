@@ -56,17 +56,8 @@ class SQLGenerationExecutor:
         # small_model_task = self._generate_sql_for_small_models(pipeline_context, schema_representations, ddl_schema_representations)        
 
         loop = asyncio.get_event_loop()
-<<<<<<< Updated upstream
-        gemini_results, small_model_results = loop.run_until_complete(asyncio.gather(gemini_tasks, small_model_task))
-        
-        # Flatten the list of lists from gemini_results
-        flattened_gemini_results = [item for sublist in gemini_results for item in sublist]
-        
-        sql_queries = flattened_gemini_results + small_model_results
-=======
         gemini_results = loop.run_until_complete(gemini_tasks)
         sql_queries = gemini_results
->>>>>>> Stashed changes
 
         self._execute_queries_async(pipeline_context, sql_queries)
 

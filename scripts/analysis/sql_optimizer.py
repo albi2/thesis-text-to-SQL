@@ -1,3 +1,4 @@
+from sqlalchemy import Engine
 import sqlglot
 from sqlglot import exp, parse, transforms
 from typing import List, Dict, Optional, Tuple, Set
@@ -211,60 +212,6 @@ class SQLOptimizer:
         except Exception:
             return False
 
-    # @staticmethod
-    # def add_nulls_last(sql: str) -> Optional[str]:
-    #     """Add NULLS LAST to ORDER BY ASC clauses for SQLite."""
-    #     import re
-        
-    #     try:
-    #         parsed = sqlglot.parse_one(sql, read='sqlite')
-            
-    #         # Collect columns that need NULLS LAST with their full SQL representation
-    #         columns_to_modify = []
-            
-    #         modified = False
-    #         for order_by in parsed.find_all(exp.Order):
-    #             for order_expr in order_by.expressions:
-    #                 is_asc = not order_expr.args.get("desc", False)
-    #                 has_nulls = order_expr.args.get("nulls_last") is not None
-                    
-    #                 if is_asc and not has_nulls:
-    #                     # Get the exact SQL representation of this column
-    #                     column_sql = order_expr.this.sql(dialect='sqlite')
-    #                     columns_to_modify.append(column_sql)
-    #                     order_expr.set("nulls_last", True)
-    #                     modified = True
-            
-    #         if modified:
-    #             output_sql = parsed.sql(dialect='sqlite', pretty=True)
-                
-    #             # For each column, add NULLS LAST using exact string matching
-    #             for column in columns_to_modify:
-    #                 # Escape special regex characters in the column name
-    #                 escaped_column = re.escape(column)
-                    
-    #                 # Pattern: column followed by ASC (or nothing, then comma/end)
-    #                 # Replace "column ASC" with "column ASC NULLS LAST"
-    #                 pattern = rf'{escaped_column}\s+ASC\b(?!\s+NULLS)'
-    #                 output_sql = re.sub(pattern, f'{column} ASC NULLS LAST', output_sql, count=1)
-                    
-    #                 # If no explicit ASC, handle implicit ASC
-    #                 # Pattern: column followed by comma, newline, LIMIT, or end of ORDER BY
-    #                 if f'{column} ASC NULLS LAST' not in output_sql:
-    #                     pattern = rf'{escaped_column}(?=\s*(?:,|\n|$|LIMIT|OFFSET))'
-    #                     output_sql = re.sub(pattern, f'{column} NULLS LAST', output_sql, count=1)
-                
-    #             print(f"ORIGINAL SQL: {sql}")
-    #             print(f"MODIFIED SQL: {output_sql}")
-    #             return output_sql
-            
-    #         return None
-            
-    #     except Exception as e:
-    #         print(f"Error parsing SQL: {e}")
-    #         return None
-
-
 
     @staticmethod
     def add_nulls_last(sql: str) -> Optional[str]:
@@ -372,40 +319,67 @@ class SQLOptimizer:
     @staticmethod
     def needs_min_null_check(sql: str) -> bool:
         """
-        Checks if a query uses MIN(column) without a 
+        Checks if a query uses MIN(column) without a
         corresponding 'WHERE column IS NOT NULL'.
         """
         try:
             parsed = sqlglot.parse_one(sql, read='sqlite')
-            
+
             for min_func in parsed.find_all(exp.Min):
                 # Get the column inside MIN()
                 min_col = min_func.this
                 if not isinstance(min_col, exp.Column):
-                    continue # Skip MIN(literal), MIN(expression), etc.
-                
-                min_col_name = min_col.name.lower()
-                
+                    continue  # Skip MIN(literal), MIN(expression), etc.
+
                 # Find the WHERE clause for this MIN's SELECT
                 select = min_func.find_ancestor(exp.Select)
                 if not select:
                     continue
-                
+
                 where = select.args.get('where')
                 if not where:
                     return True  # Has MIN() but no WHERE clause at all
 
                 # Check if 'col IS NOT NULL' already exists in WHERE
                 has_null_check = False
-                for is_not_null in where.find_all(exp.IsNotNull):
-                    check_col = is_not_null.this
-                    if isinstance(check_col, exp.Column) and check_col.name.lower() == min_col_name:
+
+                # --- Start Fix ---
+                
+                # Create the two possible "IS NOT NULL" expressions
+                # 1. "col IS NOT NULL"
+                is_not_null_expr_1 = exp.Is(
+                    this=min_col.copy(),
+                    expression=exp.Not(this=exp.Null())
+                )
+                # 2. "NOT col IS NULL"
+                not_is_null_expr_2 = exp.Not(
+                    this=exp.Is(
+                        this=min_col.copy(),
+                        expression=exp.Null()
+                    )
+                )
+
+                # Get the SQL string for both possibilities
+                expr_1_sql = is_not_null_expr_1.sql(dialect='sqlite').lower()
+                expr_2_sql = not_is_null_expr_2.sql(dialect='sqlite').lower()
+
+                # Iterate over all sub-expressions in the WHERE clause
+                for existing_cond in where.this.find_all(exp.Expression):
+                    # Skip large nodes to avoid false matches
+                    if isinstance(existing_cond, (exp.Select, exp.From, exp.Where)):
+                        continue
+
+                    cond_sql = existing_cond.sql(dialect='sqlite').lower()
+
+                    # If we find a match for either form, set the flag and break
+                    if cond_sql == expr_1_sql or cond_sql == expr_2_sql:
                         has_null_check = True
                         break
-                
+                # --- End Fix ---
+
                 if not has_null_check:
-                    return True # MIN(col) found, but 'col IS NOT NULL' is missing
-            
+                    return True  # MIN(col) found, but 'col IS NOT NULL' is missing
+
             return False
         except Exception:
             return False
@@ -420,15 +394,15 @@ class SQLOptimizer:
             parsed = sqlglot.parse_one(sql, read='sqlite')
             modified = False
             
-            # Use set to avoid adding the same check multiple times
-            checks_to_add = {} # {select_node: set(col_name)}
+            # {select_node: {col_sql_str: col_node, ...}}
+            checks_to_add = {} 
             
             for min_func in parsed.find_all(exp.Min):
                 min_col = min_func.this
+                
                 if not isinstance(min_col, exp.Column):
                     continue
-                
-                min_col_name = min_col.name.lower()
+
                 select = min_func.find_ancestor(exp.Select)
                 if not select:
                     continue
@@ -436,97 +410,191 @@ class SQLOptimizer:
                 # Check if the check is already present
                 where = select.args.get('where')
                 has_null_check = False
+                
                 if where:
-                    for is_not_null in where.find_all(exp.IsNotNull):
-                        check_col = is_not_null.this
-                        if isinstance(check_col, exp.Column) and check_col.name.lower() == min_col_name:
+                    # Create the two possible "IS NOT NULL" expressions
+                    # 1. "col IS NOT NULL"
+                    is_not_null_expr_1 = exp.Is(
+                        this=min_col.copy(), 
+                        expression=exp.Not(this=exp.Null())
+                    )
+                    # 2. "NOT col IS NULL"
+                    not_is_null_expr_2 = exp.Not(
+                        this=exp.Is(
+                            this=min_col.copy(),
+                            expression=exp.Null()
+                        )
+                    )
+                    
+                    # Get the SQL string for both possibilities
+                    expr_1_sql = is_not_null_expr_1.sql(dialect='sqlite').lower()
+                    expr_2_sql = not_is_null_expr_2.sql(dialect='sqlite').lower()
+
+                    # Iterate over all sub-expressions in the WHERE clause
+                    # and compare their SQL strings.
+                    for existing_cond in where.this.find_all(exp.Expression):
+                        # Skip large nodes to avoid false matches
+                        if isinstance(existing_cond, (exp.Select, exp.From, exp.Where)):
+                            continue
+                            
+                        cond_sql = existing_cond.sql(dialect='sqlite').lower()
+                        
+                        # If we find a match for either form, set the flag and break
+                        if cond_sql == expr_1_sql or cond_sql == expr_2_sql:
                             has_null_check = True
                             break
                 
                 if not has_null_check:
-                    checks_to_add.setdefault(select, set()).add(min_col_name)
-                    modified = True
+                    # Use the column's SQL as a key to prevent adding
+                    # the same check (e.g., "T1.age") multiple times.
+                    min_col_sql = min_col.sql(dialect='sqlite').lower()
+                    
+                    if select not in checks_to_add:
+                        checks_to_add[select] = {}
+                    
+                    if min_col_sql not in checks_to_add[select]:
+                        checks_to_add[select][min_col_sql] = min_col.copy()
+                        modified = True
             
             if not modified:
                 return None
             
             # Apply the missing checks
-            for select, col_names in checks_to_add.items():
-                for col_name in col_names:
+            for select, col_nodes_map in checks_to_add.items():
+                for col_node in col_nodes_map.values():
                     # Create the 'col IS NOT NULL' expression
-                    filter_expr = exp.IsNotNull(this=exp.Column(this=exp.Identifier(this=col_name)))
+                    filter_expr = exp.Is(
+                        this=col_node,
+                        expression=exp.Not(this=exp.Null())
+                    )
                     # Add it to the WHERE clause (handles ANDing)
                     select.where(filter_expr, copy=False)
 
-            return parsed.sql(dialect='sqlite')
-        except Exception:
+            return parsed.sql(dialect='sqlite', pretty=True)
+        except Exception as e:
+            print(f"Error in add_min_null_check: {e}")
             return None
 
     # --- 4. DISTINCT Check (Auto-Fix) ---
-    
-    def needs_distinct(self, sql: str, db_id: str, engine) -> bool:
+    def needs_distinct(self, sql: str, db_id: str, engine: Engine) -> bool:
         """
-        Check if query needs DISTINCT based on JOINs and N-side relationships.
-        (Logic from your provided code, kept as-is)
+        Check if query needs DISTINCT based on new rules:
+        1. Single table: Add DISTINCT if any non-PK column is selected.
+        2. JOIN: Add DISTINCT if any column from a 1-side table is selected.
         """
         try:
             parsed = sqlglot.parse_one(sql, read='sqlite')
             outermost_select = parsed if isinstance(parsed, exp.Select) else parsed.find(exp.Select)
+
             if not outermost_select:
-                return False
+                return False  # Not a SELECT query
             
             if outermost_select.args.get('distinct'):
-                return False
+                return False  # Already has DISTINCT
             
+            if outermost_select.args.get('group'):
+                return False  # Has GROUP BY, which implicitly de-duplicates
+            
+            # Check for top-level joins
             has_top_level_join = False
             for join in parsed.find_all(exp.Join):
                 if join.find_ancestor(exp.Select) == outermost_select:
                     has_top_level_join = True
                     break
             
-            if not has_top_level_join:
-                return False
-            
-            if outermost_select.args.get('group'):
-                return False
-            
+            alias_map = self.get_table_aliases(parsed)
             main_table = self.get_main_table_from_query(parsed)
-            selected_tables = self.get_selected_tables(outermost_select)
-            
-            tables_to_check = selected_tables if selected_tables else {main_table} if main_table else set()
-            
-            for table in tables_to_check:
-                if table and self.is_n_side_of_relationship(table, db_id, engine):
-                    pk_cols = self.get_primary_keys(db_id, table, engine)
-                    alias_map = self.get_table_aliases(parsed)
+
+            # --- Helper to identify simple, non-aggregate columns ---
+            def get_selected_column_info(projection) -> Optional[Tuple[str, str]]:
+                """
+                If projection is a simple col, returns (col_name, table_alias).
+                Returns None for aggregates, literals, or '*'.
+                """
+                col_name, col_table_alias = None, None
+                
+                # Handle aliased columns: SELECT T1.name AS n
+                if isinstance(projection, exp.Alias):
+                    if isinstance(projection.this, exp.Column):
+                        col_name = projection.this.name.lower()
+                        col_table_alias = projection.this.table.lower() if projection.this.table else None
+                    else:
+                        return None # It's an alias on an aggregate or expression
+                
+                # Handle simple columns: SELECT T1.name
+                elif isinstance(projection, exp.Column):
+                    col_name = projection.name.lower()
+                    col_table_alias = projection.table.lower() if projection.table else None
+                
+                # Handle aggregates: SELECT COUNT(*)
+                elif isinstance(projection, (exp.Count, exp.Sum, exp.Avg, exp.Max, exp.Min)):
+                    return None
+
+                if col_name and col_name != '*':
+                    return col_name, col_table_alias
+                
+                return None # Not a simple column
+            # --- End Helper ---
+
+            projections = outermost_select.expressions
+
+            # --- Rule 1: Single Table Query ---
+            if not has_top_level_join:
+                if not main_table:
+                    return False  # No table (e.g., SELECT 1)
+                
+                pk_cols = self.get_primary_keys(db_id, main_table, engine)
+                
+                # If no PKs are defined, any column selection is "non-unique"
+                if not pk_cols:
+                    for projection in projections:
+                        if get_selected_column_info(projection):
+                            return True # Found a simple column, and no PKs exist
+                
+                # Check if any selected column is NOT a PK
+                for projection in projections:
+                    col_info = get_selected_column_info(projection)
+                    if col_info:
+                        col_name, _ = col_info
+                        if col_name not in pk_cols:
+                            # Found a selected column that is NOT a primary key
+                            return True
+                return False # All selected columns are PKs
+
+            # --- Rule 2: Query with JOIN ---
+            else:
+                # Find all 1-side tables involved in the query
+                one_side_tables = set()
+                for alias, table_name in alias_map.items():
+                    if table_name.startswith("("): continue  # Skip subqueries
                     
-                    for projection in outermost_select.expressions:
-                        col_name, col_table, is_aggregate = None, None, False
+                    # A table is on the 1-side if it's NOT on the N-side
+                    if not self.is_n_side_of_relationship(table_name, db_id, engine):
+                        one_side_tables.add(table_name)
+                
+                if not one_side_tables:
+                    return False  # No 1-side tables found
+
+                # Check if any selected column comes from a 1-side table
+                for projection in projections:
+                    col_info = get_selected_column_info(projection)
+                    if col_info:
+                        col_name, col_table_alias = col_info
                         
-                        if isinstance(projection, exp.Alias):
-                            inner = projection.this
-                            if isinstance(inner, (exp.Count, exp.Sum, exp.Avg, exp.Max, exp.Min)):
-                                is_aggregate = True
-                            elif isinstance(inner, exp.Column):
-                                col_name = inner.name.lower()
-                                col_table = inner.table.lower() if hasattr(inner, 'table') and inner.table else None
-                        elif isinstance(projection, (exp.Count, exp.Sum, exp.Avg, exp.Max, exp.Min)):
-                            is_aggregate = True
-                        elif isinstance(projection, exp.Column):
-                            col_name = projection.name.lower()
-                            col_table = projection.table.lower() if hasattr(projection, 'table') and projection.table else None
+                        actual_table = None
+                        if col_table_alias:
+                            actual_table = alias_map.get(col_table_alias, col_table_alias)
+                        elif main_table:
+                            # Unqualified column, assume it's from the main FROM table
+                            actual_table = main_table
                         
-                        if is_aggregate or col_name == '*':
-                            continue
-                        
-                        if col_table:
-                            col_table = alias_map.get(col_table, col_table)
-                        
-                        if col_table == table or (not col_table and table == main_table):
-                            if col_name and col_name not in pk_cols:
-                                return True
+                        if actual_table and actual_table in one_side_tables:
+                            # Found a column being selected from a 1-side table!
+                            return True
+            
             return False
-        except Exception:
+        except Exception as e:
+            print(f"Error in needs_distinct check: {e}")
             return False
 
     @staticmethod
@@ -554,7 +622,7 @@ class SQLOptimizer:
         cache,
         gold_sql: str,
         db_path: str,
-        engine
+        engine: Engine
     ) -> Optional[Tuple[str, str, float]]:
         """
         Finds a better query or modifies the chosen_sql to fix common errors.
@@ -567,6 +635,8 @@ class SQLOptimizer:
         needs_nl = self.needs_nulls_last(chosen_sql)
         needs_d = self.needs_distinct(chosen_sql, db_id, engine)
         needs_min_null = self.needs_min_null_check(chosen_sql)
+
+        # print(f"SQL {chosen_sql} \n NULL MIN NEEDED: {needs_min_null} NULL LAST NEEDED:{needs_nl}")
         
         if not any([needs_nl, needs_d, needs_min_null]):
             return None  # Current query is fine

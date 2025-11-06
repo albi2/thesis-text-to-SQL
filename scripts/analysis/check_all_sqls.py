@@ -341,6 +341,7 @@ stats = {
     "best_score_opt_distinct": 0,
     "best_score_opt_nulls": 0,
     "best_score_min_nulls": 0,
+    "optimized_sql_match": 0
 }
 
 results = []
@@ -426,6 +427,7 @@ for gen_item, gold_item in tqdm(zip(generated_data, gold_data), total=len(gold_d
         best_score_score = max_score
 
     # Optimizations
+    optimized_sql = None
     if hybrid_sql:
         best_score_sql_opt, was_opt, opt_reason, opt_score = apply_post_optimization(
             hybrid_sql,
@@ -438,7 +440,7 @@ for gen_item, gold_item in tqdm(zip(generated_data, gold_data), total=len(gold_d
             "public",
             database_engine
         )
-        
+        optimized_sql = best_score_sql_opt
         if was_opt:
             stats["best_score_optimized"] += 1
             if "DISTINCT" in opt_reason:
@@ -468,8 +470,6 @@ for gen_item, gold_item in tqdm(zip(generated_data, gold_data), total=len(gold_d
             # result_entry["best_score_opt_score"] = opt_score
             
             # IMPORTANT: Use optimized version going forward
-            hybrid_sql = best_score_sql_opt
-            hybrid_score = opt_score
 
 
     # Self-consistency
@@ -498,6 +498,7 @@ for gen_item, gold_item in tqdm(zip(generated_data, gold_data), total=len(gold_d
     hybrid_match = check_match(hybrid_sql)
     best_score_match = check_match(best_score_sql)
     self_consistency_match = check_match(self_consistency_sql)
+    optimized_sql_match = check_match(optimized_sql)
 
     # --- Score-based pairwise combinations ---
     # MODIFICATION: Use the original score from the self-consistency-selected query
@@ -651,6 +652,8 @@ for gen_item, gold_item in tqdm(zip(generated_data, gold_data), total=len(gold_d
         stats["best_score_matched"] += 1
     if self_consistency_match:
         stats["self_consistency_matched"] += 1
+    if optimized_sql_match:
+        stats["optimized_sql_match"] += 1
 
     # --- Update OR combination stats (if either matches) ---
     any_method = (selected_match or tournament_match or usc_match or 
@@ -733,6 +736,9 @@ print(f"USC            : {stats['usc_matched']:4d} ({calc_acc('usc_matched'):.2f
 print(f"Hybrid         : {stats['hybrid_matched']:4d} ({calc_acc('hybrid_matched'):.2f}%)")
 print(f"Best Score     : {stats['best_score_matched']:4d} ({calc_acc('best_score_matched'):.2f}%)")
 print(f"Self-Consist.  : {stats['self_consistency_matched']:4d} ({calc_acc('self_consistency_matched'):.2f}%)")
+print(f"Optimized SQL. : {stats['optimized_sql_match']:4d} ({calc_acc('optimized_sql_match'):.2f}%)")
+print(f"Any Match      : {stats['matched']:4d} ({calc_acc('matched'):.2f}%)")
+
 
 print("\n" + "="*60)
 print("OR COMBINATIONS (If Either Method Matches)")
