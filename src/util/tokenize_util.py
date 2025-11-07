@@ -31,12 +31,12 @@ def tokenize_question(question, table, information_retriever, db_id):
 
     # Replace table names (case-insensitive)
     for table_name in table["table_names"]:
-        masked_question = re.sub(r'\b' + re.escape(table_name) + r'\b', "[MASK]", masked_question, flags=re.IGNORECASE)
+        masked_question = re.sub(r'\b' + table_name + r'\b', "[MASK]", masked_question, flags=re.IGNORECASE)
 
     # Replace column names (case-insensitive)
     for column in table["column_names"]:
         if column[1] != "*":
-            masked_question = re.sub(r'\b' + re.escape(column[1]) + r'\b', "[MASK]", masked_question, flags=re.IGNORECASE)
+            masked_question = re.sub(r'\b' + column[1] + r'\b', "[MASK]", masked_question, flags=re.IGNORECASE)
 
     # Find literals using LSH and edit distance
     if lsh is not None and minhashes is not None:
@@ -61,5 +61,5 @@ def tokenize_question(question, table, information_retriever, db_id):
     # Extract entities using GLiNER
     entities = information_retriever.extract_entities_with_gliner(question)
     for entity in entities:
-        masked_question = re.sub(r'\b' + re.escape(entity) + r'\b', "[UNK]", masked_question, flags=re.IGNORECASE)
+        masked_question = re.sub(r'\b' + entity + r'\b', "[UNK]", masked_question, flags=re.IGNORECASE)
 
