@@ -48,9 +48,6 @@ Given the following information perform the analysis and choose the best queries
 ** EVIDENCE **
 {HINT}
 
-** EVALUATIOM CRITERIA **
-{CRITERIA} 
-
 ** QUERIES AND THEIR EXECUTION RESULTS **
 {QUERIES}
 """
