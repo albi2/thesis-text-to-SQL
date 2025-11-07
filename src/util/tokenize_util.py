@@ -27,7 +27,7 @@ def tokenize_question(question, table, information_retriever, db_id):
         minhashes = None
 
     # Replace anything in any kind of quotes with [UNK]
-    masked_question = re.sub(r'["\']([^"\']*)["\']', "[UNK]", masked_question)
+    masked_question = re.sub(r'["\'](.*?)["\']', "[UNK]", masked_question)
 
     # Replace table names (case-insensitive)
     for table_name in table["table_names"]:
@@ -48,6 +48,8 @@ def tokenize_question(question, table, information_retriever, db_id):
                 token_list.append(" ".join(token_tuple))
         candidates = []
         for phrase in token_list:
+            if phrase == "the":
+                continue
             similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase, 100)
             for table_name, columns in similar_values.items():
                 for column_name, values in columns.items():
