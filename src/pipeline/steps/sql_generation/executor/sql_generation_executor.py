@@ -27,6 +27,13 @@ class SQLGenerationExecutor:
         self.api_model_gemini_default = ApiModelFacade(model_name="gemini-2.5-flash",temperature=0.2)
         self.api_model_gemini = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.7, top_p=0.95, n=3)
 
+        cfg_helper = ConfigurationHelper()
+        chroma_settings = cfg_helper.get_config("chroma_db.yaml", "chroma_db")
+        chroma_host = chroma_settings.get("host", PreprocessingConstants.DEFAULT_CHROMA_HOST)
+        chroma_port = int(chroma_settings.get("port", PreprocessingConstants.DEFAULT_CHROMA_PORT))
+        embedding_facade = HuggingFaceEmbeddingFacade()
+        self.chroma_client = ChromaClient(host=chroma_host, port=chroma_port, embedding_facade=embedding_facade)
+
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         """
         Formats the relevant entities into a readable string, limiting them to 3 per phrase.
@@ -174,7 +181,7 @@ class SQLGenerationExecutor:
             
             full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
             tasks.append(self._get_sql_from_model(full_prompt, mschema, "DECOMPOSITION", pipeline_context, mschema.type))
-            tasks.append(await self.generate_sql_with_dynamic_few_shot(pipeline_context, mschema))
+            tasks.append(self.generate_sql_with_few_shot(pipeline_context, mschema))
 
             full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
                 DATABASE_SCHEMA=ddl_schema.schema,
@@ -325,34 +332,27 @@ class SQLGenerationExecutor:
         for sql_query, sql_exec_info in zip(sql_queries, executable_sql_infos):
             sql_query.sql_exec_info = sql_exec_info
 
-    async def generate_sql_with_few_shot(self, pipeline_context: PipelineContext, mschema: str) -> List[SQLQuery]:
+    async def generate_sql_with_few_shot(self, pipeline_context: PipelineContext, mschema: SchemaRepresentation) -> List[SQLQuery]:
         """
         Generates SQL using a dynamic few-shot prompt.
         """
         # 1. Mask the question
         user_query = pipeline_context.user_query
         db_id = pipeline_context.schema_engine.db_id
-        information_retriever = pipeline_context.information_retriever
 
         with open("/var/tmp/ge62nok/thesis/dataset/train/train_tables.json", "r") as f:
             train_tables = json.load(f)
         table_schemas = {table["db_id"]: table for table in train_tables}
         table = table_schemas[db_id]
 
-        masked_question = tokenize_question(user_query, table, information_retriever, db_id)
+        masked_question = tokenize_question(user_query, table)
 
         # 2. Retrieve similar questions from Chroma
-        cfg_helper = ConfigurationHelper()
-        chroma_settings = cfg_helper.get_config("chroma_db.yaml", "chroma_db")
-        chroma_host = chroma_settings.get("host", PreprocessingConstants.DEFAULT_CHROMA_HOST)
-        chroma_port = int(chroma_settings.get("port", PreprocessingConstants.DEFAULT_CHROMA_PORT))
-        embedding_facade = HuggingFaceEmbeddingFacade()
-        chroma_client = ChromaClient(host=chroma_host, port=chroma_port, embedding_facade=embedding_facade)
 
         collection_name = "questions_with_sql"
-        collection = chroma_client.get_collection(name=collection_name)
 
-        similar_questions = collection.query(
+        similar_questions = self.chroma_client.query_collection(
+            collection_name=collection_name,
             query_texts=[masked_question],
             n_results=8
         )
@@ -370,116 +370,11 @@ class SQLGenerationExecutor:
            """
         prompt = PROMPT.format(
             FEW_SHOT_EXAMPLES=few_shot_examples,
-            DATABASE_SCHEMA=mschema,
+            DATABASE_SCHEMA=mschema.schema,
             QUESTION=user_query,
             HINT=getattr(pipeline_context, 'hint', '')
         )
 
         # 4. Call the LLM with the mschema and the dynamic prompt
-        query_chain = self.api_model_gemini.get_chain()
-        model_responses = await self.api_model_gemini.acall(query_chain, {"user_prompt": prompt})
-
-        if not isinstance(model_responses, list):
-            model_responses = [model_responses]
-
-        sql_queries = []
-        for model_response in model_responses:
-            print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
-            
-            if "```sql" in model_response:
-                query = re.sub(r"^\s+", "", model_response.split("```sql")[1].split("```")[0]).replace('\n', ' ').replace('"', '`')
-            elif "```" in model_response:
-                query = (model_response.split(";")[0].split("```")[0].strip() + ";").replace('\n', ' ').replace('"', '`')
-            else:
-                query = "empty"
-
-            sql_queries.append(SQLQuery(
-                sql_exec_info=SQLExecInfo(sql=query),
-                schema_representation=SchemaRepresentation(schema=mschema, format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
-                model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
-                prompting="FEW_SHOT"
-            ))
-        return sql_queries
-    
-    async def generate_sql_with_dynamic_few_shot(self, pipeline_context: PipelineContext, mschema: SchemaRepresentation) -> List[SQLQuery]:
-        """
-        Generates SQL using a dynamic few-shot prompt.
-        """
-        # 1. Mask the question
-        user_query = pipeline_context.user_query
-        db_id = pipeline_context.schema_engine.db_id
-        information_retriever = pipeline_context.information_retriever
-
-        with open("/var/tmp/ge62nok/thesis/dataset/train/train_tables.json", "r") as f:
-            train_tables = json.load(f)
-        table_schemas = {table["db_id"]: table for table in train_tables}
-        table = table_schemas[db_id]
-
-        masked_question = tokenize_question(user_query, table, information_retriever, db_id)
-
-        # 2. Retrieve similar questions from Chroma
-        cfg_helper = ConfigurationHelper()
-        chroma_settings = cfg_helper.get_config("chroma_db.yaml", "chroma_db")
-        chroma_host = chroma_settings.get("host", PreprocessingConstants.DEFAULT_CHROMA_HOST)
-        chroma_port = int(chroma_settings.get("port", PreprocessingConstants.DEFAULT_CHROMA_PORT))
-        embedding_facade = HuggingFaceEmbeddingFacade()
-        chroma_client = ChromaClient(host=chroma_host, port=chroma_port, embedding_facade=embedding_facade)
-
-        collection_name = "questions_with_sql"
-        #collection = chroma_client.get_collection(name=collection_name)
-
-        query_results = chroma_client.query_collection(
-            collection_name=collection_name,
-            query_texts=[masked_question],
-            n_results=8
-        )
-
-        # 3. Create a new prompt with few-shot examples
-        few_shot_examples = ""
-        if query_results and query_results.get("documents") and query_results.get("metadatas"):
-            docs_for_keyword = query_results["documents"][0] if query_results["documents"] else []
-            metadatas_for_keyword = query_results["metadatas"][0] if query_results["metadatas"] else []
-
-            for doc_text, metadata in zip(docs_for_keyword, metadatas_for_keyword):
-                if metadata and 'original_question' in metadata and 'sql' in metadata and 'evidence' in metadata:
-                    question = metadata["original_question"]
-                    sql = metadata["sql"]
-                    evidence = metadata["evidence"]
-                    few_shot_examples += f"""
-                        Question: {question}
-                        Evidence: {evidence}
-                        Gold SQL: {sql}
-                    """
-        prompt = PROMPT.format(
-            FEW_SHOT_EXAMPLES=few_shot_examples,
-            DATABASE_SCHEMA=mschema,
-            QUESTION=user_query,
-            HINT=getattr(pipeline_context, 'hint', '')
-        )
-
-        # 4. Call the LLM with the mschema and the dynamic prompt
-        # query_chain = self.api_model_gemini.get_chain()
-        # model_responses = await self.api_model_gemini.acall(query_chain, {"user_prompt": prompt})
-
-        # if not isinstance(model_responses, list):
-        #     model_responses = [model_responses]
-
-        # sql_queries = []
-        # for model_response in model_responses:
-        #     print(f'SQL GENERATION MODEL RESPONSE (GEMINI)', model_response)
-
-        #     if "```json" in model_response:
-        #         model_response = model_response.split("```json")[1].split("```")[0]
-        #     try:
-        #         response_json = json.loads(re.sub(r"^\s+", "", model_response))
-        #         query = response_json.get("sql", "empty").replace('\n', ' ').replace('"', '`')
-        #         sql_queries.append(SQLQuery(
-        #             sql_exec_info=SQLExecInfo(sql=query),
-        #             schema_representation=SchemaRepresentation(schema=mschema, format=SchemaFormat.M_SCHEMA, type=SchemaType.FULL),
-        #             model_key=Text2SQLModelKeys.GEMINI_2_5_FL,
-        #             prompting="FEW_SHOT"
-        #         ))
-        #     except json.JSONDecodeError:
-        #         print("Error parsing JSON, skipping query")
-
         return await self._get_sql_from_model(prompt, mschema, "FEW_SHOT", pipeline_context, mschema.type)
+    

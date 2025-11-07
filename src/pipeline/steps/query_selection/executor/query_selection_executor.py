@@ -107,7 +107,7 @@ class QuerySelectionExecutor:
             queries_with_results += f"{i}: {info.sql_exec_info.sql}\n"
             queries_with_results += f"  Execution Status: {info.sql_exec_info.status.value}\n"
             if info.sql_exec_info.result is not None:
-                queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n"
+                queries_with_results += f"  Query Output: {str(info.sql_exec_info.result)}\n\n"
             # queries_with_results += f"  Votes: {cluster_size}\n"
 
         if not hasattr(pipeline_context, 'schema_engine') or pipeline_context.schema_engine is None:
