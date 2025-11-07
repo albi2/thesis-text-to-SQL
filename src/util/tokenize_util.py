@@ -37,22 +37,26 @@ def tokenize_question(question, table, information_retriever, db_id):
 
     # Find literals using LSH and edit distance
     if lsh is not None and minhashes is not None:
-        tokens = question.split()
+        question_tokens = masked_question.split()
+        token_list = []
+        for n in range(1, min(4, len(question_tokens) + 1)):
+            for i in range(len(question_tokens) - n + 1):
+                token_tuple = question_tokens[i:i+n]
+                token_list.append(" ".join(token_tuple))
         candidates = []
-        for token in tokens:
-            similar_values = LSHUtil.query_lsh(lsh, minhashes, token, 100)
+        for phrase in token_list:
+            similar_values = LSHUtil.query_lsh(lsh, minhashes, phrase, 100)
             for table_name, columns in similar_values.items():
                 for column_name, values in columns.items():
                     for value in values:
                         candidates.append({"value": value, "table_name": table_name, "column_name": column_name, "token": token})
 
-            filtered_candidates = EditDistanceUtil.get_similar_by_threshold(token, candidates, threshold=0.95)
+            filtered_candidates = EditDistanceUtil.get_similar_by_threshold(phrase, candidates, threshold=0.95)
             if len(filtered_candidates) > 1:
-                masked_question = masked_question.replace(token, "[UNK]")
+                masked_question = masked_question.replace(phrase, "[UNK]")
 
     # Extract entities using GLiNER
     entities = information_retriever.extract_entities_with_gliner(question)
     for entity in entities:
         masked_question = masked_question.replace(entity, "[UNK]")
 
-    return masked_question
