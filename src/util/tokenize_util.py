@@ -6,6 +6,7 @@ from util.similarity_measures.lsh import LSHUtil
 from util.similarity_measures.edit import EditDistanceUtil
 from src.pipeline.steps.information_retrieval.executor.information_retriever import InformationRetriever
 import re
+import spacy
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -26,8 +27,6 @@ def tokenize_question(question, table, information_retriever, db_id):
         lsh = None
         minhashes = None
 
-    # Replace anything in any kind of quotes with [UNK]
-    masked_question = re.sub(r'["\'](.*?)["\']', "[UNK]", masked_question)
 
     # Replace table names (case-insensitive)
     for table_name in table["table_names"]:
@@ -56,12 +55,16 @@ def tokenize_question(question, table, information_retriever, db_id):
                     for value in values:
                         candidates.append({"value": value, "table_name": table_name, "column_name": column_name, "token": token})
 
-            filtered_candidates = EditDistanceUtil.get_similar_by_threshold(phrase, candidates, threshold=0.95)
+            filtered_candidates = EditDistanceUtil.get_similar_by_threshold(phrase, candidates, threshold=0.9)
             if len(filtered_candidates) > 1:
                 masked_question = masked_question.replace(phrase, "[UNK]")
 
     # Extract entities using GLiNER
-    entities = information_retriever.extract_entities_with_gliner(question)
-    for entity in entities:
-        masked_question = re.sub(r'\b' + entity + r'\b', "[UNK]", masked_question, flags=re.IGNORECASE)
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp(question)
+
+    tags = ['NN', 'NNS', 'NNP', 'NNPS', "''", '""', "CD", "", "$"]
+    for token in doc:
+        if token.pos_ in tags:
+            masked_question = re.sub(r'\b' + re.escape(token.text) + r'\b', "[UNK]", masked_question, flags=re.IGNORECASE)
 
