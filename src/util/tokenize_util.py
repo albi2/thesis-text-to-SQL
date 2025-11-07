@@ -26,6 +26,9 @@ def tokenize_question(question, table, information_retriever, db_id):
         lsh = None
         minhashes = None
 
+    # Replace anything in any kind of quotes with [UNK]
+    masked_question = re.sub(r'["\']([^"\']*)["\']', "[UNK]", masked_question)
+
     # Replace table names (case-insensitive)
     for table_name in table["table_names"]:
         masked_question = re.sub(r'\b' + re.escape(table_name) + r'\b', "[MASK]", masked_question, flags=re.IGNORECASE)
