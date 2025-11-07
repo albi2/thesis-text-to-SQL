@@ -107,6 +107,17 @@ class DatabaseManager:
             print(f"Error creating SQLAlchemy engine for database '{database_name}': {e}")
             return None
 
+    def create_sqlite_engine(self, database_name: str, sqlite_path: str):
+        """Creates the SQLAlchemy engine for the target SQLite database."""
+        database_url = sqlite_path + f"/{database_name}/{database_name}.sqlite"
+        try:
+            engine = create_engine(database_url)
+            print(f"SQLAlchemy engine created for database '{database_name}' with path '{sqlite_path}'.")
+            return engine
+        except Exception as e:
+            print(f"Error creating SQLAlchemy engine for database '{database_name}' with path '{sqlite_path}': {e}")
+            return None
+
     def close_connections(self, engine: Engine):
         """Disposes the given engine, closing all of its connections."""
         if engine:

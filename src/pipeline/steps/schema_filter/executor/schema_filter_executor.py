@@ -3,23 +3,45 @@ from typing import List
 import re
 import asyncio
 from typing import Tuple
-from components.models.reasoning_model_facade import ReasoningModelFacade
 from prompts.schema_filtering import PROMPT as COLUMN_SELECTION_PROMPT, FEWSHOT_EXAMPLES
-from prompts.schema_filtering_with_criteria import PROMPT as SCHEMA_FILTERING_WITH_CRITERIA_PROMPT, FEWSHOT_EXAMPLES_WITH_CRITERIA
 from context.pipeline_context import PipelineContext
 from components.models.api_model_facade import ApiModelFacade
-from prompts.preliminary_sql_generation import PRELIMINARY_SQL_PROMPT
-from util.db.execute import execute_sql_queries_async, SQLExecInfo
-from util.constants import DatabaseConstants
-from prompts.sql_extraction import SQL_EXTRACTION_PROMPT
 from pipeline.steps.information_retrieval.executor.information_retriever import InformationRetriever
 
 class SchemaFilterExecutor:
     def __init__(self):
         # self.reasoning_model_facade = ReasoningModelFacade()
-        self.api_model_default = ApiModelFacade(temperature=0.2)
         self.api_model_gemini_25_lite = ApiModelFacade(model_name="gemini-2.5-flash-lite", temperature=0.2)
         self.information_retriever = InformationRetriever()
+
+    async def _get_initial_schema(self, pipeline_context: PipelineContext, ignored_columns: List[str] = None) -> dict:
+        """
+        Queries the LLM for the initial schema.
+        """
+        # relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
+
+        prompt = COLUMN_SELECTION_PROMPT.format(
+            DATABASE_SCHEMA=pipeline_context.schema_engine.mschema.to_mschema(
+                selected_tables=pipeline_context.unique_table_names,
+                selected_columns=pipeline_context.unique_column_names,
+                ignored_columns=ignored_columns
+            ),
+            QUESTION=pipeline_context.user_query,
+            HINT=pipeline_context.task.evidence,
+            FEWSHOT_EXAMPLES=FEWSHOT_EXAMPLES
+        )
+
+        query_chain = self.api_model_gemini_25_lite.get_chain()
+        model_response = await self.api_model_gemini_25_lite.acall(query_chain, {"user_prompt": prompt})
+
+        try:
+            if "```json" in model_response:
+                model_response = model_response.split("```json")[1].split("```")[0]
+            initial_schema = json.loads(re.sub(r"^\s+", "", model_response))
+            return initial_schema
+        except Exception as e:
+            print(f"Could not get or parse response from LLM: {e}")
+            return None
 
     def _prepare_relevant_entities(self, relevant_entities: dict) -> str:
         """
@@ -45,47 +67,13 @@ class SchemaFilterExecutor:
         
         return output_str
 
-    async def _generate_and_execute_preliminary_sql(self, pipeline_context: PipelineContext, mschema_representation: str) -> SQLExecInfo:
-        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
-        
-        prompt = PRELIMINARY_SQL_PROMPT.format(
-            DATABASE_SCHEMA=mschema_representation,
-            QUESTION=pipeline_context.user_query,
-            HINT=pipeline_context.task.evidence,
-            RELEVANT_ENTITIES=relevant_entities_str,
-        )
-
-        query_chain = self.api_model_default.get_chain()
-        model_response = self.api_model_default.call(query_chain, {"user_prompt": prompt})
-
-        if "```sql" in model_response:
-            preliminary_sql = model_response.split("```sql")[1].split("```")[0].strip()
-        else:
-            preliminary_sql = model_response.strip()
-
-        sql_exec_info = await execute_sql_queries_async([preliminary_sql], DatabaseConstants.DB_PATH, pipeline_context.db_engine)
-        
-        return sql_exec_info[0]
-
-    async def _extract_sql_components(self, sql_query: str) -> dict:
-        prompt = SQL_EXTRACTION_PROMPT.format(SQL_QUERY=sql_query)
-        query_chain = self.api_model_default.get_chain()
-        model_response = self.api_model_default.call(query_chain, {"user_prompt": prompt})
-
-        try:
-            if "```json" in model_response:
-                model_response = model_response.split("```json")[1].split("```")[0]
-                return json.loads(re.sub(r"^\s+", "", model_response))
-        except Exception as e:
-            return None
-
     def execute(self, pipeline_context: PipelineContext) -> List[dict]:
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         # 1. Get unique table and column names from context
         unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
         unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
@@ -101,112 +89,69 @@ class SchemaFilterExecutor:
 
         pipeline_context.unique_table_names = unique_table_names
         pipeline_context.unique_column_names = unique_column_names
-        
-        # 2. Generate a single schema representation with all retrieved tables and columns
-        mschema_representation = pipeline_context.schema_engine.mschema.to_mschema(
-            selected_tables=unique_table_names,
-            selected_columns=unique_column_names
-        )
 
-        if not pipeline_context.relevant_entities:
-            # Generate and execute preliminary SQL
-            sql_exec_info = loop.run_until_complete(self._generate_and_execute_preliminary_sql(pipeline_context, mschema_representation))
-            preliminary_sql = sql_exec_info.sql
-            pipeline_context.preliminary_sql = preliminary_sql
+        # 2. Get initial schema from LLM
+        initial_schema_1 = loop.run_until_complete(self._get_initial_schema(pipeline_context))
 
+        # 3. Extract columns and tables from the initial schema
+        table_names_1, column_names_1 = self._extract_tables_and_columns(initial_schema_1)
 
-            # Extract components from SQL and re-run information retrieval
-            sql_components = loop.run_until_complete(self._extract_sql_components(preliminary_sql))
-            if sql_components is not None:
-                keywords = sql_components.get("columns", [])
-                phrases = sql_components.get("literals", [])
+        # 4. Create a list of columns that are not PKs or FKs
+        ignored_columns_1 = []
+        for table_name in table_names_1:
+            for column_name in initial_schema_1[table_name]:
+                if not pipeline_context.schema_engine.is_primary_key(table_name, column_name) and not pipeline_context.schema_engine.is_foreign_key(table_name, column_name):
+                    ignored_columns_1.append(f"{table_name}.{column_name}")
 
-                pipeline_context.relevant_entities = self.information_retriever.retrieve_entities(
-                    db_id=pipeline_context.task.db_id,
-                    phrases=phrases
-                )
-                # pipeline_context.db_schema_per_keyword.update(self.information_retriever.retrieve_context(keywords=keywords, task=pipeline_context.task, k = 3))
+        # 5. Call LLM again with the list of ignored columns
+        initial_schema_2 = loop.run_until_complete(self._get_initial_schema(pipeline_context, ignored_columns_1))
 
-            # Re-generate unique table and column names
-            unique_table_names = list(set(col_info["table_name"] for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
-            unique_column_names = list(set(f"{col_info['table_name']}.{col_info['column_name']}" for kw_context in pipeline_context.db_schema_per_keyword.values() for col_info in kw_context))
+        # 6. Extract columns and tables from the second initial schema
+        table_names_2, column_names_2 = self._extract_tables_and_columns(initial_schema_2)
 
-            if pipeline_context.relevant_entities:
-                for table_name, columns in pipeline_context.relevant_entities.items():
-                    if table_name not in unique_table_names:
-                        unique_table_names.append(table_name)
-                    for column_name in columns.keys():
-                        full_column_name = f"{table_name}.{column_name}"
-                        if full_column_name not in unique_column_names:
-                            unique_column_names.append(full_column_name)
+        # 7. Create a list of columns that are not PKs or FKs in the second schema
+        ignored_columns_2 = []
+        for table_name in table_names_2:
+            for column_name in initial_schema_2[table_name]:
+                if not pipeline_context.schema_engine.is_primary_key(table_name, column_name) and not pipeline_context.schema_engine.is_foreign_key(table_name, column_name):
+                    ignored_columns_2.append(f"{table_name}.{column_name}")
 
-            pipeline_context.unique_table_names = unique_table_names
-            pipeline_context.unique_column_names = unique_column_names
+        # 8. Call LLM again ignoring the columns from both initial schemas
+        initial_schema_3 = loop.run_until_complete(self._get_initial_schema(pipeline_context, ignored_columns_1 + ignored_columns_2))
 
-        mschema_representation = pipeline_context.schema_engine.mschema.to_mschema(
-            selected_tables=unique_table_names,
-            selected_columns=unique_column_names
-        )
-        ddl_schema_representation = pipeline_context.schema_engine.ddl_schema.to_ddl(
-            selected_tables=unique_table_names,
-            selected_columns=unique_column_names
-        )
+        # 9. Create the final schemas
+        schema_1 = initial_schema_1
+        schema_2 = self._merge_schemas(initial_schema_1, initial_schema_2)
+        schema_3 = self._merge_schemas(initial_schema_2, initial_schema_3)
 
-        # 3. Call LLM to filter the schema
-        schemas = loop.run_until_complete(self._filter_schema_concurrently(pipeline_context, mschema_representation, ddl_schema_representation))
-
-        pipeline_context.selected_schemas = schemas
+        pipeline_context.selected_schemas = [schema_1, schema_2, schema_3]
         return pipeline_context.selected_schemas
 
-    async def _filter_schema_concurrently(self, pipeline_context: PipelineContext, mschema_representation: str, ddl_schema_representation: str) -> List[dict]:
-        relevant_entities_str = self._prepare_relevant_entities(pipeline_context.relevant_entities)
-        
-        full_mschema_prompt = COLUMN_SELECTION_PROMPT.format(
-            DATABASE_SCHEMA=mschema_representation,
-            QUESTION=pipeline_context.user_query,
-            HINT=pipeline_context.task.evidence,
-            RELEVANT_ENTITIES=relevant_entities_str
-        )
+    def _merge_schemas(self, schema1: dict, schema2: dict) -> dict:
+        """
+        Merges two schemas into a single schema.
+        """
+        merged_schema = schema1.copy()
+        for table, columns in schema2.items():
+            if table in merged_schema:
+                merged_schema[table] = list(set(merged_schema[table] + columns))
+            else:
+                merged_schema[table] = columns
+        return merged_schema
 
-        full_ddl_schema_prompt = SCHEMA_FILTERING_WITH_CRITERIA_PROMPT.format(
-            DATABASE_SCHEMA=ddl_schema_representation,
-            QUESTION=pipeline_context.user_query,
-            HINT=pipeline_context.task.evidence,
-            CRITERIA=pipeline_context.query_evaluation_criteria,
-            RELEVANT_ENTITIES=relevant_entities_str,
-        )
+   
+    def _extract_tables_and_columns(self, initial_schema: dict) -> Tuple[List[str], List[str]]:
+        """
+        Extracts table and column names from the initial schema.
+        """
+        table_names = []
+        column_names = []
+        for table, columns in initial_schema.items():
+            if table == "chain_of_thought_reasoning":
+                continue
+            table_names.append(table)
+            for column in columns:
+                column_names.append(f"{table}.{column}")
+        return table_names, column_names
 
-        model_configs = {
-            "default": {
-                "facade": self.api_model_default,
-                "prompt": full_mschema_prompt
-            },
-            "gemini-2.5-flash-lite": {
-                "facade": self.api_model_gemini_25_lite,
-                "prompt": full_ddl_schema_prompt
-            }
-        }
-
-        tasks = [
-            self._get_schema_from_model(config["facade"], config["prompt"], model_name)
-            for model_name, config in model_configs.items()
-        ]
-        
-        results = await asyncio.gather(*tasks)
-        return [schema for schema in results if schema is not None]
-
-    async def _get_schema_from_model(self, facade, prompt, model_name):
-        try:
-            query_chain = facade.get_chain()
-            model_response = await facade.acall(query_chain, {"user_prompt": prompt})
-            
-            print(f"SCHEMA FILTERING RESPONSE ({model_name}):", model_response)
-            
-            if "```json" in model_response:
-                model_response = model_response.split("```json")[1].split("```")[0]
-            
-            return json.loads(re.sub(r"^\s+", "", model_response))
-        except Exception as e:
-            print(f"Could not get or parse response from {model_name}: {e}")
-            return None
     

@@ -267,3 +267,20 @@ class SchemaEngine(SQLDatabase):
                     nullable=field['nullable'], default=default, autoincrement=autoincrement,
                     comment=field_comment
                 )
+
+    def is_primary_key(self, table_name: str, column_name: str) -> bool:
+        """
+        Checks if a column is a primary key.
+        """
+        pks = self.get_pk_constraint(table_name)
+        return column_name in pks
+
+    def is_foreign_key(self, table_name: str, column_name: str) -> bool:
+        """
+        Checks if a column is a foreign key.
+        """
+        fks = self.get_foreign_keys(table_name)
+        for fk in fks:
+            if column_name in fk['constrained_columns']:
+                return True
+        return False

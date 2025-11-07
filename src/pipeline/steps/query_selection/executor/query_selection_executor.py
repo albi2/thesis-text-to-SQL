@@ -124,7 +124,6 @@ class QuerySelectionExecutor:
             FILTERED_SCHEMAS=filtered_schemas_str,
             QUESTION=pipeline_context.user_query,
             HINT=getattr(pipeline_context, 'hint', ''),
-            CRITERIA=pipeline_context.query_evaluation_criteria,
             QUERIES=queries_with_results,
             RELEVANT_ENTITIES=relevant_entities_str
         )

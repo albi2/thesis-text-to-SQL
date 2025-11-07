@@ -29,6 +29,7 @@ class DatabaseConstants:
 
     # SQL-Lite Path
     SQLITE_PATH = "sqlite:////var/tmp/ge62nok/dev_databases"
+    SQLITE_TRAIN_PATH = "sqlite:////var/tmp/ge62nok/train_databases"
     COLUMN_DESCRIPTIONS="/var/tmp/ge62nok/thesis/dataset/dev/databases"
 
 class HuggingFaceModelConstants:

@@ -39,9 +39,6 @@ Database admin instructions (violating any of the following will result is punis
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
     - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
-    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
-    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -58,15 +55,9 @@ Database admin instructions (violating any of the following will result is punis
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
-    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
 17. **Answering YES/NO or Status Related Questions**
     - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
-## Relevant Information
-
-1.The “Relevant Entities” section lists database columns that match phrases from the question. It does not mean all of them are relevant to answering this question.
-You can refer to these as hints when choosing the correct columns in the query. You can either choose the column with the broader meaning or you can choose to perform loose filtering on multiple columns.
-
 ## Output Format
 In your answer, please enclose the generated SQL query in a code block:
 ```sql
@@ -607,9 +598,6 @@ Now, given the following database schema and question, generate the Divide-And-C
 ** DATABASE SCHEMA **
 {DATABASE_SCHEMA}
 
-** RELEVANT ENTITIES ** 
-{RELEVANT_ENTITIES}
-
 ** QUESTION **
 {QUESTION}
 
@@ -651,9 +639,6 @@ Database admin instructions (violating any of the following will result is punis
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
     - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
-    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
-    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -670,7 +655,6 @@ Database admin instructions (violating any of the following will result is punis
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
-    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
 17. **Answering YES/NO or Status Related Questions**
     - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
@@ -836,13 +820,9 @@ SELECT COUNT(T3."id") FROM games_city AS T1 INNER JOIN city AS T2 ON T1."city_id
 
 Now is the real question, following the instruction and examples, generate the SQL with Recursive Divide-and-Conquer approach. Make sure you only output one single query.
 **************************
+
 【Schema description】
 {DATABASE_SCHEMA}
-
-Relevant Entities:
-{RELEVANT_ENTITIES}
-The "Relevant Entities" section shows database values that match phrases in your question. You do not need to use them if not necessary.
-If you need to use one of these and a value appears in multiple columns and the question does not specify exactly which one to choose, prefer the one with the broader meaning for filtering or selection tasks unless the question's context is more specific.
 
 **************************
 【Question】
@@ -880,9 +860,6 @@ Database admin instructions (violating any of the following will result is punis
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
     - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
-    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
-    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -899,7 +876,6 @@ Database admin instructions (violating any of the following will result is punis
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
-    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
 17. **Answering YES/NO or Status Related Questions**
     - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
@@ -942,9 +918,6 @@ Database admin instructions (violating any of the following will result is punis
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
     - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
-    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
-    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -961,7 +934,6 @@ Database admin instructions (violating any of the following will result is punis
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
-    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
 17. **Answering YES/NO or Status Related Questions**
     - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     
@@ -1016,9 +988,6 @@ Database admin instructions (violating any of the following will result is punis
     - Address all conditions mentioned in the question.
 8. **DISTINCT Keyword:**
     - Use "SELECT DISTINCT" when the question requires unique values (e.g., IDs, URLs). 
-    - Use "SELECT DISTINCT" when your query filters may return multiple rows/entities, and the selected attribute values could be duplicated across those entities.
-    - Use when selecting from the "one" side of a one-to-many JOIN (row duplicates for each match on "many" side)
-    - Use when there are multiple JOINs which can cause duplication of id columns or uniquely constrained columns.
 9. **Column Selection:**
     - Carefully analyze column descriptions and hints to choose the correct column when similar columns exist across tables.
 10. **String Concatenation:**
@@ -1035,7 +1004,6 @@ Database admin instructions (violating any of the following will result is punis
     - Column names may be separated by spaces or have underscores, be mix of upper/lower cases therefore it needs to be put between qutotation marks always "<column_name>"
 16. **Handling similar columns for filtering**
     - If there are multiple columns in the schema that could be used to perform a certain filtering conditioning, use a more loose condition on multiple columns(e.g LIKE).
-    - Utilize relevant entities section to choose the columns that can be used to perform loose filtering.
 17. **Answering YES/NO or Status Related Questions**
     - For questions requiring YES/NO or status responses, prefer returning existing database fields that contain the answer rather than creating custom literals (e.g., return a state column or status field directly instead of constructing CASE statements).
     

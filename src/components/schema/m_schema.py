@@ -165,7 +165,7 @@ class MSchemaGenerator:
 
         return '\n'.join(output)
 
-    def to_mschema(self, selected_tables: List = None, selected_columns: List = None,
+    def to_mschema(self, selected_tables: List = None, selected_columns: List = None, ignore_columns: List = None,
                    example_num=5, show_type_detail=True) -> str:
         """
         convert to a MSchema string.
@@ -192,6 +192,8 @@ class MSchemaGenerator:
                     cur_selected_columns = [c.lower() for c in column_names if f"{table_name}.{c}".lower() in selected_columns]
                 else:
                     cur_selected_columns = selected_columns
+                if ignore_columns is not None:
+                    cur_selected_columns = [c.lower() for c in cur_selected_columns if f"{table_name}.{c}".lower() not in ignore_columns]
                 output.append(self.single_table_mschema(table_name, cur_selected_columns, example_num, show_type_detail))
 
         print('FOREIGN KEYS', self.foreign_keys)

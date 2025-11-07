@@ -78,7 +78,6 @@ class RunningManager:
 
             pipeline = Pipeline[PipelineContext].Builder() \
                 .add_step(InformationRetrievalStep()) \
-                .add_step(CriteriaGenerationStep()) \
                 .add_step(SchemaFilterStep()) \
                 .add_step(SQLGenerationStep()) \
                 .add_step(QueryRefinementStep()) \

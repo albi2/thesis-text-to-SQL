@@ -183,11 +183,7 @@ Your task is to examine the provided database schema, understand the posed quest
 This schema offers an in-depth description of the database's architecture, detailing tables, columns, primary keys, foreign keys, and any pertinent information regarding relationships or constraints. 
 
 ## Relevant information
-
-1. The “Relevant Entities” section lists database columns whose value match phrases((which can be used for filtering rows) from the question. It does not mean all of them are relevant to answering the question.
- - If multiple columns are a plausible choice for performing the query, thoroughly think which ones make sense to filter on.
- - Provide all of the plausible columns in the json.
-2. The hint and criteria aim to direct your focus towards the specific elements of the database schema that are crucial for answering the question effectively.
+1. The evidence aims to direct your focus towards the specific elements of the database schema that are crucial for answering the question effectively.
 
 ## Output format
 Please respond with a JSON object structured exactly as shown below:
@@ -207,9 +203,6 @@ For each of the selected columns, explain why exactly it is necessary for answer
 
 ** DATABASE SCHEMA **  
 {DATABASE_SCHEMA}
-
-** RELEVANT ENTITIES **  
-{RELEVANT_ENTITIES}
 
 ** QUESTION **  
 {QUESTION}

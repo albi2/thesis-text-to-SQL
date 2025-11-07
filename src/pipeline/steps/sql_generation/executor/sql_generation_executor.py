@@ -7,12 +7,10 @@ from context.pipeline_context import PipelineContext
 from prompts.sql_generation import PROMPT, DEFOG_PROMPT, OMNI_PROMPT, ORIGINAL_PROMPT
 from prompts.sql_generation_planning import PROMPT as SQL_GENERATION_PLANNING_PROMPT
 from util.db.execute import execute_sql_queries_async, SQLExecInfo, SQLExecStatus
-from util.db.sql_analyzer import calculate_sql_cost
 from util.constants import DatabaseConstants, HuggingFaceModelConstants, Text2SQLModelKeys
 from pipeline.steps.models.sql_query import SQLQuery
 from pipeline.steps.models.schema_representation import SchemaRepresentation, SchemaFormat, SchemaType
 from components.models.api_model_facade import ApiModelFacade
-from util.constants import ApiModelConstants
 
 class SQLGenerationExecutor:
 
@@ -111,22 +109,22 @@ class SQLGenerationExecutor:
                 selected_tables = [table_name.split('.')[1] if '.' in table_name else table_name for table_name in selected_schema.keys()]
                 selected_columns = [f"{table.split('.')[1]}.{col}" if '.' in table else f"{table}.{col}" for table, columns in selected_schema.items() if table != "chain_of_thought_reasoning" for col in columns]
 
-                schema_representations.append(SchemaRepresentation(
-                    schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables),
-                    format=SchemaFormat.M_SCHEMA,
-                    type=SchemaType.FILTERED_TABLES,
-                    execution_plan=execution_plan,
-                    selected_tables=selected_tables,
-                    selected_columns=[col for table_name in selected_tables for col in pipeline_context.schema_engine.get_column_names(table_name)]
-                ))
-                ddl_schema_representations.append(SchemaRepresentation(
-                    schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables),
-                    format=SchemaFormat.DDL,
-                    type=SchemaType.FILTERED_TABLES,
-                    execution_plan=execution_plan,
-                    selected_tables=selected_tables,
-                    selected_columns=[col for table_name in selected_tables for col in pipeline_context.schema_engine.get_column_names(table_name)]
-                ))
+                # schema_representations.append(SchemaRepresentation(
+                #     schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables),
+                #     format=SchemaFormat.M_SCHEMA,
+                #     type=SchemaType.FILTERED_TABLES,
+                #     execution_plan=execution_plan,
+                #     selected_tables=selected_tables,
+                #     selected_columns=[col for table_name in selected_tables for col in pipeline_context.schema_engine.get_column_names(table_name)]
+                # ))
+                # ddl_schema_representations.append(SchemaRepresentation(
+                #     schema=pipeline_context.schema_engine.ddl_schema.to_ddl(selected_tables=selected_tables),
+                #     format=SchemaFormat.DDL,
+                #     type=SchemaType.FILTERED_TABLES,
+                #     execution_plan=execution_plan,
+                #     selected_tables=selected_tables,
+                #     selected_columns=[col for table_name in selected_tables for col in pipeline_context.schema_engine.get_column_names(table_name)]
+                # ))
 
                 schema_representations.append(SchemaRepresentation(
                     schema=pipeline_context.schema_engine.mschema.to_mschema(selected_tables=selected_tables, selected_columns=selected_columns),
@@ -168,14 +166,13 @@ class SQLGenerationExecutor:
         for mschema, ddl_schema in zip(schema_representations, ddl_schema_representations):
             hint = getattr(pipeline_context, 'hint', '')
             
-            full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint, RELEVANT_ENTITIES=relevant_entities_str)
+            full_prompt = ORIGINAL_PROMPT.format(DATABASE_SCHEMA=mschema.schema, QUESTION=pipeline_context.user_query, HINT=hint)
             tasks.append(self._get_sql_from_model(full_prompt, mschema, "DECOMPOSITION", pipeline_context, mschema.type))
 
             full_prompt_ddl = SQL_GENERATION_PLANNING_PROMPT.format(
                 DATABASE_SCHEMA=ddl_schema.schema,
                 QUESTION=pipeline_context.user_query,
-                HINT=hint,
-                RELEVANT_ENTITIES=relevant_entities_str
+                HINT=hint
             )
             tasks.append(self._get_sql_from_model(full_prompt_ddl, ddl_schema, "PLANNING", pipeline_context, ddl_schema.type))
 

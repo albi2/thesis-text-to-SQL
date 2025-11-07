@@ -10,7 +10,6 @@ from components.models.embedding_model_facade import HuggingFaceEmbeddingFacade
 from infrastructure.vector_db.chroma_client import ChromaClient
 from prompts.keyword_phrases_extraction import PROMPT, FEW_SHOT_EXAMPLES_FOR_DICT_OUTPUT_STR
 from util.constants import PreprocessingConstants
-from util.db.database_descriptor import DatabaseDescriptor, TableDescriptor, ColumnDefinition
 from executor.task_model import Task
 from util.similarity_measures.lsh import LSHUtil
 from util.similarity_measures.semantic import SemanticSimilarityUtil
@@ -156,18 +155,11 @@ class InformationRetriever:
             "event",
             "date",
             "time",
-            "product",
-            "award",
-            "competition",
-            "team",
             "location",
             "country",
-            "element",
-            "title",
             "forename",
             "surname",
             "currency",
-            "indicator"
         ]
         
         entities = self.ner_model.predict_entities(text, ner_entity_types)
@@ -228,7 +220,7 @@ class InformationRetriever:
             # 2. Filter based on max similarity thresholds
             max_edit_similarity = max(c['distance'] for c in semantic_filtered_candidates)
             final_edit_filtered = [
-                c for c in semantic_filtered_candidates if c['distance'] >= 0.7 * max_edit_similarity
+                c for c in semantic_filtered_candidates if c['distance'] >= 0.9 * max_edit_similarity
             ]
 
             if not final_edit_filtered:
@@ -236,7 +228,7 @@ class InformationRetriever:
                 
             max_embedding_similarity = max(c['embedding_similarity'] for c in final_edit_filtered)
             filtered_candidates = [
-                c for c in final_edit_filtered if c['embedding_similarity'] >= 0.8 * max_embedding_similarity
+                c for c in final_edit_filtered if c['embedding_similarity'] >= 0.9 * max_embedding_similarity
             ]
             # 3. Structure the results
             for candidate in filtered_candidates:
