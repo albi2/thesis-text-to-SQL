@@ -46,7 +46,7 @@ def main(chroma_config_file: str = "chroma_db.yaml", chroma_config_path_in_file:
 
         # Add to Chroma collection
         documents_to_add.append(masked_question)
-        metadatas_to_add.append({"db_id": db_id, "sql": item["sql"], "original_question": original_question})
+        metadatas_to_add.append({"db_id": db_id, "sql": item["sql"], "original_question": original_question, "evidence": item["evidence"]})
         ids_to_add.append(f"{db_id}_{original_question}")
         # collection.add(
         #     embeddings=[embedding_facade.embed_queries([masked_question])[0]],  # Embed the masked question

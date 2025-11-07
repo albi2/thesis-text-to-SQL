@@ -39,7 +39,7 @@ def main():
         # Tokenize the question
         information_retriever = InformationRetriever()
         masked_question = tokenize_question(question, table, information_retriever, db_id)
-        tokenized_questions.append({"db_id": db_id, "original_question": question, "masked_question": masked_question, "sql": item["SQL"]})
+        tokenized_questions.append({"db_id": db_id, "original_question": question, "masked_question": masked_question, "sql": item["SQL"], "evidence": item["evidence"]})
         print(f"Original question: {question}")
         print(f"Masked question: {masked_question}")
         print("-" * 20)
